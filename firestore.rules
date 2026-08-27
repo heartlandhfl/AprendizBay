@@ -1,0 +1,245 @@
+rules_version = '2';
+
+// =============================================================================
+// Aprendiz Bay — Preliminary Firestore Security Rules
+// =============================================================================
+//
+// Collections (proposed schema):
+//
+//   users/{userId}
+//     role: "student" | "tutor" | "admin"
+//     displayName, email, photoUrl, createdAt, updatedAt
+//
+//   tutors/{tutorId}                    // tutorId === users/{userId} for tutors
+//     userId, name, subject, city, state, bio, about, methodology
+//     individualPrice, collectivePrice, modality, isVerified, isOnline
+//     hoursTaught, studentsServed, rating, reviewCount, createdAt, updatedAt
+//
+//   collectiveHubs/{hubId}
+//     tutorId, title, description, maxStudents, confirmedStudentIds[]
+//     currentPrice, fullPrice, schedule, modality, status, createdAt, updatedAt
+//
+//   bookings/{bookingId}
+//     studentId, tutorId, hubId?, type: "individual" | "coletivo"
+//     status: "pending" | "confirmed" | "cancelled" | "completed"
+//     scheduledAt, price, createdAt, updatedAt
+//
+//   reviews/{reviewId}
+//     tutorId, studentId, bookingId, rating, comment, createdAt
+//
+//   subjects/{subjectId}                // read-only catalog (admin-managed)
+//     name, slug, category, isActive
+//
+// NOTE: These rules are a starting point. Validate with the Firebase Emulator
+// Suite before deploying to production.
+// =============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // -------------------------------------------------------------------------
+    // Helper functions
+    // -------------------------------------------------------------------------
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function userExists() {
+      return isAuthenticated() && userDoc().exists;
+    }
+
+    function userRole() {
+      return userDoc().data.role;
+    }
+
+    function isAdmin() {
+      return userExists() && userRole() == "admin";
+    }
+
+    function isTutor() {
+      return userExists() && userRole() == "tutor";
+    }
+
+    function isStudent() {
+      return userExists() && userRole() == "student";
+    }
+
+    function isVerifiedTutor(tutorId) {
+      return get(/databases/$(database)/documents/tutors/$(tutorId)).data.isVerified == true;
+    }
+
+    function tutorOwnedByAuth(tutorId) {
+      return isAuthenticated()
+        && get(/databases/$(database)/documents/tutors/$(tutorId)).data.userId == request.auth.uid;
+    }
+
+    function validRating() {
+      return request.resource.data.rating is number
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5;
+    }
+
+    function unchanged(field) {
+      return request.resource.data[field] == resource.data[field];
+    }
+
+    function studentJoiningHub() {
+      let before = resource.data.confirmedStudentIds;
+      let after = request.resource.data.confirmedStudentIds;
+
+      return isStudent()
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(["confirmedStudentIds", "updatedAt"])
+        && after.size() == before.size() + 1
+        && after.size() <= resource.data.maxStudents
+        && request.auth.uid in after
+        && !(request.auth.uid in before);
+    }
+
+    // -------------------------------------------------------------------------
+    // users
+    // -------------------------------------------------------------------------
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+
+      allow create: if isOwner(userId)
+        && request.resource.data.keys().hasAll(["role", "displayName", "email", "createdAt"])
+        && request.resource.data.role in ["student", "tutor"]
+        && request.resource.data.email == request.auth.token.email;
+
+      allow update: if isOwner(userId)
+        && unchanged("role")
+        && unchanged("email")
+        || isAdmin();
+
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // tutors (public profiles)
+    // -------------------------------------------------------------------------
+
+    match /tutors/{tutorId} {
+      allow read: if true;
+
+      allow create: if isTutor()
+        && isOwner(tutorId)
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.isVerified == false
+        && request.resource.data.keys().hasAll([
+          "userId", "name", "subject", "individualPrice", "collectivePrice", "createdAt"
+        ]);
+
+      allow update: if tutorOwnedByAuth(tutorId)
+        && unchanged("userId")
+        && unchanged("isVerified")
+        && unchanged("rating")
+        && unchanged("reviewCount")
+        || isAdmin();
+
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // collectiveHubs (turmas abertas)
+    // -------------------------------------------------------------------------
+
+    match /collectiveHubs/{hubId} {
+      allow read: if true;
+
+      allow create: if isTutor()
+        && request.resource.data.tutorId == request.auth.uid
+        && request.resource.data.maxStudents is int
+        && request.resource.data.maxStudents >= 2
+        && request.resource.data.maxStudents <= 20
+        && request.resource.data.confirmedStudentIds.size() == 0
+        && request.resource.data.status == "open";
+
+      allow update: if tutorOwnedByAuth(resource.data.tutorId)
+        && unchanged("tutorId")
+        || studentJoiningHub()
+        || isAdmin();
+
+      allow delete: if tutorOwnedByAuth(resource.data.tutorId) || isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // bookings
+    // -------------------------------------------------------------------------
+
+    match /bookings/{bookingId} {
+      allow read: if isAuthenticated()
+        && (resource.data.studentId == request.auth.uid
+          || resource.data.tutorId == request.auth.uid
+          || isAdmin());
+
+      allow create: if isStudent()
+        && request.resource.data.studentId == request.auth.uid
+        && request.resource.data.status == "pending"
+        && request.resource.data.type in ["individual", "coletivo"]
+        && request.resource.data.price is number
+        && request.resource.data.price > 0
+        && isVerifiedTutor(request.resource.data.tutorId);
+
+      allow update: if isAdmin()
+        || (resource.data.studentId == request.auth.uid
+          && request.resource.data.status == "cancelled"
+          && resource.data.status in ["pending", "confirmed"])
+        || (resource.data.tutorId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(["status", "updatedAt"])
+          && request.resource.data.status in ["confirmed", "cancelled", "completed"]);
+
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // reviews
+    // -------------------------------------------------------------------------
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+
+      allow create: if isStudent()
+        && request.resource.data.studentId == request.auth.uid
+        && validRating()
+        && exists(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId))
+        && get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.studentId
+          == request.auth.uid
+        && get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.status
+          == "completed";
+
+      allow update, delete: if isAdmin()
+        || (isAuthenticated()
+          && resource.data.studentId == request.auth.uid
+          && request.time < resource.data.createdAt + duration.value(48, "h"));
+    }
+
+    // -------------------------------------------------------------------------
+    // subjects (read-only catalog)
+    // -------------------------------------------------------------------------
+
+    match /subjects/{subjectId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // Deny everything else by default
+    // -------------------------------------------------------------------------
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
