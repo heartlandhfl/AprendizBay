@@ -6,8 +6,8 @@ rules_version = '2';
 //
 // Proposed path structure:
 //
-//   users/{userId}/avatar.{ext}              Profile photo (students & tutors)
-//   users/{userId}/cover.{ext}               Optional cover image
+//   users/{userId}/avatar.jpg              Profile photo (students & tutors)
+//   users/{userId}/cover.jpg               Optional cover image
 //
 //   tutors/{tutorId}/credentials/{file}      Verification docs (private)
 //   tutors/{tutorId}/portfolio/{file}          Public teaching portfolio media
@@ -85,20 +85,26 @@ service firebase.storage {
           || isAdmin());
     }
 
+    function isAvatarFile(fileName) {
+      return fileName.matches('avatar\\.(jpg|jpeg|png|webp|gif)$');
+    }
+
+    function isCoverFile(fileName) {
+      return fileName.matches('cover\\.(jpg|jpeg|png|webp|gif)$');
+    }
+
+    function isProfileMediaFile(fileName) {
+      return isAvatarFile(fileName) || isCoverFile(fileName);
+    }
+
     // -------------------------------------------------------------------------
     // User profile media
     // -------------------------------------------------------------------------
 
-    match /users/{userId}/avatar.{ext} {
-      allow read: if true;
-      allow write: if isOwner(userId) && isValidImageUpload();
-      allow delete: if isOwner(userId) || isAdmin();
-    }
-
-    match /users/{userId}/cover.{ext} {
-      allow read: if true;
-      allow write: if isOwner(userId) && isValidImageUpload();
-      allow delete: if isOwner(userId) || isAdmin();
+    match /users/{userId}/{fileName} {
+      allow read: if isProfileMediaFile(fileName);
+      allow write: if isOwner(userId) && isValidImageUpload() && isProfileMediaFile(fileName);
+      allow delete: if (isOwner(userId) || isAdmin()) && isProfileMediaFile(fileName);
     }
 
     // -------------------------------------------------------------------------
