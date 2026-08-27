@@ -1,0 +1,150 @@
+rules_version = '2';
+
+// =============================================================================
+// Aprendiz Bay — Preliminary Firebase Storage Security Rules
+// =============================================================================
+//
+// Proposed path structure:
+//
+//   users/{userId}/avatar.{ext}              Profile photo (students & tutors)
+//   users/{userId}/cover.{ext}               Optional cover image
+//
+//   tutors/{tutorId}/credentials/{file}      Verification docs (private)
+//   tutors/{tutorId}/portfolio/{file}          Public teaching portfolio media
+//
+//   hubs/{hubId}/materials/{file}            Shared materials for collective sessions
+//   bookings/{bookingId}/materials/{file}    Lesson files (student + tutor only)
+//
+// NOTE: Validate with the Firebase Emulator Suite before deploying to production.
+// =============================================================================
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // -------------------------------------------------------------------------
+    // Helper functions
+    // -------------------------------------------------------------------------
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated()
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "admin";
+    }
+
+    function isTutor() {
+      return isAuthenticated()
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "tutor";
+    }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    function isPdf() {
+      return request.resource.contentType == 'application/pdf';
+    }
+
+    function isValidImageUpload() {
+      return isImage()
+        && request.resource.size < 5 * 1024 * 1024; // 5 MB
+    }
+
+    function isValidDocumentUpload() {
+      return (isImage() || isPdf())
+        && request.resource.size < 10 * 1024 * 1024; // 10 MB
+    }
+
+    function isValidLessonMaterial() {
+      return request.resource.size < 25 * 1024 * 1024 // 25 MB
+        && (request.resource.contentType.matches('image/.*')
+          || request.resource.contentType == 'application/pdf'
+          || request.resource.contentType == 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+          || request.resource.contentType == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    }
+
+    function bookingParticipant(bookingId) {
+      let booking = firestore.get(/databases/(default)/documents/bookings/$(bookingId)).data;
+      return isAuthenticated()
+        && (booking.studentId == request.auth.uid
+          || booking.tutorId == request.auth.uid
+          || isAdmin());
+    }
+
+    function hubTutorOrParticipant(hubId) {
+      let hub = firestore.get(/databases/(default)/documents/collectiveHubs/$(hubId)).data;
+      return isAuthenticated()
+        && (hub.tutorId == request.auth.uid
+          || request.auth.uid in hub.confirmedStudentIds
+          || isAdmin());
+    }
+
+    // -------------------------------------------------------------------------
+    // User profile media
+    // -------------------------------------------------------------------------
+
+    match /users/{userId}/avatar.{ext} {
+      allow read: if true;
+      allow write: if isOwner(userId) && isValidImageUpload();
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
+    match /users/{userId}/cover.{ext} {
+      allow read: if true;
+      allow write: if isOwner(userId) && isValidImageUpload();
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // Tutor verification & portfolio
+    // -------------------------------------------------------------------------
+
+    match /tutors/{tutorId}/credentials/{file} {
+      allow read: if isOwner(tutorId) || isAdmin();
+      allow write: if isOwner(tutorId) && isTutor() && isValidDocumentUpload();
+      allow delete: if isOwner(tutorId) || isAdmin();
+    }
+
+    match /tutors/{tutorId}/portfolio/{file} {
+      allow read: if true;
+      allow write: if isOwner(tutorId) && isTutor() && isValidImageUpload();
+      allow delete: if isOwner(tutorId) || isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // Collective hub materials
+    // -------------------------------------------------------------------------
+
+    match /hubs/{hubId}/materials/{file} {
+      allow read: if hubTutorOrParticipant(hubId);
+      allow write: if hubTutorOrParticipant(hubId) && isValidLessonMaterial();
+      allow delete: if firestore.get(/databases/(default)/documents/collectiveHubs/$(hubId)).data.tutorId
+          == request.auth.uid
+        || isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // Booking lesson materials (1-on-1 or collective booking)
+    // -------------------------------------------------------------------------
+
+    match /bookings/{bookingId}/materials/{file} {
+      allow read: if bookingParticipant(bookingId);
+      allow write: if bookingParticipant(bookingId) && isValidLessonMaterial();
+      allow delete: if bookingParticipant(bookingId);
+    }
+
+    // -------------------------------------------------------------------------
+    // Deny everything else by default
+    // -------------------------------------------------------------------------
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
