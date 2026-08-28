@@ -32,6 +32,25 @@ rules_version = '2';
 //
 // NOTE: These rules are a starting point. Validate with the Firebase Emulator
 // Suite before deploying to production.
+//
+// ---------------------------------------------------------------------------
+// App write-path audit (MVP — fix app/admin flows; do not loosen rules here)
+// ---------------------------------------------------------------------------
+// MATCH  users/{uid} create          → lib/auth/service.ts (signup)
+// MATCH  bookings create             → lib/bookings/service.ts (student reserve)
+// MATCH  bookings student cancel       → lib/bookings/service.ts (status → cancelled)
+// MATCH  bookings tutor confirm        → lib/bookings/service.ts (status, meetingUrl, updatedAt)
+// MATCH  bookings tutor cancel         → lib/bookings/service.ts (status → cancelled)
+// MATCH  collectiveHubs create         → lib/hubs/service.ts (tutor dashboard)
+// MATCH  collectiveHubs student join   → lib/hubs/service.ts (confirmedStudentIds + updatedAt)
+// MATCH  reviews create              → lib/reviews/client.ts (requires completed booking)
+// ADMIN  tutors rating/reviewCount   → lib/reviews/server.ts (Server Action; bypasses rules)
+// ADMIN  bookings confirm (webhook)  → lib/bookings/server.ts (payment webhook placeholder)
+// ADMIN  seed data                     → scripts/seed.ts
+// GAP    No client UI sets booking status to "completed"; review create is denied until
+//        a tutor "concluir aula" action or admin/webhook writes completed (see bookings).
+// GAP    No client UI creates tutors/{tutorId} on tutor signup; profiles come from seed/admin.
+// GAP    No Storage upload UI yet; storage.rules paths are unused by the current app.
 // =============================================================================
 
 service cloud.firestore {

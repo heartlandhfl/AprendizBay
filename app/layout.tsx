@@ -11,10 +11,30 @@ const inter = Inter({
   display: "swap",
 });
 
+function getMetadataBase(): URL {
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    return new URL(process.env.NEXT_PUBLIC_SITE_URL);
+  }
+
+  if (process.env.VERCEL_URL) {
+    return new URL(`https://${process.env.VERCEL_URL}`);
+  }
+
+  return new URL("http://localhost:3000");
+}
+
 export const metadata: Metadata = {
+  metadataBase: getMetadataBase(),
   title: "Aprendiz Bay — Encontre seu professor ideal",
   description:
     "Plataforma brasileira de tutoria e aprendizado coletivo. Encontre professores particulares e participe de aulas em grupo com preços acessíveis.",
+  openGraph: {
+    title: "Aprendiz Bay — Encontre seu professor ideal",
+    description:
+      "Plataforma brasileira de tutoria e aprendizado coletivo. Encontre professores particulares e participe de aulas em grupo com preços acessíveis.",
+    locale: "pt_BR",
+    type: "website",
+  },
 };
 
 export default function RootLayout({

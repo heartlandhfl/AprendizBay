@@ -80,6 +80,8 @@ export async function cancelBookingAsTutor(bookingId: string): Promise<void> {
   await updateBookingStatus(bookingId, "cancelled");
 }
 
+// Rules audit: no client write sets status "completed" yet; reviews require completed bookings.
+
 export function subscribeToTutorPendingBookings(
   tutorId: string,
   onChange: (bookings: Booking[]) => void,
