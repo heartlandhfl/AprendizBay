@@ -12,6 +12,9 @@ if (process.env.NODE_ENV !== "development") {
   process.env.NODE_ENV = "production";
 }
 
+const { installNextRequireGuard } = require("./server/next-runtime-guard");
+installNextRequireGuard();
+
 const express = require("express");
 const path = require("path");
 const fs = require("fs");
@@ -70,6 +73,7 @@ app.get("/api/health", (_req, res) => {
     service: "aprendiz-bay",
     mode: "express",
     next: uiError ? "error" : nextHandle ? "ready" : uiMode,
+    nextRuntime: dev ? Boolean(nextHandle) : false,
     nextError: uiError
       ? String(uiError.stack || uiError.message || uiError).slice(0, 4000)
       : null,
