@@ -1,7 +1,46 @@
+"use client";
+
 import Link from "next/link";
-import { GraduationCap, Search, Menu } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import {
+  ChevronDown,
+  GraduationCap,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Search,
+} from "lucide-react";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { signOut } from "@/lib/auth/service";
 
 export default function Navbar() {
+  const router = useRouter();
+  const { user, userDoc, loading } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  async function handleSignOut() {
+    setMenuOpen(false);
+    await signOut();
+    router.push("/");
+  }
+
+  const displayName = userDoc?.displayName || user?.displayName || "Usuário";
+  const dashboardHref =
+    userDoc?.role === "tutor" ? "/tutor/dashboard" : "/bookings";
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-surface/80 backdrop-blur-md">
       <nav className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:gap-6 sm:px-6 lg:px-8">
@@ -38,19 +77,64 @@ export default function Navbar() {
             Seja um Professor
           </Link>
 
-          <Link
-            href="/entrar"
-            className="hidden rounded-2xl px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted sm:inline-flex"
-          >
-            Entrar
-          </Link>
+          {!loading && !user && (
+            <>
+              <Link
+                href="/login"
+                className="hidden rounded-2xl px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted sm:inline-flex"
+              >
+                Entrar
+              </Link>
 
-          <Link
-            href="/cadastro"
-            className="inline-flex items-center rounded-2xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-soft transition-colors hover:bg-primary-700"
-          >
-            Cadastre-se
-          </Link>
+              <Link
+                href="/signup"
+                className="inline-flex items-center rounded-2xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-soft transition-colors hover:bg-primary-700"
+              >
+                Cadastrar
+              </Link>
+            </>
+          )}
+
+          {!loading && user && (
+            <div className="relative" ref={menuRef}>
+              <button
+                type="button"
+                onClick={() => setMenuOpen((open) => !open)}
+                className="inline-flex items-center gap-2 rounded-2xl border border-border bg-surface px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                aria-expanded={menuOpen}
+                aria-haspopup="menu"
+              >
+                <span className="max-w-[8rem] truncate sm:max-w-[12rem]">{displayName}</span>
+                <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+              </button>
+
+              {menuOpen && (
+                <div
+                  className="absolute right-0 mt-2 w-48 overflow-hidden rounded-2xl border border-border bg-surface py-1 shadow-soft-lg"
+                  role="menu"
+                >
+                  <Link
+                    href={dashboardHref}
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-foreground transition-colors hover:bg-muted"
+                    role="menuitem"
+                  >
+                    <LayoutDashboard className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                    Meu painel
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={handleSignOut}
+                    className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-foreground transition-colors hover:bg-muted"
+                    role="menuitem"
+                  >
+                    <LogOut className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                    Sair
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
 
           <button
             type="button"
