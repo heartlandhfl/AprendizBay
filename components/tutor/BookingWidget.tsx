@@ -1,18 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Calendar,
   Loader2,
-  MapPin,
-  Monitor,
   User,
   Users,
 } from "lucide-react";
-import type { CollectiveHub, TutorProfile } from "@/lib/tutor-profiles";
+import CollectiveHubList from "@/components/hubs/CollectiveHubList";
+import type { TutorProfile } from "@/lib/tutor-profiles";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { createBooking, defaultScheduledAt } from "@/lib/bookings/service";
+import { createBooking, defaultScheduledAt, formatBookingPrice } from "@/lib/bookings/service";
+import type { CollectiveHubLive } from "@/lib/hubs/types";
 
 interface BookingWidgetProps {
   tutor: TutorProfile;
@@ -20,105 +20,29 @@ interface BookingWidgetProps {
 
 type BookingOption = "individual" | "coletivo";
 
-function formatPrice(value: number) {
-  return value.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  });
-}
-
-function HubSlotCard({
-  hub,
-  selected,
-  onSelect,
-}: {
-  hub: CollectiveHub;
-  selected: boolean;
-  onSelect: () => void;
-}) {
-  const spotsLeft = hub.maxStudents - hub.confirmedStudents;
-  const progressPercent = (hub.confirmedStudents / hub.maxStudents) * 100;
-
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={`w-full rounded-2xl border p-4 text-left transition-all duration-200 ${
-        selected
-          ? "border-secondary-400 bg-secondary-50 ring-2 ring-secondary-200"
-          : "border-border bg-muted/30 hover:border-secondary-300 hover:bg-secondary-50/50"
-      }`}
-      aria-pressed={selected}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h4 className="font-semibold text-foreground">{hub.title}</h4>
-          <p className="mt-1 text-xs text-muted-foreground">{hub.description}</p>
-        </div>
-        <span className="shrink-0 rounded-full bg-secondary-500 px-2 py-0.5 text-xs font-bold text-white">
-          {formatPrice(hub.currentPrice)}/h
-        </span>
-      </div>
-
-      <p className="mt-3 text-sm text-foreground">
-        <span className="font-semibold text-secondary-700">
-          {hub.confirmedStudents}/{hub.maxStudents} alunos confirmados.
-        </span>{" "}
-        O preço cai para{" "}
-        <span className="font-bold text-primary-600">
-          {formatPrice(hub.fullPrice)}/h
-        </span>{" "}
-        se a turma lotar!
-      </p>
-
-      <div className="mt-3">
-        <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-          <span>
-            {spotsLeft} vaga{spotsLeft !== 1 ? "s" : ""} restante
-            {spotsLeft !== 1 ? "s" : ""}
-          </span>
-          <span>{Math.round(progressPercent)}% preenchido</span>
-        </div>
-        <div className="h-2 overflow-hidden rounded-full bg-muted">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-secondary-400 to-secondary-500 transition-all duration-500"
-            style={{ width: `${progressPercent}%` }}
-            role="progressbar"
-            aria-valuenow={hub.confirmedStudents}
-            aria-valuemin={0}
-            aria-valuemax={hub.maxStudents}
-            aria-label={`${hub.confirmedStudents} de ${hub.maxStudents} vagas preenchidas`}
-          />
-        </div>
-      </div>
-
-      <div className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
-        {hub.modality === "online" ? (
-          <Monitor className="h-3.5 w-3.5" aria-hidden="true" />
-        ) : (
-          <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-        )}
-        {hub.schedule}
-      </div>
-    </button>
-  );
-}
-
 export default function BookingWidget({ tutor }: BookingWidgetProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, userDoc, loading: authLoading } = useAuth();
   const [option, setOption] = useState<BookingOption>("coletivo");
-  const [selectedHubId, setSelectedHubId] = useState(
-    tutor.collectiveHubs[0]?.id ?? "",
-  );
+  const [hubs, setHubs] = useState<CollectiveHubLive[]>([]);
+  const [selectedHubId, setSelectedHubId] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const selectedHub = tutor.collectiveHubs.find((h) => h.id === selectedHubId);
+  const selectedHub = hubs.find((hub) => hub.id === selectedHubId);
+
+  useEffect(() => {
+    if (selectedHubId || hubs.length === 0) {
+      return;
+    }
+
+    const firstAvailable = hubs.find(
+      (hub) => hub.confirmedStudents < hub.maxStudents,
+    );
+    setSelectedHubId(firstAvailable?.id ?? hubs[0]?.id ?? "");
+  }, [hubs, selectedHubId]);
 
   async function handleReserve() {
     setError(null);
@@ -208,7 +132,7 @@ export default function BookingWidget({ tutor }: BookingWidgetProps) {
                 personalizado.
               </p>
               <p className="mt-4 text-2xl font-bold text-foreground">
-                {formatPrice(tutor.individualPrice)}
+                {formatBookingPrice(tutor.individualPrice)}
                 <span className="text-base font-normal text-muted-foreground">
                   /hora
                 </span>
@@ -233,16 +157,14 @@ export default function BookingWidget({ tutor }: BookingWidgetProps) {
               </p>
             </div>
 
-            <div className="space-y-3">
-              {tutor.collectiveHubs.map((hub) => (
-                <HubSlotCard
-                  key={hub.id}
-                  hub={hub}
-                  selected={selectedHubId === hub.id}
-                  onSelect={() => setSelectedHubId(hub.id)}
-                />
-              ))}
-            </div>
+            <CollectiveHubList
+              tutorId={tutor.id}
+              selectable
+              showJoinButtons
+              selectedHubId={selectedHubId}
+              onSelectHub={setSelectedHubId}
+              onHubsChange={setHubs}
+            />
           </div>
         )}
 
