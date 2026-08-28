@@ -12,11 +12,39 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-function createFirebaseApp(): FirebaseApp {
-  return getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+let firebaseApp: FirebaseApp | undefined;
+
+function getOrInitApp(): FirebaseApp {
+  if (firebaseApp) {
+    return firebaseApp;
+  }
+
+  if (typeof window === "undefined") {
+    throw new Error("Firebase client SDK is only available in the browser.");
+  }
+
+  firebaseApp = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+  return firebaseApp;
 }
 
-export const app: FirebaseApp = createFirebaseApp();
-export const auth: Auth = getAuth(app);
-export const db: Firestore = getFirestore(app);
-export const storage: FirebaseStorage = getStorage(app);
+function createLazyService<T extends object>(initializer: () => T): T {
+  let service: T | undefined;
+
+  return new Proxy({} as T, {
+    get(_target, property) {
+      if (!service) {
+        service = initializer();
+      }
+
+      const value = Reflect.get(service, property, service);
+      return typeof value === "function" ? value.bind(service) : value;
+    },
+  });
+}
+
+export const app = createLazyService(() => getOrInitApp());
+export const auth: Auth = createLazyService(() => getAuth(getOrInitApp()));
+export const db: Firestore = createLazyService(() => getFirestore(getOrInitApp()));
+export const storage: FirebaseStorage = createLazyService(() =>
+  getStorage(getOrInitApp()),
+);
