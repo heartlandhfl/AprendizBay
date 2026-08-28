@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import BookingStatusBadge from "@/components/bookings/BookingStatusBadge";
 import JoinLessonButton from "@/components/bookings/JoinLessonButton";
+import ReviewModal from "@/components/reviews/ReviewModal";
 import { useAuth } from "@/lib/auth/AuthContext";
 import type { Booking } from "@/lib/bookings/types";
 import { BOOKING_TYPE_LABELS } from "@/lib/bookings/types";
@@ -14,24 +15,33 @@ import {
   formatBookingPrice,
   subscribeToStudentBookings,
 } from "@/lib/bookings/service";
+import { subscribeToStudentReviewBookingIds } from "@/lib/reviews/client";
 
 interface EnrichedBooking extends Booking {
+  tutorName: string;
+}
+
+interface ReviewTarget {
+  bookingId: string;
+  tutorId: string;
   tutorName: string;
 }
 
 export default function StudentBookingsList() {
   const { user } = useAuth();
   const [bookings, setBookings] = useState<EnrichedBooking[]>([]);
+  const [reviewedBookingIds, setReviewedBookingIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reviewTarget, setReviewTarget] = useState<ReviewTarget | null>(null);
 
   useEffect(() => {
     if (!user) {
       return;
     }
 
-    const unsubscribe = subscribeToStudentBookings(
+    const unsubscribeBookings = subscribeToStudentBookings(
       user.uid,
       async (nextBookings) => {
         const enriched = await Promise.all(
@@ -50,7 +60,15 @@ export default function StudentBookingsList() {
       },
     );
 
-    return unsubscribe;
+    const unsubscribeReviews = subscribeToStudentReviewBookingIds(
+      user.uid,
+      setReviewedBookingIds,
+    );
+
+    return () => {
+      unsubscribeBookings();
+      unsubscribeReviews();
+    };
   }, [user]);
 
   async function handleCancel(bookingId: string) {
@@ -101,6 +119,8 @@ export default function StudentBookingsList() {
           {bookings.map((booking) => {
             const canCancel =
               booking.status === "pending" || booking.status === "confirmed";
+            const canReview =
+              booking.status === "completed" && !reviewedBookingIds.has(booking.id);
 
             return (
               <article
@@ -141,6 +161,22 @@ export default function StudentBookingsList() {
                   </div>
                 )}
 
+                {canReview && user && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setReviewTarget({
+                        bookingId: booking.id,
+                        tutorId: booking.tutorId,
+                        tutorName: booking.tutorName,
+                      })
+                    }
+                    className="mt-4 rounded-2xl bg-secondary-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary-600"
+                  >
+                    Deixar avaliação
+                  </button>
+                )}
+
                 {canCancel && (
                   <button
                     type="button"
@@ -155,6 +191,17 @@ export default function StudentBookingsList() {
             );
           })}
         </div>
+      )}
+
+      {reviewTarget && user && (
+        <ReviewModal
+          bookingId={reviewTarget.bookingId}
+          tutorId={reviewTarget.tutorId}
+          studentId={user.uid}
+          tutorName={reviewTarget.tutorName}
+          onClose={() => setReviewTarget(null)}
+          onSubmitted={() => setReviewTarget(null)}
+        />
       )}
     </div>
   );
