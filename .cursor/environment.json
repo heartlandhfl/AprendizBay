@@ -1,0 +1,4 @@
+{
+  "name": "AprendizBay",
+  "install": "npm ci"
+}
