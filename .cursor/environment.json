@@ -1,4 +1,4 @@
 {
   "name": "AprendizBay",
-  "install": "npm ci"
+  "install": "npm ci --include=dev"
 }
