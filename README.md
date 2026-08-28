@@ -39,6 +39,19 @@ server.js            # Hostinger Express entry
 
 ## Deploying
 
+This repo supports a **two-target** setup. Production today stays on the slim Hostinger path; nothing in this document migrates hosting for you.
+
+| Target | Role | What runs | When to use |
+|--------|------|-----------|-------------|
+| **Hostinger Express** (`server.js`) | Primary production site | Committed `hostinger-next/` static HTML + `/_next/static` + Express `/api/*` | Default — low memory, no Next.js or `firebase-admin` in the Node process |
+| **Vercel** (or similar Next host) | Optional full Next.js runtime | `next build` + Server Actions, `lib/**/server.ts`, `firebase-admin` | Later, if you need Server Actions (e.g. review rating recompute) without porting them to Express |
+
+**Hostinger path (current):** `npm install --omit=dev` → `node server.js`. UI is prebuilt and committed; Express never loads Next or `firebase-admin`. Add new backend behavior in `server/api/` (plain JS).
+
+**Vercel path (optional, not required today):** Standard Next.js deploy with `FIREBASE_ADMIN_*` for server modules. Can run alongside Hostinger (e.g. preview/staging) or replace it later — that is a separate migration decision, not covered here.
+
+Client Firebase features (auth, Firestore reads/writes from the browser, bookings UI) work on **both** targets with `NEXT_PUBLIC_FIREBASE_*` only.
+
 ### 1. Firebase (Firestore + Storage rules)
 
 Install the [Firebase CLI](https://firebase.google.com/docs/cli) and log in:
@@ -70,9 +83,9 @@ Populate demo tutors (optional, local only — requires admin credentials in `.e
 npx tsx scripts/seed.ts
 ```
 
-### 2. Next.js + Express on Hostinger
+### 2. Hostinger — static UI + Express `/api` (production target)
 
-The UI is Next.js (built locally). HTTP APIs live in Express (`server/api`), and production runs **one process** via `server.js`.
+Hostinger runs the **slim Express path only**: static `hostinger-next/` + `/api`. Do not enable a Hostinger build step for Next.js.
 
 In hPanel → **Deployments** → **Deployment settings**:
 
@@ -115,10 +128,12 @@ NEXT_PUBLIC_SITE_URL=https://teal-penguin-833668.hostingersite.com
 
 and every Firebase key from `.env.local.example`. Add `teal-penguin-833668.hostingersite.com` to Firebase **Authentication → Authorized domains**.
 
-### 3. Next.js on Vercel
+### 3. Vercel — full Next.js (optional Server Actions target)
+
+Use Vercel (or Netlify, Railway, a VPS with `next start`, etc.) when you need the **full Next.js server** — Server Actions, on-demand rendering, or `firebase-admin` without rewriting logic into `server/api/`. This is optional; Hostinger production does not depend on it.
 
 1. Import this repository in [Vercel](https://vercel.com).
-2. Framework preset: **Next.js** (default build: `npm run build`).
+2. Framework preset: **Next.js** (default build: `npm run build`). Do **not** point Vercel at `server.js` — use the Next.js preset so Server Actions work.
 3. In **Project → Settings → Environment Variables**, set every variable from `.env.local.example`:
 
 | Variable | Where to get it |
@@ -134,9 +149,11 @@ and every Firebase key from `.env.local.example`. Add `teal-penguin-833668.hosti
 | `FIREBASE_ADMIN_PRIVATE_KEY` | Service account JSON → `private_key` (paste with `\n` escapes on one line) |
 | `NEXT_PUBLIC_SITE_URL` | Your production URL, e.g. `https://www.aprendizbay.com.br` (Open Graph / `metadataBase`) |
 
-`FIREBASE_ADMIN_*` is required on **Vercel** (or any Next.js server host) for Server Actions that recompute tutor ratings after reviews. It is **not** required on Hostinger static deploy — see [Hostinger](#2-nextjs--express-on-hostinger). Client features (auth, bookings, hubs) only need the `NEXT_PUBLIC_FIREBASE_*` vars.
+`FIREBASE_ADMIN_*` is required on **Vercel** for Server Actions that recompute tutor ratings after reviews. It is **not** required on Hostinger — see [Hostinger](#2-hostinger--static-ui--express-api-production-target). Client features (auth, bookings, hubs) only need the `NEXT_PUBLIC_FIREBASE_*` vars on either target.
 
 4. Deploy. After the first deploy, add the Vercel URL to Firebase **Authorized domains** if you test auth on the preview domain.
+
+To use both targets: keep the public site on Hostinger and deploy Vercel to a subdomain (e.g. `app.aprendizbay.com.br`) or preview URL for features that need Server Actions. Routing users between them is outside this repo — plan DNS and links when you actually need the split.
 
 ### Rules vs app (known gaps)
 
