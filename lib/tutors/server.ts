@@ -90,6 +90,7 @@ export async function fetchTutorProfile(id: string): Promise<TutorProfile | unde
     const hubsSnap = await db
       .collection("collectiveHubs")
       .where("tutorId", "==", id)
+      .where("status", "==", "open")
       .get();
 
     const collectiveHubs = hubsSnap.docs.map((hubDoc) =>
