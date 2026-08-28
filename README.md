@@ -84,7 +84,7 @@ In hPanel → **Deployments** → **Deployment settings**:
 | Output directory | **leave empty** (do not set `.next` or `dist`) |
 | Entry file | **`server.js`** |
 
-Then **Save and redeploy**. A 503 from Hostinger means the Node process was not listening yet or crashed on boot — `server.js` now binds `PORT` immediately (Hostinger does not run `npm start`).
+Then **Save and redeploy**. If the site shows Hostinger’s 503 page, open **Runtime Logs**. `server.js` binds `PORT` before loading Next.js; `/api/health` should respond even while the UI is still starting.
 
 Add routes in `server/api/` and mount them from `server/api/index.ts` (they are served at `/api/...`). Example: `GET /api/health`.
 
