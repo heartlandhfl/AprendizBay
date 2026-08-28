@@ -1,0 +1,185 @@
+import {
+  addDoc,
+  collection,
+  doc,
+  getDoc,
+  onSnapshot,
+  query,
+  serverTimestamp,
+  Timestamp,
+  updateDoc,
+  where,
+  type Unsubscribe,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase/client";
+import type {
+  Booking,
+  BookingStatus,
+  CreateBookingInput,
+} from "@/lib/bookings/types";
+
+function mapBookingDoc(id: string, data: Record<string, unknown>): Booking {
+  return {
+    id,
+    studentId: data.studentId as string,
+    tutorId: data.tutorId as string,
+    hubId: data.hubId as string | undefined,
+    type: data.type as Booking["type"],
+    status: data.status as BookingStatus,
+    price: data.price as number,
+    scheduledAt: data.scheduledAt as Timestamp,
+    createdAt: data.createdAt as Timestamp,
+    updatedAt: data.updatedAt as Timestamp | undefined,
+  };
+}
+
+export async function createBooking(
+  studentId: string,
+  input: CreateBookingInput,
+): Promise<string> {
+  const bookingData = {
+    studentId,
+    tutorId: input.tutorId,
+    type: input.type,
+    status: "pending" as const,
+    price: input.price,
+    scheduledAt: Timestamp.fromDate(input.scheduledAt),
+    createdAt: serverTimestamp(),
+    ...(input.hubId ? { hubId: input.hubId } : {}),
+  };
+
+  const docRef = await addDoc(collection(db, "bookings"), bookingData);
+  return docRef.id;
+}
+
+export async function updateBookingStatus(
+  bookingId: string,
+  status: BookingStatus,
+): Promise<void> {
+  await updateDoc(doc(db, "bookings", bookingId), {
+    status,
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export async function cancelBookingAsStudent(bookingId: string): Promise<void> {
+  await updateBookingStatus(bookingId, "cancelled");
+}
+
+export async function confirmBookingAsTutor(bookingId: string): Promise<void> {
+  await updateBookingStatus(bookingId, "confirmed");
+}
+
+export async function cancelBookingAsTutor(bookingId: string): Promise<void> {
+  await updateBookingStatus(bookingId, "cancelled");
+}
+
+export function subscribeToTutorPendingBookings(
+  tutorId: string,
+  onChange: (bookings: Booking[]) => void,
+  onError?: (error: Error) => void,
+): Unsubscribe {
+  const bookingsQuery = query(
+    collection(db, "bookings"),
+    where("tutorId", "==", tutorId),
+    where("status", "==", "pending"),
+  );
+
+  return onSnapshot(
+    bookingsQuery,
+    (snapshot) => {
+      onChange(
+        snapshot.docs.map((docSnap) =>
+          mapBookingDoc(docSnap.id, docSnap.data() as Record<string, unknown>),
+        ),
+      );
+    },
+    (error) => onError?.(error),
+  );
+}
+
+export function subscribeToStudentBookings(
+  studentId: string,
+  onChange: (bookings: Booking[]) => void,
+  onError?: (error: Error) => void,
+): Unsubscribe {
+  const bookingsQuery = query(
+    collection(db, "bookings"),
+    where("studentId", "==", studentId),
+  );
+
+  return onSnapshot(
+    bookingsQuery,
+    (snapshot) => {
+      const bookings = snapshot.docs
+        .map((docSnap) =>
+          mapBookingDoc(docSnap.id, docSnap.data() as Record<string, unknown>),
+        )
+        .sort((a, b) => {
+          const aTime = a.createdAt?.toMillis?.() ?? 0;
+          const bTime = b.createdAt?.toMillis?.() ?? 0;
+          return bTime - aTime;
+        });
+
+      onChange(bookings);
+    },
+    (error) => onError?.(error),
+  );
+}
+
+export function subscribeToTutorPendingBookingCount(
+  tutorId: string,
+  onChange: (count: number) => void,
+  onError?: (error: Error) => void,
+): Unsubscribe {
+  return subscribeToTutorPendingBookings(
+    tutorId,
+    (bookings) => onChange(bookings.length),
+    onError,
+  );
+}
+
+export async function fetchUserDisplayName(userId: string): Promise<string> {
+  const snapshot = await getDoc(doc(db, "users", userId));
+  if (!snapshot.exists()) {
+    return "Usuário";
+  }
+
+  return (snapshot.data().displayName as string) || "Usuário";
+}
+
+export async function fetchTutorName(tutorId: string): Promise<string> {
+  const snapshot = await getDoc(doc(db, "tutors", tutorId));
+  if (!snapshot.exists()) {
+    return "Professor";
+  }
+
+  return (snapshot.data().name as string) || "Professor";
+}
+
+export function formatBookingDate(timestamp: Timestamp): string {
+  return timestamp.toDate().toLocaleString("pt-BR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+}
+
+export function formatBookingPrice(price: number): string {
+  return price.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
+}
+
+function startOfTomorrow(): Date {
+  const date = new Date();
+  date.setDate(date.getDate() + 1);
+  date.setHours(10, 0, 0, 0);
+  return date;
+}
+
+export function defaultScheduledAt(): Date {
+  return startOfTomorrow();
+}

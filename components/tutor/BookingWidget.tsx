@@ -1,14 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Calendar,
+  Loader2,
   MapPin,
   Monitor,
   User,
   Users,
 } from "lucide-react";
 import type { CollectiveHub, TutorProfile } from "@/lib/tutor-profiles";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { createBooking, defaultScheduledAt } from "@/lib/bookings/service";
 
 interface BookingWidgetProps {
   tutor: TutorProfile;
@@ -103,12 +107,58 @@ function HubSlotCard({
 }
 
 export default function BookingWidget({ tutor }: BookingWidgetProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { user, userDoc, loading: authLoading } = useAuth();
   const [option, setOption] = useState<BookingOption>("coletivo");
   const [selectedHubId, setSelectedHubId] = useState(
-    tutor.collectiveHubs[0]?.id ?? ""
+    tutor.collectiveHubs[0]?.id ?? "",
   );
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const selectedHub = tutor.collectiveHubs.find((h) => h.id === selectedHubId);
+
+  async function handleReserve() {
+    setError(null);
+    setSuccess(null);
+
+    if (!user) {
+      router.push(`/login?next=${encodeURIComponent(pathname)}`);
+      return;
+    }
+
+    if (userDoc?.role !== "student") {
+      setError("Apenas alunos podem reservar aulas.");
+      return;
+    }
+
+    if (option === "coletivo" && !selectedHubId) {
+      setError("Selecione uma turma coletiva para continuar.");
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      await createBooking(user.uid, {
+        tutorId: tutor.id,
+        type: option,
+        price:
+          option === "individual" ? tutor.individualPrice : selectedHub!.currentPrice,
+        hubId: option === "coletivo" ? selectedHubId : undefined,
+        scheduledAt: defaultScheduledAt(),
+      });
+
+      setSuccess("Reserva enviada! Acompanhe o status em Minhas aulas.");
+      setTimeout(() => router.push("/bookings"), 1200);
+    } catch {
+      setError("Não foi possível criar a reserva. Verifique se o professor está verificado.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   return (
     <aside className="lg:sticky lg:top-24">
@@ -196,11 +246,32 @@ export default function BookingWidget({ tutor }: BookingWidgetProps) {
           </div>
         )}
 
+        {error && (
+          <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+            {error}
+          </p>
+        )}
+
+        {success && (
+          <p className="mt-4 rounded-2xl bg-primary-50 px-4 py-3 text-sm text-primary-800" role="status">
+            {success}
+          </p>
+        )}
+
         <button
           type="button"
-          className="mt-6 w-full rounded-2xl bg-primary-600 px-4 py-3.5 text-sm font-bold text-white shadow-soft transition-all duration-200 hover:scale-[1.02] hover:bg-primary-700 hover:shadow-soft-lg active:scale-[0.98]"
+          onClick={handleReserve}
+          disabled={submitting || authLoading}
+          className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-600 px-4 py-3.5 text-sm font-bold text-white shadow-soft transition-all duration-200 hover:scale-[1.02] hover:bg-primary-700 hover:shadow-soft-lg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
         >
-          Reservar Minha Vaga
+          {submitting ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              Reservando...
+            </>
+          ) : (
+            "Reservar Minha Vaga"
+          )}
         </button>
 
         {option === "coletivo" && selectedHub && (
