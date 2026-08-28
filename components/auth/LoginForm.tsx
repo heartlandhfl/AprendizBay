@@ -7,7 +7,7 @@ import { Loader2 } from "lucide-react";
 import { doc, getDoc } from "firebase/firestore";
 import { getAuthErrorMessage } from "@/lib/auth/errors";
 import { signInWithEmail, signInWithGoogle } from "@/lib/auth/service";
-import { db } from "@/lib/firebase/client";
+import { db, requireFirebaseApp } from "@/lib/firebase/client";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -18,6 +18,7 @@ export default function LoginForm() {
   const [submitting, setSubmitting] = useState(false);
 
   async function redirectAfterLogin(uid: string) {
+    await requireFirebaseApp();
     const profile = await getDoc(doc(db, "users", uid));
 
     if (!profile.exists()) {

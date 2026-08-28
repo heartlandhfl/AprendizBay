@@ -6,12 +6,17 @@ import {
   type QueryConstraint,
 } from "firebase/firestore";
 import type { Tutor } from "@/lib/mock-tutors";
-import { db } from "@/lib/firebase/client";
+import { db, ensureFirebaseApp } from "@/lib/firebase/client";
 import { getMockTutorsForFallback, warnMockTutorFallback } from "@/lib/tutors/fallback";
 import type { FirestoreTutorDoc, TutorQueryFilters } from "@/lib/tutors/firestore-types";
 import { mapFirestoreTutorDoc } from "@/lib/tutors/map";
 
 export async function fetchVerifiedTutors(filters: TutorQueryFilters = {}): Promise<Tutor[]> {
+  const app = await ensureFirebaseApp();
+  if (!app) {
+    return filterByModality(getMockTutorsForFallback(), filters.modality);
+  }
+
   const constraints: QueryConstraint[] = [where("isVerified", "==", true)];
 
   if (filters.subject && filters.subject !== "Todas as matérias") {

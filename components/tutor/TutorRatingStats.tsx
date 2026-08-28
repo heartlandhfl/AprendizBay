@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { Star } from "lucide-react";
-import { db } from "@/lib/firebase/client";
+import { db, whenFirebaseReady } from "@/lib/firebase/client";
 
 interface TutorRatingStatsProps {
   tutorId: string;
@@ -27,17 +27,17 @@ export default function TutorRatingStats({
   const [reviewCount, setReviewCount] = useState(initialReviewCount);
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(doc(db, "tutors", tutorId), (snapshot) => {
-      if (!snapshot.exists()) {
-        return;
-      }
+    return whenFirebaseReady(() =>
+      onSnapshot(doc(db, "tutors", tutorId), (snapshot) => {
+        if (!snapshot.exists()) {
+          return;
+        }
 
-      const data = snapshot.data();
-      setRating((data.rating as number) ?? initialRating);
-      setReviewCount((data.reviewCount as number) ?? initialReviewCount);
-    });
-
-    return unsubscribe;
+        const data = snapshot.data();
+        setRating((data.rating as number) ?? initialRating);
+        setReviewCount((data.reviewCount as number) ?? initialReviewCount);
+      }),
+    );
   }, [initialRating, initialReviewCount, tutorId]);
 
   return (
