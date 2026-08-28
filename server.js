@@ -45,6 +45,9 @@ app.get("/api/health", (_req, res) => {
     service: "aprendiz-bay",
     mode: "express",
     next: nextError ? "error" : nextHandle ? "ready" : "starting",
+    nextError: nextError
+      ? String(nextError.stack || nextError.message || nextError).slice(0, 4000)
+      : null,
   });
 });
 
@@ -58,10 +61,13 @@ app.use((req, res, next) => {
     return;
   }
   if (nextError) {
-    res
-      .status(500)
-      .type("text")
-      .send("Failed to start Next.js. Check Hostinger Runtime Logs.");
+    const detail = String(nextError.stack || nextError.message || nextError);
+    res.status(500).type("html").send(
+      `<!doctype html><meta charset="utf-8"><pre style="white-space:pre-wrap;font:14px/1.4 sans-serif;padding:24px">${detail
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")}</pre>`,
+    );
     return;
   }
   res.status(200).type("html").send(BOOT_HTML);

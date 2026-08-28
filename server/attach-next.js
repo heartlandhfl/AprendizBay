@@ -2,7 +2,6 @@
 
 const path = require("path");
 const fs = require("fs");
-const { spawnSync } = require("child_process");
 const next = require("next");
 const { apiRouter } = require("./api");
 
@@ -11,51 +10,46 @@ const DIST_DIR = "hostinger-next";
 function resolveAppDir() {
   const candidates = [path.resolve(__dirname, ".."), process.cwd()];
   for (const dir of candidates) {
-    if (
-      fs.existsSync(path.join(dir, DIST_DIR)) ||
-      fs.existsSync(path.join(dir, ".next")) ||
-      fs.existsSync(path.join(dir, "package.json"))
-    ) {
+    if (fs.existsSync(path.join(dir, "package.json"))) {
       return dir;
     }
   }
   return candidates[0];
 }
 
-function hasNextOutput(appDir) {
-  return (
-    fs.existsSync(path.join(appDir, DIST_DIR, "BUILD_ID")) ||
-    fs.existsSync(path.join(appDir, ".next", "BUILD_ID"))
+function assertWritable(dir) {
+  fs.mkdirSync(dir, { recursive: true });
+  const probe = path.join(dir, `.write-test-${process.pid}`);
+  fs.writeFileSync(probe, "ok");
+  fs.unlinkSync(probe);
+}
+
+function hasBuildId(appDir) {
+  return fs.existsSync(path.join(appDir, DIST_DIR, "BUILD_ID"));
+}
+
+async function runNextBuild(appDir) {
+  const nextBuild = require("next/dist/build").default;
+  console.log(`[Aprendiz Bay] Building Next.js (in-process) in ${appDir}`);
+  await nextBuild(
+    appDir,
+    false,
+    false,
+    false,
+    false,
+    false,
+    false,
+    "default",
   );
 }
 
-function runNextBuild(appDir) {
-  const nextBin = require.resolve("next/dist/bin/next", { paths: [appDir] });
-  console.log(`[Aprendiz Bay] Running next build in ${appDir} (output missing from Hostinger runtime copy)`);
-
-  const result = spawnSync(process.execPath, [nextBin, "build"], {
-    cwd: appDir,
-    stdio: "inherit",
-    env: { ...process.env, NODE_ENV: "production" },
-  });
-
-  if (result.error) {
-    throw result.error;
-  }
-  if (result.status !== 0) {
-    throw new Error(`next build exited with code ${result.status ?? "unknown"}`);
-  }
-}
-
 /**
- * Mount Express APIs and prepare the Next.js request handler.
- * Hostinger's hbuilds copy omits gitignored folders such as `.next`, so we
- * build at process start when the output is not already on disk.
  * @param {import("express").Express} app
  */
 async function attachNext(app) {
   const dev = process.env.NODE_ENV === "development";
   const appDir = resolveAppDir();
+  const distDir = path.join(appDir, DIST_DIR);
 
   try {
     console.log(
@@ -65,12 +59,20 @@ async function attachNext(app) {
     console.error("[Aprendiz Bay] Could not list app dir:", error);
   }
 
-  if (!dev && !hasNextOutput(appDir)) {
-    runNextBuild(appDir);
+  try {
+    assertWritable(distDir);
+  } catch (error) {
+    throw new Error(
+      `Cannot write Next.js output to ${distDir}: ${error instanceof Error ? error.message : error}`,
+    );
   }
 
-  if (!dev && !hasNextOutput(appDir)) {
-    throw new Error(`next build did not produce ${path.join(appDir, DIST_DIR)}`);
+  if (!dev && !hasBuildId(appDir)) {
+    await runNextBuild(appDir);
+  }
+
+  if (!dev && !hasBuildId(appDir)) {
+    throw new Error(`next build did not produce ${path.join(distDir, "BUILD_ID")}`);
   }
 
   app.use("/api", apiRouter);
