@@ -72,7 +72,7 @@ npx tsx scripts/seed.ts
 
 ### 2. Next.js + Express on Hostinger
 
-The UI is Next.js. HTTP APIs live in Express (`server/api`), and both run in **one process** via `server.js`.
+The UI is Next.js (built locally). HTTP APIs live in Express (`server/api`), and production runs **one process** via `server.js`.
 
 In hPanel → **Deployments** → **Deployment settings**:
 
@@ -80,15 +80,16 @@ In hPanel → **Deployments** → **Deployment settings**:
 |---------|----------------|
 | Framework / application type | **express** |
 | Node.js version | **20** |
-| Build command | **build** (`next build` only — Express files are committed JS) |
+| Build command | **leave empty** (not required — `hostinger-next/` is committed; Hostinger only needs `npm install --omit=dev` + `node server.js`) |
 | Output directory | **leave empty** (do not set `.next` or `dist`) |
 | Entry file | **`server.js`** |
+| Start command | **`npm start`** (or `NODE_ENV=production node server.js`) |
 
 Then **Save and redeploy**.
 
-Hostinger copies **git-tracked files** into `hbuilds` and does not keep untracked `next build` output. After changing UI code, run `npm run build` and **commit `hostinger-next/`** (webpack `cache/` is gitignored).
+Hostinger copies **git-tracked files** into `hbuilds` and does not keep untracked `next build` output. After changing UI code, run `npm run build` **locally** and **commit `hostinger-next/`** (webpack `cache/` is gitignored).
 
-Production **does not load the Next.js runtime** in `server.js` (that OOMs Hostinger LiteSpeed and returns 503, including `/api/health`). Express serves the prerendered HTML and `/_next/static` from `hostinger-next/`. After deploy, `/api/health` should return `"next":"static"`.
+Production installs only **Express** (`dependencies` in `package.json`). Next.js, React, Firebase, TypeScript, Tailwind, and `@types/*` are **devDependencies** — they are not installed on the server. Production **does not load the Next.js runtime** in `server.js` (that OOMs Hostinger LiteSpeed and returns 503, including `/api/health`). Express serves the prerendered HTML and `/_next/static` from `hostinger-next/`. After deploy, `/api/health` should return `"next":"static"`.
 
 Firebase web keys are read at **runtime** from Hostinger environment variables (`GET /api/public-config`). You do not need to rebuild `hostinger-next/` just to change `NEXT_PUBLIC_FIREBASE_*`. Set those keys under **Environment variables**, then restart the Node app.
 
