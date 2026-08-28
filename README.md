@@ -84,7 +84,7 @@ In hPanel → **Deployments** → **Deployment settings**:
 | Output directory | **leave empty** (do not set `.next` or `dist`) |
 | Entry file | **`server.js`** |
 
-Then **Save and redeploy**. Hostinger omits gitignored `.next` from the runtime copy; the app writes `hostinger-next/` (and will run `next build` on first start if that folder is missing). `/api/health` should show `"next":"starting"` then `"ready"`. The homepage may take a few minutes on the first boot after a deploy.
+Then **Save and redeploy**. Do not gitignore `hostinger-next/` — that is the Next.js UI build Hostinger must copy into `hbuilds`. After deploy, `/api/health` should stay up; `"next":"ready"` means the UI is live.
 
 Add routes in `server/api/` and mount them from `server/api/index.js` (they are served at `/api/...`). Example: `GET /api/health`.
 

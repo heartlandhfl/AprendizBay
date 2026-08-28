@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Hostinger's runtime copy drops gitignored `.next`. Output goes here;
-  // attach-next.js runs `next build` on first start if the folder is missing.
+  // Must not be gitignored: Hostinger copies hbuilds using gitignore, so
+  // `.next` never reaches the runtime folder. `npm run build` writes here.
   distDir: "hostinger-next",
   eslint: {
     ignoreDuringBuilds: true,
