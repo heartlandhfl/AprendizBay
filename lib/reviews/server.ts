@@ -1,3 +1,15 @@
+/**
+ * Hostinger audit — firebase-admin (Next.js server modules only)
+ *
+ * recomputeTutorRating is called from lib/reviews/actions.ts ("use server"). The action
+ * is bundled into hostinger-next/server/app/bookings/page.js but only runs when Next.js
+ * handles the POST — not when Hostinger serves prerendered HTML via Express.
+ *
+ * Review rating recompute will not run on Hostinger until we add an Express API route
+ * (server/api/) or deploy to a host that runs the Next.js server (e.g. Vercel).
+ *
+ * Not imported by server.js or server/api/. Production Express must not require this module.
+ */
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
 

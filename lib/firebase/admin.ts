@@ -1,3 +1,7 @@
+/**
+ * Shared Firebase Admin bootstrap. Not imported by Express (server.js / server/api/).
+ * Prefer lib/tutors|bookings|reviews/server.ts for domain-specific admin access.
+ */
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 
 function createAdminApp(): App {

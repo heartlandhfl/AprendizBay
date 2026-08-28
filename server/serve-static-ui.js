@@ -85,6 +85,10 @@ function streamFile(res, filePath, options, onMissing) {
  * loading the Next runtime. Hostinger LiteSpeed kills the process when
  * `require("next")` / `prepare()` runs in the web worker.
  *
+ * Only streams hostinger-next/server/app HTML and RSC via sendFile.
+ * Never executes hostinger-next server JS bundles (those may reference
+ * firebase-admin for Next.js RSC / Server Actions at build time).
+ *
  * Synchronous route registration only — safe to call before listen().
  * No compression middleware (LiteSpeed gzips at the edge).
  *

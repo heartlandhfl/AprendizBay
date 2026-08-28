@@ -89,7 +89,19 @@ Then **Save and redeploy**.
 
 Hostinger copies **git-tracked files** into `hbuilds` and does not keep untracked `next build` output. After changing UI code, run `npm run build` **locally** and **commit `hostinger-next/`** (webpack `cache/` is gitignored).
 
-Production installs only **Express** (`dependencies` in `package.json`). Next.js, React, Firebase, TypeScript, Tailwind, and `@types/*` are **devDependencies** — they are not installed on the server. Production **does not load the Next.js runtime** in `server.js` (that OOMs Hostinger LiteSpeed and returns 503, including `/api/health`). Express serves the prerendered HTML and `/_next/static` from `hostinger-next/`. After deploy, `/api/health` should return `"next":"static"`.
+Production installs only **Express** (`dependencies` in `package.json`). Next.js, React, Firebase, TypeScript, Tailwind, and `@types/*` are **devDependencies** — they are not installed on the server. Production **does not load the Next.js runtime** in `server.js` (that OOMs Hostinger LiteSpeed and returns 503, including `/api/health`). Express serves the prerendered HTML and `/_next/static` from `hostinger-next/`. After deploy, `/api/health` should return `"next":"static"` and `"nextRuntime":false`.
+
+**firebase-admin is not used on Hostinger.** It only appears in Next.js server modules (`lib/tutors/server.ts`, `lib/bookings/server.ts`, `lib/reviews/server.ts`) and in committed `hostinger-next/server/**/*.js` bundles from the local build. Express never `require()`s those modules or executes those JS chunks — it only streams the prerendered `.html` / `.rsc` files. `server/next-runtime-guard.js` blocks `require("firebase-admin")` in production as a safety net. You do **not** need `FIREBASE_ADMIN_*` on Hostinger for the static UI or client Firebase features.
+
+**Server features that need firebase-admin do not run on Hostinger today:**
+
+| Feature | Module | Hostinger behavior |
+|---------|--------|-------------------|
+| Tutor SSG data | `lib/tutors/server.ts` | Runs at `npm run build` locally; HTML is committed in `hostinger-next/` |
+| Booking webhook confirm | `lib/bookings/server.ts` | Not wired to Express yet |
+| Review rating recompute | `lib/reviews/server.ts` via `lib/reviews/actions.ts` | Server Action POST never runs without Next.js — ratings are **not** recomputed after a review until you add an Express API (`server/api/`) or deploy to Vercel / another Next host |
+
+`/api/health` includes `"firebaseAdminRuntime":false` so you can confirm the admin SDK never initialized in the Node process.
 
 Firebase web keys are read at **runtime** from Hostinger environment variables (`GET /api/public-config`). You do not need to rebuild `hostinger-next/` just to change `NEXT_PUBLIC_FIREBASE_*`. Set those keys under **Environment variables**, then restart the Node app.
 
@@ -122,7 +134,7 @@ and every Firebase key from `.env.local.example`. Add `teal-penguin-833668.hosti
 | `FIREBASE_ADMIN_PRIVATE_KEY` | Service account JSON → `private_key` (paste with `\n` escapes on one line) |
 | `NEXT_PUBLIC_SITE_URL` | Your production URL, e.g. `https://www.aprendizbay.com.br` (Open Graph / `metadataBase`) |
 
-`FIREBASE_ADMIN_*` is required for Server Actions that recompute tutor ratings after reviews. Client features (auth, bookings, hubs) only need the `NEXT_PUBLIC_FIREBASE_*` vars.
+`FIREBASE_ADMIN_*` is required on **Vercel** (or any Next.js server host) for Server Actions that recompute tutor ratings after reviews. It is **not** required on Hostinger static deploy — see [Hostinger](#2-nextjs--express-on-hostinger). Client features (auth, bookings, hubs) only need the `NEXT_PUBLIC_FIREBASE_*` vars.
 
 4. Deploy. After the first deploy, add the Vercel URL to Firebase **Authorized domains** if you test auth on the preview domain.
 

@@ -1,3 +1,11 @@
+/**
+ * Hostinger audit — firebase-admin (Next.js server modules only)
+ *
+ * confirmBookingWithMeetingUrl is for payment webhooks / server-side flows. Not wired to
+ * Express yet. No hostinger-next page bundle references this file today.
+ *
+ * Not imported by server.js or server/api/. Production Express must not require this module.
+ */
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
 import { generateMeetingUrl } from "@/lib/bookings/meeting";
