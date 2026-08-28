@@ -3,6 +3,7 @@
 const path = require("path");
 const fs = require("fs");
 const { apiRouter } = require("./api");
+const { isProduction, loadNext } = require("./next-runtime-guard");
 
 const DIST_DIR = "hostinger-next";
 
@@ -20,6 +21,15 @@ function resolveAppDir() {
  * @param {import("express").Express} app
  */
 async function attachNext(app) {
+  if (isProduction()) {
+    const message =
+      "attachNext() refused in production — static UI is served from hostinger-next/.";
+    console.error(`[Aprendiz Bay] ${message}`);
+    const error = new Error(message);
+    error.code = "NEXT_RUNTIME_BLOCKED";
+    throw error;
+  }
+
   const dev = process.env.NODE_ENV === "development";
   const appDir = resolveAppDir();
   const buildId = path.join(appDir, DIST_DIR, "BUILD_ID");
@@ -40,9 +50,7 @@ async function attachNext(app) {
     );
   }
 
-  // Production Hostinger must not reach here — server.js serves hostinger-next/
-  // as static files. Loading Next in the LiteSpeed worker causes 503s.
-  const next = require("next");
+  const next = loadNext("attach-next.js");
   const nextApp = next({ dev, dir: appDir });
   await nextApp.prepare();
   return nextApp.getRequestHandler();
