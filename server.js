@@ -48,6 +48,9 @@ app.get("/api/health", (_req, res) => {
     nextError: nextError
       ? String(nextError.stack || nextError.message || nextError).slice(0, 4000)
       : null,
+    firebaseConfigured: Boolean(
+      String(process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "").trim(),
+    ),
   });
 });
 

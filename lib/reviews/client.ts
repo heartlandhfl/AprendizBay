@@ -7,10 +7,11 @@ import {
   where,
   type Unsubscribe,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase/client";
+import { db, requireFirebaseApp, whenFirebaseReady } from "@/lib/firebase/client";
 import type { CreateReviewInput } from "@/lib/reviews/types";
 
 export async function createReview(input: CreateReviewInput): Promise<string> {
+  await requireFirebaseApp();
   const docRef = await addDoc(collection(db, "reviews"), {
     tutorId: input.tutorId,
     studentId: input.studentId,
@@ -28,19 +29,21 @@ export function subscribeToStudentReviewBookingIds(
   onChange: (bookingIds: Set<string>) => void,
   onError?: (error: Error) => void,
 ): Unsubscribe {
-  const reviewsQuery = query(
-    collection(db, "reviews"),
-    where("studentId", "==", studentId),
-  );
+  return whenFirebaseReady(() => {
+    const reviewsQuery = query(
+      collection(db, "reviews"),
+      where("studentId", "==", studentId),
+    );
 
-  return onSnapshot(
-    reviewsQuery,
-    (snapshot) => {
-      const bookingIds = new Set(
-        snapshot.docs.map((docSnap) => docSnap.data().bookingId as string),
-      );
-      onChange(bookingIds);
-    },
-    (error) => onError?.(error),
-  );
+    return onSnapshot(
+      reviewsQuery,
+      (snapshot) => {
+        const bookingIds = new Set(
+          snapshot.docs.map((docSnap) => docSnap.data().bookingId as string),
+        );
+        onChange(bookingIds);
+      },
+      (error) => onError?.(error),
+    );
+  });
 }

@@ -8,7 +8,7 @@ import {
   type User,
 } from "firebase/auth";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase/client";
+import { auth, db, requireFirebaseApp } from "@/lib/firebase/client";
 import type { SignupRole } from "@/lib/auth/types";
 
 const googleProvider = new GoogleAuthProvider();
@@ -24,6 +24,7 @@ async function createUserDocument(
   uid: string,
   { role, displayName, email, photoUrl }: CreateUserDocumentInput,
 ): Promise<void> {
+  await requireFirebaseApp();
   await setDoc(doc(db, "users", uid), {
     role,
     displayName,
@@ -39,6 +40,7 @@ export async function signUpWithEmail(
   displayName: string,
   role: SignupRole,
 ): Promise<User> {
+  await requireFirebaseApp();
   const credential = await createUserWithEmailAndPassword(auth, email, password);
 
   await updateProfile(credential.user, { displayName });
@@ -53,6 +55,7 @@ export async function signUpWithEmail(
 }
 
 export async function signUpWithGoogle(role: SignupRole): Promise<User> {
+  await requireFirebaseApp();
   const result = await signInWithPopup(auth, googleProvider);
   const user = result.user;
 
@@ -76,16 +79,19 @@ export async function signUpWithGoogle(role: SignupRole): Promise<User> {
 }
 
 export async function signInWithEmail(email: string, password: string): Promise<User> {
+  await requireFirebaseApp();
   const credential = await signInWithEmailAndPassword(auth, email, password);
   return credential.user;
 }
 
 export async function signInWithGoogle(): Promise<User> {
+  await requireFirebaseApp();
   const result = await signInWithPopup(auth, googleProvider);
   return result.user;
 }
 
 export async function completeGoogleSignup(role: SignupRole): Promise<User> {
+  await requireFirebaseApp();
   const user = auth.currentUser;
 
   if (!user) {
@@ -112,5 +118,6 @@ export async function completeGoogleSignup(role: SignupRole): Promise<User> {
 }
 
 export async function signOut(): Promise<void> {
+  await requireFirebaseApp();
   await firebaseSignOut(auth);
 }

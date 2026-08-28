@@ -11,7 +11,7 @@ import {
   where,
   type Unsubscribe,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase/client";
+import { db, requireFirebaseApp, whenFirebaseReady } from "@/lib/firebase/client";
 import type {
   Booking,
   BookingStatus,
@@ -39,6 +39,7 @@ export async function createBooking(
   studentId: string,
   input: CreateBookingInput,
 ): Promise<string> {
+  await requireFirebaseApp();
   const bookingData = {
     studentId,
     tutorId: input.tutorId,
@@ -58,6 +59,7 @@ export async function updateBookingStatus(
   bookingId: string,
   status: BookingStatus,
 ): Promise<void> {
+  await requireFirebaseApp();
   await updateDoc(doc(db, "bookings", bookingId), {
     status,
     updatedAt: serverTimestamp(),
@@ -69,6 +71,7 @@ export async function cancelBookingAsStudent(bookingId: string): Promise<void> {
 }
 
 export async function confirmBookingAsTutor(bookingId: string): Promise<void> {
+  await requireFirebaseApp();
   await updateDoc(doc(db, "bookings", bookingId), {
     status: "confirmed",
     meetingUrl: generateMeetingUrl(bookingId),
@@ -87,23 +90,25 @@ export function subscribeToTutorPendingBookings(
   onChange: (bookings: Booking[]) => void,
   onError?: (error: Error) => void,
 ): Unsubscribe {
-  const bookingsQuery = query(
-    collection(db, "bookings"),
-    where("tutorId", "==", tutorId),
-    where("status", "==", "pending"),
-  );
+  return whenFirebaseReady(() => {
+    const bookingsQuery = query(
+      collection(db, "bookings"),
+      where("tutorId", "==", tutorId),
+      where("status", "==", "pending"),
+    );
 
-  return onSnapshot(
-    bookingsQuery,
-    (snapshot) => {
-      onChange(
-        snapshot.docs.map((docSnap) =>
-          mapBookingDoc(docSnap.id, docSnap.data() as Record<string, unknown>),
-        ),
-      );
-    },
-    (error) => onError?.(error),
-  );
+    return onSnapshot(
+      bookingsQuery,
+      (snapshot) => {
+        onChange(
+          snapshot.docs.map((docSnap) =>
+            mapBookingDoc(docSnap.id, docSnap.data() as Record<string, unknown>),
+          ),
+        );
+      },
+      (error) => onError?.(error),
+    );
+  });
 }
 
 export function subscribeToStudentBookings(
@@ -111,28 +116,30 @@ export function subscribeToStudentBookings(
   onChange: (bookings: Booking[]) => void,
   onError?: (error: Error) => void,
 ): Unsubscribe {
-  const bookingsQuery = query(
-    collection(db, "bookings"),
-    where("studentId", "==", studentId),
-  );
+  return whenFirebaseReady(() => {
+    const bookingsQuery = query(
+      collection(db, "bookings"),
+      where("studentId", "==", studentId),
+    );
 
-  return onSnapshot(
-    bookingsQuery,
-    (snapshot) => {
-      const bookings = snapshot.docs
-        .map((docSnap) =>
-          mapBookingDoc(docSnap.id, docSnap.data() as Record<string, unknown>),
-        )
-        .sort((a, b) => {
-          const aTime = a.createdAt?.toMillis?.() ?? 0;
-          const bTime = b.createdAt?.toMillis?.() ?? 0;
-          return bTime - aTime;
-        });
+    return onSnapshot(
+      bookingsQuery,
+      (snapshot) => {
+        const bookings = snapshot.docs
+          .map((docSnap) =>
+            mapBookingDoc(docSnap.id, docSnap.data() as Record<string, unknown>),
+          )
+          .sort((a, b) => {
+            const aTime = a.createdAt?.toMillis?.() ?? 0;
+            const bTime = b.createdAt?.toMillis?.() ?? 0;
+            return bTime - aTime;
+          });
 
-      onChange(bookings);
-    },
-    (error) => onError?.(error),
-  );
+        onChange(bookings);
+      },
+      (error) => onError?.(error),
+    );
+  });
 }
 
 export function subscribeToTutorConfirmedBookings(
@@ -140,25 +147,27 @@ export function subscribeToTutorConfirmedBookings(
   onChange: (bookings: Booking[]) => void,
   onError?: (error: Error) => void,
 ): Unsubscribe {
-  const bookingsQuery = query(
-    collection(db, "bookings"),
-    where("tutorId", "==", tutorId),
-    where("status", "==", "confirmed"),
-  );
+  return whenFirebaseReady(() => {
+    const bookingsQuery = query(
+      collection(db, "bookings"),
+      where("tutorId", "==", tutorId),
+      where("status", "==", "confirmed"),
+    );
 
-  return onSnapshot(
-    bookingsQuery,
-    (snapshot) => {
-      const bookings = snapshot.docs
-        .map((docSnap) =>
-          mapBookingDoc(docSnap.id, docSnap.data() as Record<string, unknown>),
-        )
-        .sort((a, b) => a.scheduledAt.toMillis() - b.scheduledAt.toMillis());
+    return onSnapshot(
+      bookingsQuery,
+      (snapshot) => {
+        const bookings = snapshot.docs
+          .map((docSnap) =>
+            mapBookingDoc(docSnap.id, docSnap.data() as Record<string, unknown>),
+          )
+          .sort((a, b) => a.scheduledAt.toMillis() - b.scheduledAt.toMillis());
 
-      onChange(bookings);
-    },
-    (error) => onError?.(error),
-  );
+        onChange(bookings);
+      },
+      (error) => onError?.(error),
+    );
+  });
 }
 
 export function subscribeToTutorPendingBookingCount(
@@ -174,6 +183,7 @@ export function subscribeToTutorPendingBookingCount(
 }
 
 export async function fetchUserDisplayName(userId: string): Promise<string> {
+  await requireFirebaseApp();
   const snapshot = await getDoc(doc(db, "users", userId));
   if (!snapshot.exists()) {
     return "Usuário";
@@ -183,6 +193,7 @@ export async function fetchUserDisplayName(userId: string): Promise<string> {
 }
 
 export async function fetchTutorName(tutorId: string): Promise<string> {
+  await requireFirebaseApp();
   const snapshot = await getDoc(doc(db, "tutors", tutorId));
   if (!snapshot.exists()) {
     return "Professor";

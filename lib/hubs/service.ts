@@ -10,7 +10,7 @@ import {
   where,
   type Unsubscribe,
 } from "firebase/firestore";
-import { db } from "@/lib/firebase/client";
+import { db, requireFirebaseApp, whenFirebaseReady } from "@/lib/firebase/client";
 import type { FirestoreCollectiveHubDoc } from "@/lib/tutors/firestore-types";
 import { mapFirestoreCollectiveHubDoc } from "@/lib/tutors/map";
 import type {
@@ -33,6 +33,7 @@ export async function createCollectiveHub(
   tutorId: string,
   input: CreateCollectiveHubInput,
 ): Promise<string> {
+  await requireFirebaseApp();
   const docRef = await addDoc(collection(db, "collectiveHubs"), {
     tutorId,
     title: input.title.trim(),
@@ -52,6 +53,7 @@ export async function createCollectiveHub(
 }
 
 export async function joinCollectiveHub(hubId: string, studentId: string): Promise<void> {
+  await requireFirebaseApp();
   await updateDoc(doc(db, "collectiveHubs", hubId), {
     confirmedStudentIds: arrayUnion(studentId),
     updatedAt: serverTimestamp(),
@@ -63,25 +65,27 @@ export function subscribeToTutorCollectiveHubs(
   onChange: (hubs: CollectiveHubLive[]) => void,
   onError?: (error: Error) => void,
 ): Unsubscribe {
-  const hubsQuery = query(
-    collection(db, "collectiveHubs"),
-    where("tutorId", "==", tutorId),
-    where("status", "==", "open"),
-  );
+  return whenFirebaseReady(() => {
+    const hubsQuery = query(
+      collection(db, "collectiveHubs"),
+      where("tutorId", "==", tutorId),
+      where("status", "==", "open"),
+    );
 
-  return onSnapshot(
-    hubsQuery,
-    (snapshot) => {
-      const hubs = snapshot.docs
-        .map((docSnap) =>
-          mapHubDoc(docSnap.id, docSnap.data() as FirestoreCollectiveHubDoc),
-        )
-        .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
+    return onSnapshot(
+      hubsQuery,
+      (snapshot) => {
+        const hubs = snapshot.docs
+          .map((docSnap) =>
+            mapHubDoc(docSnap.id, docSnap.data() as FirestoreCollectiveHubDoc),
+          )
+          .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
 
-      onChange(hubs);
-    },
-    (error) => onError?.(error),
-  );
+        onChange(hubs);
+      },
+      (error) => onError?.(error),
+    );
+  });
 }
 
 export function formatHubPrice(price: number): string {

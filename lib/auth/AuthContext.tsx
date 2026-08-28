@@ -8,9 +8,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { onAuthStateChanged, type User } from "firebase/auth";
-import { doc, onSnapshot } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase/client";
+import { getAuth, onAuthStateChanged, type User } from "firebase/auth";
+import { doc, getFirestore, onSnapshot } from "firebase/firestore";
+import { ensureFirebaseApp } from "@/lib/firebase/client";
 import type { UserDoc } from "@/lib/auth/types";
 
 interface AuthContextValue {
@@ -28,17 +28,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profileLoading, setProfileLoading] = useState(false);
 
   useEffect(() => {
-    const unsubscribeAuth = onAuthStateChanged(auth, (nextUser) => {
-      setUser(nextUser);
-      setAuthLoading(false);
+    let unsubscribeAuth = () => {};
+    let cancelled = false;
 
-      if (!nextUser) {
-        setUserDoc(null);
-        setProfileLoading(false);
+    void ensureFirebaseApp().then((app) => {
+      if (cancelled) {
+        return;
       }
+
+      if (!app) {
+        setAuthLoading(false);
+        return;
+      }
+
+      unsubscribeAuth = onAuthStateChanged(getAuth(app), (nextUser) => {
+        setUser(nextUser);
+        setAuthLoading(false);
+
+        if (!nextUser) {
+          setUserDoc(null);
+          setProfileLoading(false);
+        }
+      });
     });
 
-    return unsubscribeAuth;
+    return () => {
+      cancelled = true;
+      unsubscribeAuth();
+    };
   }, []);
 
   useEffect(() => {
@@ -46,22 +63,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    let unsubscribeProfile = () => {};
+    let cancelled = false;
     setProfileLoading(true);
 
-    const userRef = doc(db, "users", user.uid);
-    const unsubscribeProfile = onSnapshot(
-      userRef,
-      (snapshot) => {
-        setUserDoc(snapshot.exists() ? (snapshot.data() as UserDoc) : null);
-        setProfileLoading(false);
-      },
-      () => {
-        setUserDoc(null);
-        setProfileLoading(false);
-      },
-    );
+    void ensureFirebaseApp().then((app) => {
+      if (cancelled || !app) {
+        if (!cancelled) {
+          setUserDoc(null);
+          setProfileLoading(false);
+        }
+        return;
+      }
 
-    return unsubscribeProfile;
+      const userRef = doc(getFirestore(app), "users", user.uid);
+      unsubscribeProfile = onSnapshot(
+        userRef,
+        (snapshot) => {
+          setUserDoc(snapshot.exists() ? (snapshot.data() as UserDoc) : null);
+          setProfileLoading(false);
+        },
+        () => {
+          setUserDoc(null);
+          setProfileLoading(false);
+        },
+      );
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribeProfile();
+    };
   }, [user]);
 
   const value = useMemo(
