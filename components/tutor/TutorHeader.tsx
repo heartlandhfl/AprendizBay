@@ -1,6 +1,7 @@
 import Image from "next/image";
-import { BadgeCheck, Clock, MapPin, Monitor, Star, Users } from "lucide-react";
+import { BadgeCheck, Clock, MapPin, Monitor, Users } from "lucide-react";
 import type { TutorProfile } from "@/lib/tutor-profiles";
+import TutorRatingStats from "@/components/tutor/TutorRatingStats";
 
 interface TutorHeaderProps {
   tutor: TutorProfile;
@@ -55,14 +56,11 @@ export default function TutorHeader({ tutor }: TutorHeaderProps) {
           </p>
 
           <div className="mt-3 flex flex-wrap items-center justify-center gap-3 text-sm text-muted-foreground sm:justify-start">
-            <span className="inline-flex items-center gap-1">
-              <Star
-                className="h-4 w-4 fill-secondary-400 text-secondary-400"
-                aria-hidden="true"
-              />
-              <span className="font-semibold text-foreground">{tutor.rating}</span>
-              ({tutor.reviewCount} avaliações)
-            </span>
+            <TutorRatingStats
+              tutorId={tutor.id}
+              initialRating={tutor.rating}
+              initialReviewCount={tutor.reviewCount}
+            />
             <span className="text-border">·</span>
             <span className="inline-flex items-center gap-1">
               {tutor.modality === "online" ? (
