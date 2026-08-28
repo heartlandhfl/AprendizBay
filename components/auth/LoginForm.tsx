@@ -25,7 +25,7 @@ export default function LoginForm() {
       return;
     }
 
-    const redirectParam = searchParams.get("redirect");
+    const redirectParam = searchParams.get("next") || searchParams.get("redirect");
     router.replace(redirectParam || "/");
   }
 
