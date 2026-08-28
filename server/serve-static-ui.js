@@ -5,6 +5,7 @@ const fs = require("fs");
 const express = require("express");
 
 const DIST_DIR = "hostinger-next";
+const NEXT_STATIC_CACHE_CONTROL = "public, max-age=31536000, immutable";
 
 function resolveAppDir() {
   const candidates = [path.resolve(__dirname, ".."), process.cwd()];
@@ -46,9 +47,46 @@ function resolvePageFile(appOut, urlPath, rsc) {
 }
 
 /**
+ * Stream a file from disk with validators. Never reads the file body into
+ * memory — Express/send uses sendFile + conditional GET (ETag / Last-Modified).
+ *
+ * @param {import("express").Response} res
+ * @param {string} filePath
+ * @param {{ status?: number, contentType?: string }} [options]
+ * @param {() => void} [onMissing]
+ */
+function streamFile(res, filePath, options, onMissing) {
+  const { status = 200, contentType } = options || {};
+  res.status(status);
+  if (contentType) {
+    res.type(contentType);
+  }
+
+  res.sendFile(
+    filePath,
+    { etag: true, lastModified: true, dotfiles: "deny" },
+    (error) => {
+      if (!error) {
+        return;
+      }
+      if (error.code === "ENOENT" && onMissing) {
+        onMissing();
+        return;
+      }
+      if (!res.headersSent) {
+        res.status(error.statusCode || 500).end();
+      }
+    },
+  );
+}
+
+/**
  * Serve the committed Next.js prerender (HTML + /_next/static) without
  * loading the Next runtime. Hostinger LiteSpeed kills the process when
  * `require("next")` / `prepare()` runs in the web worker.
+ *
+ * Synchronous route registration only — safe to call before listen().
+ * No compression middleware (LiteSpeed gzips at the edge).
  *
  * @param {import("express").Express} app
  * @param {string} appDir
@@ -64,8 +102,13 @@ function attachStaticUi(app, appDir) {
       "/_next/static",
       express.static(staticDir, {
         fallthrough: false,
+        etag: true,
+        lastModified: true,
         immutable: true,
         maxAge: "365d",
+        setHeaders(res) {
+          res.setHeader("Cache-Control", NEXT_STATIC_CACHE_CONTROL);
+        },
       }),
     );
   }
@@ -80,17 +123,27 @@ function attachStaticUi(app, appDir) {
   });
 
   if (fs.existsSync(publicDir)) {
-    app.use(express.static(publicDir, { fallthrough: true }));
+    app.use(
+      express.static(publicDir, {
+        fallthrough: true,
+        etag: true,
+        lastModified: true,
+      }),
+    );
   }
 
   app.get("/favicon.ico", (req, res, next) => {
     const file = path.join(appOut, "favicon.ico.body");
-    if (!fs.existsSync(file)) {
-      next();
-      return;
-    }
     res.type("image/x-icon");
-    res.sendFile(file);
+    res.sendFile(file, { etag: true, lastModified: true }, (error) => {
+      if (error?.code === "ENOENT") {
+        next();
+        return;
+      }
+      if (error && !res.headersSent) {
+        next(error);
+      }
+    });
   });
 
   app.get("*", (req, res) => {
@@ -102,26 +155,24 @@ function attachStaticUi(app, appDir) {
     const wantsRsc = req.get("rsc") === "1";
     const urlPath = normalizePath(req.path);
     const pageFile = resolvePageFile(appOut, urlPath, wantsRsc);
+    const contentType = wantsRsc ? "text/x-component" : "html";
 
-    if (pageFile && fs.existsSync(pageFile)) {
-      res.status(200);
-      res.type(wantsRsc ? "text/x-component" : "html");
-      res.sendFile(pageFile);
+    if (!pageFile) {
+      res.status(404).type("text").send("Not found");
       return;
     }
 
-    const notFound = path.join(
-      appOut,
-      wantsRsc ? "_not-found.rsc" : "_not-found.html",
-    );
-    if (fs.existsSync(notFound)) {
-      res.status(404);
-      res.type(wantsRsc ? "text/x-component" : "html");
-      res.sendFile(notFound);
-      return;
-    }
-
-    res.status(404).type("text").send("Not found");
+    streamFile(res, pageFile, { status: 200, contentType }, () => {
+      const notFound = path.join(
+        appOut,
+        wantsRsc ? "_not-found.rsc" : "_not-found.html",
+      );
+      streamFile(res, notFound, { status: 404, contentType }, () => {
+        if (!res.headersSent) {
+          res.status(404).type("text").send("Not found");
+        }
+      });
+    });
   });
 }
 
