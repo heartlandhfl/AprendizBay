@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Must not be gitignored: Hostinger copies hbuilds using gitignore, so
-  // `.next` never reaches the runtime folder. `npm run build` writes here.
+  // Hostinger copies git-tracked files into hbuilds. Keep this folder
+  // committed (except cache/) so BUILD_ID exists at runtime.
   distDir: "hostinger-next",
   eslint: {
     ignoreDuringBuilds: true,

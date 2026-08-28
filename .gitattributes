@@ -1,0 +1,3 @@
+# Production Next.js output committed so Hostinger's git-based hbuilds copy
+# includes BUILD_ID. Treat as generated so GitHub does not count it as source.
+hostinger-next/** linguist-generated=true

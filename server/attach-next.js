@@ -36,7 +36,7 @@ async function attachNext(app) {
 
   if (!dev && !fs.existsSync(buildId)) {
     throw new Error(
-      `Missing ${buildId}. Hostinger strips gitignored Next output; keep "${DIST_DIR}/" out of .gitignore and set Build command to "build".`,
+      `Missing ${buildId}. Hostinger copies git-tracked files only; run "npm run build" and commit "${DIST_DIR}/" (keep cache/ gitignored).`,
     );
   }
 

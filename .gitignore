@@ -9,10 +9,15 @@
 # testing
 /coverage
 
-# next.js local cache (do NOT ignore hostinger-next — Hostinger's hbuilds
-# copy uses gitignore and would drop the production UI build)
+# next.js local cache
 /.next/
 /out/
+
+# Hostinger copies git-tracked files into hbuilds, so the production UI
+# output in hostinger-next/ must be committed. Ignore only webpack cache
+# (100MB+ packs) and the build trace — neither is needed at runtime.
+/hostinger-next/cache/
+/hostinger-next/trace
 
 # production
 /build
