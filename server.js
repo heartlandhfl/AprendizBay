@@ -74,6 +74,7 @@ app.get("/api/health", (_req, res) => {
     mode: "express",
     next: uiError ? "error" : nextHandle ? "ready" : uiMode,
     nextRuntime: dev ? Boolean(nextHandle) : false,
+    firebaseAdminRuntime: false,
     nextError: uiError
       ? String(uiError.stack || uiError.message || uiError).slice(0, 4000)
       : null,
