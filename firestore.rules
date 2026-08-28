@@ -22,7 +22,7 @@ rules_version = '2';
 //   bookings/{bookingId}
 //     studentId, tutorId, hubId?, type: "individual" | "coletivo"
 //     status: "pending" | "confirmed" | "cancelled" | "completed"
-//     scheduledAt, price, createdAt, updatedAt
+//     scheduledAt, price, meetingUrl?, createdAt, updatedAt
 //
 //   reviews/{reviewId}
 //     tutorId, studentId, bookingId, rating, comment, createdAt
@@ -197,7 +197,7 @@ service cloud.firestore {
           && resource.data.status in ["pending", "confirmed"])
         || (resource.data.tutorId == request.auth.uid
           && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(["status", "updatedAt"])
+            .hasOnly(["status", "updatedAt", "meetingUrl"])
           && request.resource.data.status in ["confirmed", "cancelled", "completed"]);
 
       allow delete: if isAdmin();

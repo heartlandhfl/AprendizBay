@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import BookingStatusBadge from "@/components/bookings/BookingStatusBadge";
+import JoinLessonButton from "@/components/bookings/JoinLessonButton";
 import { useAuth } from "@/lib/auth/AuthContext";
 import type { Booking } from "@/lib/bookings/types";
 import { BOOKING_TYPE_LABELS } from "@/lib/bookings/types";
@@ -133,6 +134,12 @@ export default function StudentBookingsList() {
                     </dd>
                   </div>
                 </dl>
+
+                {booking.status === "confirmed" && booking.meetingUrl && (
+                  <div className="mt-4">
+                    <JoinLessonButton meetingUrl={booking.meetingUrl} />
+                  </div>
+                )}
 
                 {canCancel && (
                   <button

@@ -15,6 +15,7 @@ export interface Booking {
   scheduledAt: Timestamp;
   createdAt: Timestamp;
   updatedAt?: Timestamp;
+  meetingUrl?: string;
 }
 
 export interface CreateBookingInput {
