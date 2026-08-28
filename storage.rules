@@ -16,6 +16,12 @@ rules_version = '2';
 //   bookings/{bookingId}/materials/{file}    Lesson files (student + tutor only)
 //
 // NOTE: Validate with the Firebase Emulator Suite before deploying to production.
+//
+// ---------------------------------------------------------------------------
+// App write-path audit (MVP)
+// ---------------------------------------------------------------------------
+// No client or server upload helpers are implemented yet. Rules below are ready
+// for future profile/credential/material uploads but are unused by the app today.
 // =============================================================================
 
 service firebase.storage {
