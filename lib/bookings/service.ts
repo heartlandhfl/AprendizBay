@@ -17,6 +17,7 @@ import type {
   BookingStatus,
   CreateBookingInput,
 } from "@/lib/bookings/types";
+import { generateMeetingUrl } from "@/lib/bookings/meeting";
 
 function mapBookingDoc(id: string, data: Record<string, unknown>): Booking {
   return {
@@ -30,6 +31,7 @@ function mapBookingDoc(id: string, data: Record<string, unknown>): Booking {
     scheduledAt: data.scheduledAt as Timestamp,
     createdAt: data.createdAt as Timestamp,
     updatedAt: data.updatedAt as Timestamp | undefined,
+    meetingUrl: data.meetingUrl as string | undefined,
   };
 }
 
@@ -67,7 +69,11 @@ export async function cancelBookingAsStudent(bookingId: string): Promise<void> {
 }
 
 export async function confirmBookingAsTutor(bookingId: string): Promise<void> {
-  await updateBookingStatus(bookingId, "confirmed");
+  await updateDoc(doc(db, "bookings", bookingId), {
+    status: "confirmed",
+    meetingUrl: generateMeetingUrl(bookingId),
+    updatedAt: serverTimestamp(),
+  });
 }
 
 export async function cancelBookingAsTutor(bookingId: string): Promise<void> {
@@ -120,6 +126,32 @@ export function subscribeToStudentBookings(
           const bTime = b.createdAt?.toMillis?.() ?? 0;
           return bTime - aTime;
         });
+
+      onChange(bookings);
+    },
+    (error) => onError?.(error),
+  );
+}
+
+export function subscribeToTutorConfirmedBookings(
+  tutorId: string,
+  onChange: (bookings: Booking[]) => void,
+  onError?: (error: Error) => void,
+): Unsubscribe {
+  const bookingsQuery = query(
+    collection(db, "bookings"),
+    where("tutorId", "==", tutorId),
+    where("status", "==", "confirmed"),
+  );
+
+  return onSnapshot(
+    bookingsQuery,
+    (snapshot) => {
+      const bookings = snapshot.docs
+        .map((docSnap) =>
+          mapBookingDoc(docSnap.id, docSnap.data() as Record<string, unknown>),
+        )
+        .sort((a, b) => a.scheduledAt.toMillis() - b.scheduledAt.toMillis());
 
       onChange(bookings);
     },
