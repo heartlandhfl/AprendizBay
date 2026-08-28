@@ -71,7 +71,31 @@ Populate demo tutors (optional, local only — requires admin credentials in `.e
 npx tsx scripts/seed.ts
 ```
 
-### 2. Next.js on Vercel
+### 2. Next.js on Hostinger
+
+This app is **Next.js**, not Express. Hostinger remembers the framework chosen at first import; a Git push does **not** change it. If the site was created as Express with entry `server.js`, every deploy will fail until the preset is corrected.
+
+In hPanel → the website → **Deployments** → **Deployment settings** (or click **Fix and redeploy** on the failed build):
+
+| Setting | Required value |
+|---------|----------------|
+| Framework / application type | **next** (not Express) |
+| Node.js version | **20** |
+| Build command | `build` (`npm run build`) |
+| Output directory | `.next` |
+| Entry file | **empty** (Next.js does not use `server.js`) |
+
+Then **Save and redeploy**.
+
+Set environment variables under **Environment variables**, including:
+
+```text
+NEXT_PUBLIC_SITE_URL=https://teal-penguin-833668.hostingersite.com
+```
+
+and every Firebase key from `.env.local.example`. Add `teal-penguin-833668.hostingersite.com` to Firebase **Authentication → Authorized domains**.
+
+### 3. Next.js on Vercel
 
 1. Import this repository in [Vercel](https://vercel.com).
 2. Framework preset: **Next.js** (default build: `npm run build`).

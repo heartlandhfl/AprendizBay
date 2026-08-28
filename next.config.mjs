@@ -1,8 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Hostinger wraps Next apps with standalone output; set it here so a
-  // standalone server is produced even if that wrap is skipped.
-  output: "standalone",
+  // Do not set output: "standalone" here. Hostinger's Next.js preset wraps
+  // this file and injects standalone itself. Setting it in-repo produces
+  // .next/standalone/server.js, which their Express detector treats as the
+  // app entry and then fails because this is not an Express project.
   eslint: {
     ignoreDuringBuilds: true,
   },
