@@ -1,56 +1,99 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Users } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Loader2, Users } from "lucide-react";
 import SearchFilters, {
   DEFAULT_FILTERS,
   type SearchFilterState,
 } from "@/components/search/SearchFilters";
 import TutorCard from "@/components/search/TutorCard";
-import { MOCK_TUTORS, PRICE_RANGES } from "@/lib/mock-tutors";
+import { PRICE_RANGES, type Tutor } from "@/lib/mock-tutors";
+import { fetchVerifiedTutors } from "@/lib/tutors/client";
 
-function filterTutors(filters: SearchFilterState) {
+function applyClientFilters(tutors: Tutor[], filters: SearchFilterState) {
   const priceRange = PRICE_RANGES[filters.priceRangeIndex];
 
-  return MOCK_TUTORS.filter((tutor) => {
-    if (
-      filters.subject !== "Todas as matérias" &&
-      tutor.subject !== filters.subject
-    ) {
-      return false;
-    }
-
-    const priceToCheck =
-      filters.lessonType === "coletivo"
-        ? tutor.collectivePrice
-        : tutor.individualPrice;
-
-    if (priceToCheck < priceRange.min || priceToCheck > priceRange.max) {
-      return false;
-    }
-
-    if (
-      filters.modality !== "todos" &&
-      tutor.modality !== filters.modality &&
-      tutor.modality !== "ambos"
-    ) {
-      return false;
-    }
-
-    if (filters.lessonType !== "todos") {
-      const lessonType = filters.lessonType;
-      if (!tutor.lessonTypes.includes(lessonType)) {
+  return tutors
+    .filter((tutor) => {
+      if (
+        filters.subject !== "Todas as matérias" &&
+        tutor.subject !== filters.subject
+      ) {
         return false;
       }
-    }
 
-    return true;
-  });
+      const priceToCheck =
+        filters.lessonType === "coletivo"
+          ? tutor.collectivePrice
+          : tutor.individualPrice;
+
+      if (priceToCheck < priceRange.min || priceToCheck > priceRange.max) {
+        return false;
+      }
+
+      if (
+        filters.modality !== "todos" &&
+        tutor.modality !== filters.modality &&
+        tutor.modality !== "ambos"
+      ) {
+        return false;
+      }
+
+      if (filters.lessonType !== "todos") {
+        const lessonType = filters.lessonType;
+        if (!tutor.lessonTypes.includes(lessonType)) {
+          return false;
+        }
+      }
+
+      return true;
+    })
+    .sort((a, b) => b.rating - a.rating);
 }
 
 export default function SearchResults() {
   const [filters, setFilters] = useState<SearchFilterState>(DEFAULT_FILTERS);
-  const results = useMemo(() => filterTutors(filters), [filters]);
+  const [tutors, setTutors] = useState<Tutor[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadTutors() {
+      setLoading(true);
+
+      try {
+        const fetchedTutors = await fetchVerifiedTutors({
+          subject: filters.subject,
+          modality: filters.modality,
+        });
+
+        if (!cancelled) {
+          setTutors(fetchedTutors);
+        }
+      } catch (error) {
+        console.error("[Aprendiz Bay] Erro ao buscar tutores:", error);
+        if (!cancelled) {
+          setTutors([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadTutors();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [filters.subject, filters.modality]);
+
+  const results = useMemo(
+    () => applyClientFilters(tutors, filters),
+    [filters, tutors],
+  );
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -89,7 +132,12 @@ export default function SearchResults() {
             </span>
           </div>
 
-          {results.length > 0 ? (
+          {loading ? (
+            <div className="flex min-h-[240px] items-center justify-center rounded-2xl bg-muted/40">
+              <Loader2 className="h-8 w-8 animate-spin text-primary-600" aria-hidden="true" />
+              <span className="sr-only">Carregando professores...</span>
+            </div>
+          ) : results.length > 0 ? (
             <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-2">
               {results.map((tutor) => (
                 <TutorCard key={tutor.id} tutor={tutor} />

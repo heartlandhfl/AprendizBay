@@ -5,18 +5,19 @@ import { ArrowLeft } from "lucide-react";
 import TutorHeader from "@/components/tutor/TutorHeader";
 import TutorAbout from "@/components/tutor/TutorAbout";
 import BookingWidget from "@/components/tutor/BookingWidget";
-import { getAllTutorIds, getTutorProfile } from "@/lib/tutor-profiles";
+import { fetchAllTutorIds, fetchTutorProfile } from "@/lib/tutors/server";
 
 interface TutorPageProps {
   params: { id: string };
 }
 
-export function generateStaticParams() {
-  return getAllTutorIds().map((id) => ({ id }));
+export async function generateStaticParams() {
+  const ids = await fetchAllTutorIds();
+  return ids.map((id) => ({ id }));
 }
 
-export function generateMetadata({ params }: TutorPageProps): Metadata {
-  const tutor = getTutorProfile(params.id);
+export async function generateMetadata({ params }: TutorPageProps): Promise<Metadata> {
+  const tutor = await fetchTutorProfile(params.id);
 
   if (!tutor) {
     return { title: "Professor não encontrado — Aprendiz Bay" };
@@ -28,8 +29,8 @@ export function generateMetadata({ params }: TutorPageProps): Metadata {
   };
 }
 
-export default function TutorPage({ params }: TutorPageProps) {
-  const tutor = getTutorProfile(params.id);
+export default async function TutorPage({ params }: TutorPageProps) {
+  const tutor = await fetchTutorProfile(params.id);
 
   if (!tutor) {
     notFound();
