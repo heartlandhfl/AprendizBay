@@ -23,11 +23,11 @@ Abra [http://localhost:3000](http://localhost:3000) no navegador.
 ## Estrutura
 
 ```
-app/               # Next.js App Router (UI)
+app/                 # Next.js App Router (UI)
 server/
-  index.ts         # Express + Next custom server
-  api/             # HTTP APIs mounted at /api
-server.js          # Hostinger Express entry (loads dist-server/)
+  attach-next.js     # Loads Next.js after Express is listening
+  api/               # HTTP APIs mounted at /api (plain JS, no compile step)
+server.js            # Hostinger Express entry
 ```
 
 ## Design System
@@ -80,13 +80,13 @@ In hPanel → **Deployments** → **Deployment settings**:
 |---------|----------------|
 | Framework / application type | **express** |
 | Node.js version | **20** |
-| Build command | **build** (`next build` then compile `server/`) |
+| Build command | **build** (`next build` only — Express files are committed JS) |
 | Output directory | **leave empty** (do not set `.next` or `dist`) |
 | Entry file | **`server.js`** |
 
 Then **Save and redeploy**. If the site shows Hostinger’s 503 page, open **Runtime Logs**. `server.js` binds `PORT` before loading Next.js; `/api/health` should respond even while the UI is still starting.
 
-Add routes in `server/api/` and mount them from `server/api/index.ts` (they are served at `/api/...`). Example: `GET /api/health`.
+Add routes in `server/api/` and mount them from `server/api/index.js` (they are served at `/api/...`). Example: `GET /api/health`.
 
 Set environment variables under **Environment variables**, including:
 
