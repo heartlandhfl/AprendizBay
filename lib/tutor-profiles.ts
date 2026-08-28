@@ -22,7 +22,7 @@ export interface TutorProfile extends Tutor {
   collectiveHubs: CollectiveHub[];
 }
 
-const PROFILE_DETAILS: Record<
+export const TUTOR_PROFILE_DETAILS: Record<
   string,
   Omit<TutorProfile, keyof Tutor>
 > = {
@@ -180,12 +180,12 @@ export function getTutorProfile(id: string): TutorProfile | undefined {
   const base = MOCK_TUTORS.find((t) => t.id === id);
   if (!base) return undefined;
 
-  const details = PROFILE_DETAILS[id];
+  const details = TUTOR_PROFILE_DETAILS[id];
   if (!details) return undefined;
 
   return { ...base, ...details };
 }
 
 export function getAllTutorIds(): string[] {
-  return Object.keys(PROFILE_DETAILS);
+  return Object.keys(TUTOR_PROFILE_DETAILS);
 }
