@@ -26,4 +26,6 @@ function createAdminApp(): App {
   });
 }
 
-export const adminApp: App = createAdminApp();
+export function getAdminApp(): App {
+  return createAdminApp();
+}
