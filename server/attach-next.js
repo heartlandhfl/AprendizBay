@@ -2,7 +2,6 @@
 
 const path = require("path");
 const fs = require("fs");
-const next = require("next");
 const { apiRouter } = require("./api");
 
 const DIST_DIR = "hostinger-next";
@@ -17,39 +16,13 @@ function resolveAppDir() {
   return candidates[0];
 }
 
-function assertWritable(dir) {
-  fs.mkdirSync(dir, { recursive: true });
-  const probe = path.join(dir, `.write-test-${process.pid}`);
-  fs.writeFileSync(probe, "ok");
-  fs.unlinkSync(probe);
-}
-
-function hasBuildId(appDir) {
-  return fs.existsSync(path.join(appDir, DIST_DIR, "BUILD_ID"));
-}
-
-async function runNextBuild(appDir) {
-  const nextBuild = require("next/dist/build").default;
-  console.log(`[Aprendiz Bay] Building Next.js (in-process) in ${appDir}`);
-  await nextBuild(
-    appDir,
-    false,
-    false,
-    false,
-    false,
-    false,
-    false,
-    "default",
-  );
-}
-
 /**
  * @param {import("express").Express} app
  */
 async function attachNext(app) {
   const dev = process.env.NODE_ENV === "development";
   const appDir = resolveAppDir();
-  const distDir = path.join(appDir, DIST_DIR);
+  const buildId = path.join(appDir, DIST_DIR, "BUILD_ID");
 
   try {
     console.log(
@@ -59,24 +32,15 @@ async function attachNext(app) {
     console.error("[Aprendiz Bay] Could not list app dir:", error);
   }
 
-  try {
-    assertWritable(distDir);
-  } catch (error) {
+  app.use("/api", apiRouter);
+
+  if (!dev && !fs.existsSync(buildId)) {
     throw new Error(
-      `Cannot write Next.js output to ${distDir}: ${error instanceof Error ? error.message : error}`,
+      `Missing ${buildId}. Hostinger strips gitignored Next output; keep "${DIST_DIR}/" out of .gitignore and set Build command to "build".`,
     );
   }
 
-  if (!dev && !hasBuildId(appDir)) {
-    await runNextBuild(appDir);
-  }
-
-  if (!dev && !hasBuildId(appDir)) {
-    throw new Error(`next build did not produce ${path.join(distDir, "BUILD_ID")}`);
-  }
-
-  app.use("/api", apiRouter);
-
+  const next = require("next");
   const nextApp = next({ dev, dir: appDir });
   await nextApp.prepare();
   return nextApp.getRequestHandler();
