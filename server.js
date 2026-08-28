@@ -9,6 +9,7 @@ if (process.env.NODE_ENV !== "development") {
 }
 
 const express = require("express");
+const path = require("path");
 
 function getPort() {
   const raw = process.env.PORT;
@@ -78,7 +79,7 @@ httpServer.on("error", (error) => {
 
 setImmediate(() => {
   try {
-    const { attachNext } = require("./dist-server/attach-next.js");
+    const { attachNext } = require(path.join(__dirname, "server", "attach-next.js"));
     Promise.resolve(attachNext(app))
       .then((handle) => {
         nextHandle = handle;

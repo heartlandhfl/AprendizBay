@@ -1,6 +1,8 @@
-import { Router } from "express";
+"use strict";
 
-export const healthRouter = Router();
+const { Router } = require("express");
+
+const healthRouter = Router();
 
 healthRouter.get("/", (_req, res) => {
   res.json({
@@ -9,3 +11,5 @@ healthRouter.get("/", (_req, res) => {
     mode: "express",
   });
 });
+
+module.exports = { healthRouter };
