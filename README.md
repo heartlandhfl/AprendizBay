@@ -4,10 +4,12 @@ Plataforma brasileira de tutoria e aprendizado coletivo — um marketplace de pr
 
 ## Stack
 
-- **Next.js 14** (App Router)
+- **Next.js 14** (App Router) served by **Express** (`server.js`)
 - **TypeScript**
 - **Tailwind CSS**
 - **Lucide React** (ícones)
+
+HTTP APIs live in `server/api/` and are mounted at `/api`. `npm run dev` starts Express + Next together.
 
 ## Desenvolvimento
 
@@ -21,14 +23,11 @@ Abra [http://localhost:3000](http://localhost:3000) no navegador.
 ## Estrutura
 
 ```
-app/
-  layout.tsx       # Layout global (Navbar + Footer)
-  page.tsx         # Página inicial
-  globals.css      # Estilos globais e variáveis CSS
-components/
-  layout/
-    Navbar.tsx     # Barra de navegação responsiva
-    Footer.tsx     # Rodapé minimalista
+app/               # Next.js App Router (UI)
+server/
+  index.ts         # Express + Next custom server
+  api/             # HTTP APIs mounted at /api
+server.js          # Hostinger Express entry (loads dist-server/)
 ```
 
 ## Design System
@@ -71,21 +70,23 @@ Populate demo tutors (optional, local only — requires admin credentials in `.e
 npx tsx scripts/seed.ts
 ```
 
-### 2. Next.js on Hostinger
+### 2. Next.js + Express on Hostinger
 
-This app is **Next.js**, not Express. Hostinger remembers the framework chosen at first import; a Git push does **not** change it. If the site was created as Express with entry `server.js`, every deploy will fail until the preset is corrected.
+The UI is Next.js. HTTP APIs live in Express (`server/api`), and both run in **one process** via `server.js`.
 
-In hPanel → the website → **Deployments** → **Deployment settings** (or click **Fix and redeploy** on the failed build):
+In hPanel → **Deployments** → **Deployment settings**:
 
 | Setting | Required value |
 |---------|----------------|
-| Framework / application type | **next** (not Express) |
+| Framework / application type | **express** |
 | Node.js version | **20** |
-| Build command | `build` (`npm run build`) |
-| Output directory | `.next` |
-| Entry file | **empty** (Next.js does not use `server.js`) |
+| Build command | **build** (`next build` then compile `server/`) |
+| Output directory | **leave empty** (do not set `.next` or `dist`) |
+| Entry file | **`server.js`** |
 
 Then **Save and redeploy**.
+
+Add routes in `server/api/` and mount them from `server/api/index.ts` (they are served at `/api/...`). Example: `GET /api/health`.
 
 Set environment variables under **Environment variables**, including:
 
