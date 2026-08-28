@@ -40,6 +40,8 @@ async function attachNext(app) {
     );
   }
 
+  // Production Hostinger must not reach here — server.js serves hostinger-next/
+  // as static files. Loading Next in the LiteSpeed worker causes 503s.
   const next = require("next");
   const nextApp = next({ dev, dir: appDir });
   await nextApp.prepare();

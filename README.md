@@ -86,7 +86,9 @@ In hPanel → **Deployments** → **Deployment settings**:
 
 Then **Save and redeploy**.
 
-Hostinger copies **git-tracked files** into `hbuilds` and does not keep untracked `next build` output. After changing UI code, run `npm run build` and **commit `hostinger-next/`** (webpack `cache/` is gitignored). After deploy, `/api/health` should stay up; `"next":"ready"` means the UI is live.
+Hostinger copies **git-tracked files** into `hbuilds` and does not keep untracked `next build` output. After changing UI code, run `npm run build` and **commit `hostinger-next/`** (webpack `cache/` is gitignored).
+
+Production **does not load the Next.js runtime** in `server.js` (that OOMs Hostinger LiteSpeed and returns 503, including `/api/health`). Express serves the prerendered HTML and `/_next/static` from `hostinger-next/`. After deploy, `/api/health` should return `"next":"static"`.
 
 Firebase web keys are read at **runtime** from Hostinger environment variables (`GET /api/public-config`). You do not need to rebuild `hostinger-next/` just to change `NEXT_PUBLIC_FIREBASE_*`. Set those keys under **Environment variables**, then restart the Node app.
 
