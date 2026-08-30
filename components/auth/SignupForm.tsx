@@ -31,7 +31,9 @@ export default function SignupForm() {
     }
 
     if (user && userDoc) {
-      router.replace(userDoc.role === "tutor" ? "/tutor/dashboard" : "/bookings");
+      router.replace(
+        userDoc.role === "tutor" ? "/tutor/onboarding" : "/bookings",
+      );
     }
   }, [authLoading, router, user, userDoc]);
 
@@ -51,7 +53,7 @@ export default function SignupForm() {
 
     try {
       await signUpWithEmail(email.trim(), password, displayName.trim(), role);
-      router.replace(role === "tutor" ? "/tutor/dashboard" : "/bookings");
+      router.replace(role === "tutor" ? "/tutor/onboarding" : "/bookings");
     } catch (signupError) {
       setError(getAuthErrorMessage(signupError));
     } finally {
@@ -69,7 +71,7 @@ export default function SignupForm() {
       } else {
         await signUpWithGoogle(role);
       }
-      router.replace(role === "tutor" ? "/tutor/dashboard" : "/bookings");
+      router.replace(role === "tutor" ? "/tutor/onboarding" : "/bookings");
     } catch (signupError) {
       setError(getAuthErrorMessage(signupError));
     } finally {
