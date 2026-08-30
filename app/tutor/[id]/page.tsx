@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import TutorHeader from "@/components/tutor/TutorHeader";
 import TutorAbout from "@/components/tutor/TutorAbout";
 import BookingWidget from "@/components/tutor/BookingWidget";
+import SendMessageButton from "@/components/conversations/SendMessageButton";
 import { fetchAllTutorIds, fetchTutorProfile } from "@/lib/tutors/server";
 
 interface TutorPageProps {
@@ -52,7 +53,8 @@ export default async function TutorPage({ params }: TutorPageProps) {
           <TutorAbout tutor={tutor} />
         </div>
 
-        <div className="mt-8 lg:mt-0">
+        <div className="mt-8 space-y-4 lg:mt-0">
+          <SendMessageButton tutorId={tutor.id} tutorName={tutor.name} />
           <BookingWidget tutor={tutor} />
         </div>
       </div>
