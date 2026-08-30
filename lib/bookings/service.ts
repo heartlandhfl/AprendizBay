@@ -46,7 +46,6 @@ function mapBookingDoc(id: string, data: Record<string, unknown>): Booking {
     paymentStatus: (data.paymentStatus as PaymentStatus | undefined) ?? "unpaid",
     paymentId: data.paymentId as string | undefined,
     asaasCheckoutId: data.asaasCheckoutId as string | undefined,
-    mercadoPagoPaymentId: data.mercadoPagoPaymentId as string | undefined,
     refundId: data.refundId as string | undefined,
     refundStatus: data.refundStatus as string | undefined,
     refundAmount: readOptionalMoney(data.refundAmount),

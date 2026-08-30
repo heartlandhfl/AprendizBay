@@ -56,7 +56,7 @@ export async function POST(request: Request) {
                 message.includes("já está cancelada") ||
                 message.includes("não pode ser cancelada")
               ? 409
-              : message.includes("MERCADO_PAGO") || message.includes("Firebase Admin")
+              : message.includes("ASAAS_API_KEY") || message.includes("Firebase Admin")
                 ? 503
                 : 400;
 

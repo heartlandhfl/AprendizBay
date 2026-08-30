@@ -71,6 +71,119 @@ export function getAsaasAccessToken(): string {
   return apiKey;
 }
 
+export function asaasRequestHeaders(): Record<string, string> {
+  return {
+    accept: "application/json",
+    "content-type": "application/json",
+    access_token: getAsaasAccessToken(),
+    "User-Agent": "AprendizBay/1.0.0",
+  };
+}
+
+export interface AsaasRefundResult {
+  paymentId: string;
+  status?: string;
+  refundId?: string;
+  refundAmount?: number;
+}
+
+export function buildAsaasRefundUrl(paymentId: string): string {
+  return `${getAsaasApiBaseUrl()}/payments/${encodeURIComponent(paymentId)}/refund`;
+}
+
+export function resolveAsaasPaymentId(booking: {
+  paymentId?: string;
+}): string | undefined {
+  return readString(booking.paymentId);
+}
+
+export function parseAsaasRefund(payload: unknown): AsaasRefundResult {
+  if (!isRecord(payload)) {
+    throw new Error("Resposta de reembolso do Asaas inválida.");
+  }
+
+  const paymentId = readString(payload.id);
+  if (!paymentId) {
+    throw new Error("O Asaas não devolveu o identificador do pagamento estornado.");
+  }
+
+  const refunds = Array.isArray(payload.refunds) ? payload.refunds : [];
+  const latestRefund = refunds.filter(isRecord).at(-1);
+  const refundAmount =
+    latestRefund && typeof latestRefund.value === "number" && Number.isFinite(latestRefund.value)
+      ? latestRefund.value
+      : typeof payload.value === "number" && Number.isFinite(payload.value)
+        ? payload.value
+        : undefined;
+
+  return {
+    paymentId,
+    status: readString(payload.status),
+    refundId:
+      (latestRefund ? readString(latestRefund.endToEndIdentifier) : undefined) ?? paymentId,
+    refundAmount,
+  };
+}
+
+export async function refundAsaasPayment(input: {
+  paymentId: string;
+  description?: string;
+  value?: number;
+}): Promise<AsaasRefundResult> {
+  const body: Record<string, unknown> = {
+    description: input.description ?? "Cancelamento da aula no Aprendiz Bay",
+  };
+  if (typeof input.value === "number" && Number.isFinite(input.value)) {
+    body.value = input.value;
+  }
+
+  const response = await fetch(buildAsaasRefundUrl(input.paymentId), {
+    method: "POST",
+    headers: asaasRequestHeaders(),
+    body: JSON.stringify(body),
+  });
+
+  const payload: unknown = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(
+      asaasErrorMessage(
+        payload,
+        `Não foi possível estornar o pagamento no Asaas (${response.status}).`,
+      ),
+    );
+  }
+
+  return parseAsaasRefund(payload);
+}
+
+export async function findAsaasPaymentIdByExternalReference(
+  externalReference: string,
+): Promise<string | undefined> {
+  const url = new URL(`${getAsaasApiBaseUrl()}/payments`);
+  url.searchParams.set("externalReference", externalReference);
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: asaasRequestHeaders(),
+  });
+
+  const payload: unknown = await response.json().catch(() => null);
+  if (!response.ok || !isRecord(payload) || !Array.isArray(payload.data)) {
+    return undefined;
+  }
+
+  const paid = payload.data.find((item) => {
+    if (!isRecord(item)) {
+      return false;
+    }
+    const status = readString(item.status);
+    return status === "CONFIRMED" || status === "RECEIVED" || status === "RECEIVED_IN_CASH";
+  });
+
+  return isRecord(paid) ? readString(paid.id) : undefined;
+}
+
 export function buildCheckoutUrl(checkoutId: string, link?: string): string {
   if (link) {
     return link;
@@ -95,12 +208,7 @@ export async function createAsaasCheckout(
 ): Promise<AsaasCheckoutResult> {
   const response = await fetch(`${getAsaasApiBaseUrl()}/checkouts`, {
     method: "POST",
-    headers: {
-      accept: "application/json",
-      "content-type": "application/json",
-      access_token: getAsaasAccessToken(),
-      "User-Agent": "AprendizBay/1.0.0",
-    },
+    headers: asaasRequestHeaders(),
     body: JSON.stringify({
       billingTypes: ["PIX", "CREDIT_CARD"],
       chargeTypes: ["DETACHED"],

@@ -23,7 +23,6 @@ export interface Booking {
   paymentStatus?: PaymentStatus;
   paymentId?: string;
   asaasCheckoutId?: string;
-  mercadoPagoPaymentId?: string;
   refundId?: string;
   refundStatus?: string;
   refundAmount?: number;

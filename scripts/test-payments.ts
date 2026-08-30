@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { formatCpf, formatPostalCode, isValidCpf, isValidPhone, isValidPostalCode } from "../lib/payments/cpf";
-import { buildCheckoutUrl, parseAsaasWebhook } from "../lib/payments/asaas";
+import {
+  buildAsaasRefundUrl,
+  buildCheckoutUrl,
+  parseAsaasRefund,
+  parseAsaasWebhook,
+  refundAsaasPayment,
+  resolveAsaasPaymentId,
+} from "../lib/payments/asaas";
 import {
   DEFAULT_PLATFORM_FEE_PERCENT,
   parsePlatformFeePercent,
@@ -14,12 +21,6 @@ import {
   getCancellationCopy,
   isFreeCancellationWindow,
 } from "../lib/bookings/cancellation";
-import {
-  buildMercadoPagoRefundUrl,
-  parseMercadoPagoRefund,
-  refundMercadoPagoPayment,
-  resolveMercadoPagoPaymentId,
-} from "../lib/payments/mercadopago";
 
 assert.equal(isValidCpf("24971563792"), true);
 assert.equal(isValidCpf("249.715.637-92"), true);
@@ -146,7 +147,7 @@ const refundCopy = getCancellationCopy(
   "R$ 80",
 );
 assert.match(refundCopy.amountNote, /R\$ 80/);
-assert.match(refundCopy.amountNote, /Mercado Pago/);
+assert.match(refundCopy.amountNote, /Asaas/);
 assert.match(
   getCancellationCopy(
     { canCancel: false, willRefund: false, reason: "late_student" },
@@ -156,52 +157,65 @@ assert.match(
 );
 
 assert.equal(
-  buildMercadoPagoRefundUrl("1234567890"),
-  "https://api.mercadopago.com/v1/payments/1234567890/refunds",
+  buildAsaasRefundUrl("pay_080225913252"),
+  "https://api-sandbox.asaas.com/v3/payments/pay_080225913252/refund",
 );
-assert.equal(resolveMercadoPagoPaymentId({ paymentId: "pay_asaas" }), "pay_asaas");
-assert.equal(
-  resolveMercadoPagoPaymentId({ mercadoPagoPaymentId: "987", paymentId: "pay_asaas" }),
-  "987",
-);
+assert.equal(resolveAsaasPaymentId({ paymentId: "pay_080225913252" }), "pay_080225913252");
 assert.deepEqual(
-  parseMercadoPagoRefund({ id: 55, payment_id: 1234567890, status: "approved", amount: 80 }),
-  { id: "55", paymentId: "1234567890", status: "approved", amount: 80 },
+  parseAsaasRefund({
+    id: "pay_080225913252",
+    status: "REFUNDED",
+    value: 80,
+    refunds: [{ status: "DONE", value: 80, endToEndIdentifier: "E123" }],
+  }),
+  {
+    paymentId: "pay_080225913252",
+    status: "REFUNDED",
+    refundId: "E123",
+    refundAmount: 80,
+  },
 );
 
-process.env.MERCADO_PAGO_ACCESS_TOKEN = "TEST-token";
+process.env.ASAAS_API_KEY = "aact_test_key";
 
-async function assertMercadoPagoRefundRequest() {
+async function assertAsaasRefundRequest() {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = (async (url, init) => {
-    assert.equal(String(url), "https://api.mercadopago.com/v1/payments/1234567890/refunds");
+    assert.equal(String(url), "https://api-sandbox.asaas.com/v3/payments/pay_080225913252/refund");
     assert.equal(init?.method, "POST");
     const headers = init?.headers as Record<string, string>;
-    assert.equal(headers.Authorization, "Bearer TEST-token");
-    assert.equal(headers["X-Idempotency-Key"], "booking-refund-abc");
+    assert.equal(headers.access_token, "aact_test_key");
+    const body = JSON.parse(String(init?.body));
+    assert.equal(body.description, "Cancelamento da aula no Aprendiz Bay");
+    assert.equal(body.value, 80);
     return {
       ok: true,
-      json: async () => ({ id: 77, payment_id: 1234567890, status: "approved", amount: 80 }),
+      json: async () => ({
+        id: "pay_080225913252",
+        status: "REFUNDED",
+        value: 80,
+        refunds: [{ status: "DONE", value: 80 }],
+      }),
     } as Response;
   }) as typeof fetch;
 
   try {
-    const refund = await refundMercadoPagoPayment({
-      paymentId: "1234567890",
-      idempotencyKey: "booking-refund-abc",
+    const refund = await refundAsaasPayment({
+      paymentId: "pay_080225913252",
+      value: 80,
     });
     assert.deepEqual(refund, {
-      id: "77",
-      paymentId: "1234567890",
-      status: "approved",
-      amount: 80,
+      paymentId: "pay_080225913252",
+      status: "REFUNDED",
+      refundId: "pay_080225913252",
+      refundAmount: 80,
     });
   } finally {
     globalThis.fetch = originalFetch;
   }
 }
 
-void assertMercadoPagoRefundRequest()
+void assertAsaasRefundRequest()
   .then(() => {
     console.log("payment unit checks passed");
   })

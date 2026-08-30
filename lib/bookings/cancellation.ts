@@ -100,14 +100,14 @@ export function getCancellationCopy(
         title: "Cancelar e reembolsar",
         description:
           "O cancelamento é gratuito porque falta 24 horas ou mais para a aula.",
-        amountNote: `O valor pago de ${formattedPrice} será reembolsado integralmente pelo Mercado Pago.`,
+        amountNote: `O valor pago de ${formattedPrice} será estornado integralmente pelo Asaas.`,
         confirmLabel: "Cancelar e reembolsar",
       };
     case "tutor_refund":
       return {
         title: "Cancelar aula paga",
         description: "Como a aula já foi paga, o aluno não deve perder o valor.",
-        amountNote: `O aluno receberá reembolso integral de ${formattedPrice} pelo Mercado Pago.`,
+        amountNote: `O aluno receberá estorno integral de ${formattedPrice} pelo Asaas.`,
         confirmLabel: "Cancelar e reembolsar o aluno",
       };
     case "late_student":
