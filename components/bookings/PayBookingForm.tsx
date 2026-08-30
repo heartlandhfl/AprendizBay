@@ -4,7 +4,14 @@ import { FormEvent, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { formatBookingPrice } from "@/lib/bookings/service";
-import { formatCpf, isValidCpf } from "@/lib/payments/cpf";
+import {
+  digitsOnly,
+  formatCpf,
+  formatPostalCode,
+  isValidCpf,
+  isValidPhone,
+  isValidPostalCode,
+} from "@/lib/payments/cpf";
 
 interface PayBookingFormProps {
   bookingId: string;
@@ -12,8 +19,13 @@ interface PayBookingFormProps {
 }
 
 export default function PayBookingForm({ bookingId, price }: PayBookingFormProps) {
-  const { user } = useAuth();
+  const { user, userDoc } = useAuth();
   const [cpf, setCpf] = useState("");
+  const [phone, setPhone] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [address, setAddress] = useState("");
+  const [addressNumber, setAddressNumber] = useState("");
+  const [province, setProvince] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,6 +43,11 @@ export default function PayBookingForm({ bookingId, price }: PayBookingFormProps
       return;
     }
 
+    if (!isValidPhone(phone) || !isValidPostalCode(postalCode) || !address.trim() || !addressNumber.trim() || !province.trim()) {
+      setError("Preencha telefone, CEP e endereço para o Asaas gerar o checkout.");
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -41,7 +58,16 @@ export default function PayBookingForm({ bookingId, price }: PayBookingFormProps
           "Content-Type": "application/json",
           Authorization: `Bearer ${idToken}`,
         },
-        body: JSON.stringify({ bookingId, cpf }),
+        body: JSON.stringify({
+          bookingId,
+          cpf,
+          email: userDoc?.email || user.email,
+          phone: digitsOnly(phone),
+          postalCode: digitsOnly(postalCode),
+          address: address.trim(),
+          addressNumber: addressNumber.trim(),
+          province: province.trim(),
+        }),
       });
 
       const payload = (await response.json().catch(() => null)) as
@@ -70,24 +96,91 @@ export default function PayBookingForm({ bookingId, price }: PayBookingFormProps
           O professor confirmou. Pague {formatBookingPrice(price)} para liberar a aula.
         </p>
         <p className="mt-1 text-xs text-amber-900/80">
-          O Asaas exige o CPF do aluno para Pix ou cartão de crédito.
+          O Asaas exige CPF e dados de cobrança do aluno para Pix ou cartão de crédito.
         </p>
       </div>
 
-      <label className="block text-sm font-medium text-foreground" htmlFor={`cpf-${bookingId}`}>
-        CPF
-        <input
-          id={`cpf-${bookingId}`}
-          name="cpf"
-          inputMode="numeric"
-          autoComplete="off"
-          placeholder="000.000.000-00"
-          value={cpf}
-          onChange={(event) => setCpf(formatCpf(event.target.value))}
-          className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none ring-primary-600/20 focus:ring-2"
-          required
-        />
-      </label>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="block text-sm font-medium text-foreground" htmlFor={`cpf-${bookingId}`}>
+          CPF
+          <input
+            id={`cpf-${bookingId}`}
+            name="cpf"
+            inputMode="numeric"
+            autoComplete="off"
+            placeholder="000.000.000-00"
+            value={cpf}
+            onChange={(event) => setCpf(formatCpf(event.target.value))}
+            className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none ring-primary-600/20 focus:ring-2"
+            required
+          />
+        </label>
+        <label className="block text-sm font-medium text-foreground" htmlFor={`phone-${bookingId}`}>
+          Telefone
+          <input
+            id={`phone-${bookingId}`}
+            name="phone"
+            inputMode="tel"
+            autoComplete="tel"
+            placeholder="(11) 99999-9999"
+            value={phone}
+            onChange={(event) => setPhone(digitsOnly(event.target.value).slice(0, 11))}
+            className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none ring-primary-600/20 focus:ring-2"
+            required
+          />
+        </label>
+        <label className="block text-sm font-medium text-foreground sm:col-span-2" htmlFor={`address-${bookingId}`}>
+          Endereço
+          <input
+            id={`address-${bookingId}`}
+            name="address"
+            autoComplete="street-address"
+            placeholder="Rua, avenida..."
+            value={address}
+            onChange={(event) => setAddress(event.target.value)}
+            className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none ring-primary-600/20 focus:ring-2"
+            required
+          />
+        </label>
+        <label className="block text-sm font-medium text-foreground" htmlFor={`number-${bookingId}`}>
+          Número
+          <input
+            id={`number-${bookingId}`}
+            name="addressNumber"
+            placeholder="150"
+            value={addressNumber}
+            onChange={(event) => setAddressNumber(event.target.value)}
+            className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none ring-primary-600/20 focus:ring-2"
+            required
+          />
+        </label>
+        <label className="block text-sm font-medium text-foreground" htmlFor={`province-${bookingId}`}>
+          Bairro
+          <input
+            id={`province-${bookingId}`}
+            name="province"
+            placeholder="Centro"
+            value={province}
+            onChange={(event) => setProvince(event.target.value)}
+            className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none ring-primary-600/20 focus:ring-2"
+            required
+          />
+        </label>
+        <label className="block text-sm font-medium text-foreground sm:col-span-2" htmlFor={`cep-${bookingId}`}>
+          CEP
+          <input
+            id={`cep-${bookingId}`}
+            name="postalCode"
+            inputMode="numeric"
+            autoComplete="postal-code"
+            placeholder="00000-000"
+            value={postalCode}
+            onChange={(event) => setPostalCode(formatPostalCode(event.target.value))}
+            className="mt-1 w-full rounded-xl border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none ring-primary-600/20 focus:ring-2"
+            required
+          />
+        </label>
+      </div>
 
       {error && (
         <p className="text-sm text-red-700" role="alert">

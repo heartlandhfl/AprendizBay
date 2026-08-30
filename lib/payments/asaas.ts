@@ -14,7 +14,12 @@ export const SUCCESSFUL_PAYMENT_EVENTS = new Set([
 export interface AsaasCustomerData {
   name: string;
   cpfCnpj: string;
-  email?: string;
+  email: string;
+  phone: string;
+  address: string;
+  addressNumber: string;
+  postalCode: string;
+  province: string;
 }
 
 export interface CreateAsaasCheckoutInput {
@@ -119,7 +124,12 @@ export async function createAsaasCheckout(
       customerData: {
         name: input.customer.name,
         cpfCnpj: input.customer.cpfCnpj,
-        ...(input.customer.email ? { email: input.customer.email } : {}),
+        email: input.customer.email,
+        phone: input.customer.phone,
+        address: input.customer.address,
+        addressNumber: input.customer.addressNumber,
+        postalCode: input.customer.postalCode,
+        province: input.customer.province,
       },
     }),
   });

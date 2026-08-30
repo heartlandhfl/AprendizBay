@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { formatCpf, isValidCpf } from "../lib/payments/cpf";
+import { formatCpf, formatPostalCode, isValidCpf, isValidPhone, isValidPostalCode } from "../lib/payments/cpf";
 import { buildCheckoutUrl, parseAsaasWebhook } from "../lib/payments/asaas";
 
 assert.equal(isValidCpf("24971563792"), true);
@@ -7,6 +7,10 @@ assert.equal(isValidCpf("249.715.637-92"), true);
 assert.equal(isValidCpf("11111111111"), false);
 assert.equal(isValidCpf("123"), false);
 assert.equal(formatCpf("24971563792"), "249.715.637-92");
+assert.equal(isValidPhone("47988887777"), true);
+assert.equal(isValidPhone("123"), false);
+assert.equal(isValidPostalCode("01310-000"), true);
+assert.equal(formatPostalCode("01310000"), "01310-000");
 
 const paid = parseAsaasWebhook({
   event: "PAYMENT_CONFIRMED",

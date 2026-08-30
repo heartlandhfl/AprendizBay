@@ -35,6 +35,23 @@ function cpfCheckDigit(digits: number[], factor: number): number {
   return remainder === 10 ? 0 : remainder;
 }
 
+export function isValidPhone(value: string): boolean {
+  const phone = digitsOnly(value);
+  return phone.length === 10 || phone.length === 11;
+}
+
+export function isValidPostalCode(value: string): boolean {
+  return digitsOnly(value).length === 8;
+}
+
+export function formatPostalCode(value: string): string {
+  const digits = digitsOnly(value).slice(0, 8);
+  if (digits.length <= 5) {
+    return digits;
+  }
+  return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+}
+
 export function isValidCpf(value: string): boolean {
   const cpf = digitsOnly(value);
   if (cpf.length !== 11 || CPF_BLACKLIST.has(cpf)) {

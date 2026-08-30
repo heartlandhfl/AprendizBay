@@ -3,7 +3,12 @@ import { getUserProfile, verifyUserIdToken } from "@/lib/auth/admin-server";
 import { getBookingById, saveBookingCheckoutId } from "@/lib/bookings/server";
 import { BOOKING_TYPE_LABELS } from "@/lib/bookings/types";
 import { createAsaasCheckout } from "@/lib/payments/asaas";
-import { digitsOnly, isValidCpf } from "@/lib/payments/cpf";
+import {
+  digitsOnly,
+  isValidCpf,
+  isValidPhone,
+  isValidPostalCode,
+} from "@/lib/payments/cpf";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,9 +32,23 @@ function getSiteUrl(request: Request): string {
 export async function POST(request: Request) {
   try {
     const { uid } = await verifyUserIdToken(readBearerToken(request));
-    const body = (await request.json()) as { bookingId?: string; cpf?: string };
+    const body = (await request.json()) as {
+      bookingId?: string;
+      cpf?: string;
+      email?: string;
+      phone?: string;
+      address?: string;
+      addressNumber?: string;
+      postalCode?: string;
+      province?: string;
+    };
     const bookingId = body.bookingId?.trim();
     const cpf = digitsOnly(body.cpf ?? "");
+    const phone = digitsOnly(body.phone ?? "");
+    const postalCode = digitsOnly(body.postalCode ?? "");
+    const address = body.address?.trim() ?? "";
+    const addressNumber = body.addressNumber?.trim() ?? "";
+    const province = body.province?.trim() ?? "";
 
     if (!bookingId) {
       return NextResponse.json({ error: "Informe o identificador da reserva." }, { status: 400 });
@@ -37,6 +56,17 @@ export async function POST(request: Request) {
 
     if (!isValidCpf(cpf)) {
       return NextResponse.json({ error: "Informe um CPF válido." }, { status: 400 });
+    }
+
+    if (!isValidPhone(phone)) {
+      return NextResponse.json({ error: "Informe um telefone válido com DDD." }, { status: 400 });
+    }
+
+    if (!address || !addressNumber || !province || !isValidPostalCode(postalCode)) {
+      return NextResponse.json(
+        { error: "Informe endereço, número, bairro e CEP válidos." },
+        { status: 400 },
+      );
     }
 
     const [booking, profile] = await Promise.all([
@@ -73,6 +103,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "O valor da reserva é inválido." }, { status: 400 });
     }
 
+    const email = body.email?.trim() || profile?.email || "";
+    if (!email.includes("@")) {
+      return NextResponse.json({ error: "Informe um e-mail válido." }, { status: 400 });
+    }
+
     const siteUrl = getSiteUrl(request);
     const typeLabel = BOOKING_TYPE_LABELS[booking.type] ?? "Aula";
     const checkout = await createAsaasCheckout({
@@ -83,7 +118,12 @@ export async function POST(request: Request) {
       customer: {
         name: profile?.displayName?.trim() || "Aluno Aprendiz Bay",
         cpfCnpj: cpf,
-        email: profile?.email,
+        email,
+        phone,
+        address,
+        addressNumber,
+        postalCode,
+        province,
       },
       successUrl: `${siteUrl}/bookings?pagamento=sucesso`,
       cancelUrl: `${siteUrl}/bookings?pagamento=cancelado`,
