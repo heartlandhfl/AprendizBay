@@ -3,10 +3,10 @@
 import { useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthContext";
-import type { SignupRole } from "@/lib/auth/types";
+import type { UserRole } from "@/lib/auth/types";
 
 interface UseRequireAuthOptions {
-  roles?: SignupRole[];
+  roles?: UserRole[];
   redirectTo?: string;
 }
 
