@@ -32,6 +32,13 @@ rules_version = '2';
 //   reviews/{reviewId}
 //     tutorId, studentId, bookingId, rating, comment, createdAt
 //
+//   conversations/{conversationId}      // conversationId === studentId_tutorId
+//     studentId, tutorId, participantIds[studentId, tutorId]
+//     studentName?, tutorName?, lastMessage?, lastMessageAt?, createdAt, updatedAt
+//
+//   conversations/{conversationId}/messages/{messageId}
+//     senderId, text, createdAt
+//
 //   subjects/{subjectId}                // read-only catalog (admin-managed)
 //     name, slug, category, isActive
 //
@@ -52,6 +59,9 @@ rules_version = '2';
 // MATCH  collectiveHubs student join   → lib/hubs/service.ts (confirmedStudentIds + updatedAt)
 // MATCH  tutors/{tutorId}/availability  → lib/availability/service.ts (tutor dashboard)
 // READ   bookings pending/confirmed     → lib/bookings/service.ts (slot picker occupancy)
+// MATCH  conversations create        → lib/conversations/service.ts (student starts thread)
+// MATCH  conversations update        → lib/conversations/service.ts (lastMessage preview)
+// MATCH  conversations/messages create → lib/conversations/service.ts (either participant)
 // MATCH  reviews create              → lib/reviews/client.ts (requires completed booking)
 // ADMIN  tutors rating/reviewCount   → lib/reviews/server.ts (Server Action; bypasses rules)
 // ADMIN  seed data                     → scripts/seed.ts
@@ -136,6 +146,37 @@ service cloud.firestore {
       return data.keys().hasOnly(["slots", "updatedAt"])
         && data.slots is list
         && data.slots.size() <= 42;
+    }
+
+    function conversationParticipants() {
+      return resource.data.participantIds;
+    }
+
+    function isConversationParticipant() {
+      return isAuthenticated() && request.auth.uid in conversationParticipants();
+    }
+
+    function validConversationCreate() {
+      let data = request.resource.data;
+
+      return isStudent()
+        && data.studentId == request.auth.uid
+        && data.tutorId is string
+        && data.studentId != data.tutorId
+        && data.participantIds is list
+        && data.participantIds.size() == 2
+        && data.studentId in data.participantIds
+        && data.tutorId in data.participantIds
+        && exists(/databases/$(database)/documents/tutors/$(data.tutorId));
+    }
+
+    function validConversationUpdate() {
+      return isConversationParticipant()
+        && unchanged("studentId")
+        && unchanged("tutorId")
+        && unchanged("participantIds")
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(["lastMessage", "lastMessageAt", "updatedAt"]);
     }
 
     // -------------------------------------------------------------------------
@@ -276,6 +317,47 @@ service cloud.firestore {
         || (isAuthenticated()
           && resource.data.studentId == request.auth.uid
           && request.time < resource.data.createdAt + duration.value(48, "h"));
+    }
+
+    // -------------------------------------------------------------------------
+    // conversations (student ↔ tutor) and messages
+    // -------------------------------------------------------------------------
+
+    match /conversations/{conversationId} {
+      function conversationParent() {
+        return get(/databases/$(database)/documents/conversations/$(conversationId)).data;
+      }
+
+      function isMessageParticipant() {
+        return isAuthenticated()
+          && request.auth.uid in conversationParent().participantIds;
+      }
+
+      function validMessageCreate() {
+        let data = request.resource.data;
+
+        return isMessageParticipant()
+          && data.senderId == request.auth.uid
+          && data.text is string
+          && data.text.size() > 0
+          && data.text.size() <= 2000;
+      }
+
+      allow read: if isConversationParticipant();
+
+      allow create: if validConversationCreate();
+
+      allow update: if validConversationUpdate();
+
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        allow read: if isMessageParticipant();
+
+        allow create: if validMessageCreate();
+
+        allow update, delete: if false;
+      }
     }
 
     // -------------------------------------------------------------------------

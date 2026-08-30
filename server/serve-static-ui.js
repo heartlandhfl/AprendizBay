@@ -39,6 +39,15 @@ function normalizePath(urlPath) {
   return pathname || "/";
 }
 
+function mensagensThreadRedirect(urlPath) {
+  const match = urlPath.match(/^\/mensagens\/([^/]+)$/);
+  if (!match) {
+    return null;
+  }
+
+  return `/mensagens?conversa=${encodeURIComponent(match[1])}`;
+}
+
 function resolvePageFile(appOut, urlPath, rsc) {
   const ext = rsc ? ".rsc" : ".html";
   const relative =
@@ -158,6 +167,11 @@ function attachStaticUi(app, appDir) {
 
     const wantsRsc = req.get("rsc") === "1";
     const urlPath = normalizePath(req.path);
+    const mensagensRedirect = mensagensThreadRedirect(urlPath);
+    if (mensagensRedirect) {
+      res.redirect(302, mensagensRedirect);
+      return;
+    }
     const pageFile = resolvePageFile(appOut, urlPath, wantsRsc);
     const contentType = wantsRsc ? "text/x-component" : "html";
 
@@ -180,4 +194,9 @@ function attachStaticUi(app, appDir) {
   });
 }
 
-module.exports = { attachStaticUi, resolveAppDir, DIST_DIR };
+module.exports = {
+  attachStaticUi,
+  resolveAppDir,
+  DIST_DIR,
+  mensagensThreadRedirect,
+};

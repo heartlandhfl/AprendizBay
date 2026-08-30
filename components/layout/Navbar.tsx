@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessageCircle,
   Search,
   Settings,
 } from "lucide-react";
@@ -99,6 +100,16 @@ export default function Navbar() {
           )}
 
           {!loading && user && (
+            <Link
+              href="/mensagens"
+              className="inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+            >
+              <MessageCircle className="h-4 w-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Mensagens</span>
+            </Link>
+          )}
+
+          {!loading && user && (
             <div className="relative" ref={menuRef}>
               <button
                 type="button"
@@ -129,6 +140,15 @@ export default function Navbar() {
                         {pendingBookingCount > 9 ? "9+" : pendingBookingCount}
                       </span>
                     )}
+                  </Link>
+                  <Link
+                    href="/mensagens"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-foreground transition-colors hover:bg-muted"
+                    role="menuitem"
+                  >
+                    <MessageCircle className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                    Mensagens
                   </Link>
                   {userDoc?.role === "tutor" && (
                     <Link
