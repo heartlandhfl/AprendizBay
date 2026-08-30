@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
+import BookingPaymentSummary from "@/components/bookings/BookingPaymentSummary";
 import BookingStatusBadge from "@/components/bookings/BookingStatusBadge";
 import PaymentStatusBadge from "@/components/bookings/PaymentStatusBadge";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -151,6 +152,15 @@ export default function TutorDashboardBookings() {
                   </dd>
                 </div>
               </dl>
+
+              <div className="mt-4">
+                <BookingPaymentSummary
+                  price={booking.price}
+                  platformFee={booking.platformFee}
+                  tutorAmount={booking.tutorAmount}
+                  variant="tutor"
+                />
+              </div>
 
               {awaitingPayment && (
                 <p className="mt-4 text-sm text-amber-800">

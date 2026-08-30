@@ -13,7 +13,7 @@ HTTP APIs live in `server/api/` and are mounted at `/api`. `npm run dev` starts 
 
 ### Pagamentos Asaas
 
-After a tutor accepts a booking, the student pays via Asaas Checkout (`PIX` or `CREDIT_CARD`):
+After a tutor accepts a booking, the student pays via Asaas Checkout (`PIX` or `CREDIT_CARD`). The booking summary shows how much goes to the tutor versus the platform fee (`PLATFORM_FEE_PERCENT`, default 10%) before payment confirmation. Both amounts are stored on the booking document (`platformFee`, `tutorAmount`) for reporting:
 
 1. `POST /api/payments/create-checkout` creates a sandbox checkout at `https://api-sandbox.asaas.com/v3/checkouts` (or production `https://api.asaas.com/v3/checkouts` when `ASAAS_ENVIRONMENT=production`).
 2. The student is redirected to `https://asaas.com/checkoutSession/show?id={id}` (or the `link` returned by Asaas).
@@ -175,6 +175,8 @@ Use Vercel (or Netlify, Railway, a VPS with `next start`, etc.) when you need th
 | `ASAAS_API_KEY` | Asaas API key (`access_token`). Use a sandbox key (`$aact_hmlg_...`) until you switch environments |
 | `ASAAS_ENVIRONMENT` | `sandbox` (default, `https://api-sandbox.asaas.com/v3`) or `production` (`https://api.asaas.com/v3`) |
 | `ASAAS_WEBHOOK_TOKEN` | Optional token Asaas sends as `asaas-access-token` |
+| `PLATFORM_FEE_PERCENT` | Percent of each booking kept as the platform fee (`0`-`100`, default `10`). Stored as `platformFee` + `tutorAmount` on the booking |
+| `NEXT_PUBLIC_PLATFORM_FEE_PERCENT` | Optional client alias of `PLATFORM_FEE_PERCENT` (same default) |
 
 `FIREBASE_ADMIN_*` is required on **Vercel** for Server Actions that recompute tutor ratings after reviews. It is **not** required on Hostinger — see [Hostinger](#2-hostinger--static-ui--express-api-production-target). Client features (auth, bookings, hubs) only need the `NEXT_PUBLIC_FIREBASE_*` vars on either target.
 

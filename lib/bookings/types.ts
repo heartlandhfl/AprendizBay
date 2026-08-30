@@ -14,6 +14,8 @@ export interface Booking {
   type: BookingType;
   status: BookingStatus;
   price: number;
+  platformFee?: number;
+  tutorAmount?: number;
   scheduledAt: Timestamp;
   createdAt: Timestamp;
   updatedAt?: Timestamp;
@@ -27,6 +29,8 @@ export interface CreateBookingInput {
   tutorId: string;
   type: BookingType;
   price: number;
+  platformFee?: number;
+  tutorAmount?: number;
   hubId?: string;
   scheduledAt: Date;
 }
@@ -49,3 +53,10 @@ export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   paid: "Pago",
   failed: "Pagamento falhou",
 };
+
+export const BOOKING_FEE_LABELS = {
+  lesson: "Valor da aula",
+  tutor: "Valor do professor",
+  platform: "Taxa da plataforma",
+  total: "Total a pagar",
+} as const;

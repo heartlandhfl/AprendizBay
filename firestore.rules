@@ -27,7 +27,7 @@ rules_version = '2';
 //     status: "pending" | "confirmed" | "cancelled" | "completed"
 //     paymentStatus?: "unpaid" | "awaiting_payment" | "paid" | "failed"
 //     paymentId?, asaasCheckoutId?
-//     scheduledAt, price, meetingUrl?, createdAt, updatedAt
+//     scheduledAt, price, platformFee?, tutorAmount?, meetingUrl?, createdAt, updatedAt
 //
 //   reviews/{reviewId}
 //     tutorId, studentId, bookingId, rating, comment, createdAt
@@ -234,6 +234,12 @@ service cloud.firestore {
         && request.resource.data.type in ["individual", "coletivo"]
         && request.resource.data.price is number
         && request.resource.data.price > 0
+        && (!("platformFee" in request.resource.data)
+          || (request.resource.data.platformFee is number
+            && request.resource.data.platformFee >= 0))
+        && (!("tutorAmount" in request.resource.data)
+          || (request.resource.data.tutorAmount is number
+            && request.resource.data.tutorAmount >= 0))
         && (!("paymentStatus" in request.resource.data)
           || request.resource.data.paymentStatus == "unpaid")
         && isVerifiedTutor(request.resource.data.tutorId);
