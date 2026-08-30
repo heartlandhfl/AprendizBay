@@ -22,6 +22,7 @@ export interface FirestoreTutorDoc {
   reviewCount: number;
   avatarUrl?: string;
   avatarColor?: string;
+  credentialFileName?: string;
 }
 
 export interface FirestoreCollectiveHubDoc {

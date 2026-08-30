@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { Loader2 } from "lucide-react";
+import AvatarUpload from "@/components/uploads/AvatarUpload";
+import CredentialUpload from "@/components/uploads/CredentialUpload";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { SUBJECTS, type Modality } from "@/lib/mock-tutors";
 import { BRAZILIAN_STATES } from "@/lib/tutors/constants";
@@ -23,8 +25,10 @@ const STEPS = [
   { title: "Matéria", description: "O que você ensina?" },
   { title: "Localização", description: "Onde você atua?" },
   { title: "Sobre você", description: "Apresente-se aos alunos" },
+  { title: "Foto de perfil", description: "Mostre seu rosto aos alunos" },
   { title: "Preços", description: "Defina seus valores por hora" },
   { title: "Modalidade", description: "Como você prefere ensinar?" },
+  { title: "Verificação", description: "Documento para validação do perfil" },
 ] as const;
 
 const TOTAL_STEPS = STEPS.length;
@@ -37,9 +41,11 @@ export default function TutorOnboardingWizard() {
   const [city, setCity] = useState("");
   const [state, setState] = useState("SP");
   const [bio, setBio] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(userDoc?.photoUrl ?? null);
   const [individualPrice, setIndividualPrice] = useState(70);
   const [collectivePrice, setCollectivePrice] = useState(25);
   const [modality, setModality] = useState<Modality>("online");
+  const [credentialFileName, setCredentialFileName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -67,6 +73,11 @@ export default function TutorOnboardingWizard() {
         }
         return null;
       case 3:
+        if (!avatarUrl) {
+          return "Envie uma foto de perfil para continuar.";
+        }
+        return null;
+      case 4:
         if (individualPrice < 1) {
           return "O preço individual deve ser maior que zero.";
         }
@@ -74,7 +85,12 @@ export default function TutorOnboardingWizard() {
           return "O preço coletivo deve ser maior que zero.";
         }
         return null;
-      case 4:
+      case 5:
+        return null;
+      case 6:
+        if (!credentialFileName) {
+          return "Envie um documento de verificação para continuar.";
+        }
         return null;
       default:
         return null;
@@ -119,6 +135,8 @@ export default function TutorOnboardingWizard() {
         individualPrice,
         collectivePrice,
         modality,
+        avatarUrl: avatarUrl ?? undefined,
+        credentialFileName: credentialFileName ?? undefined,
       });
 
       router.replace("/tutor/dashboard");
@@ -135,6 +153,10 @@ export default function TutorOnboardingWizard() {
   }
 
   const currentStep = STEPS[step];
+
+  if (!user) {
+    return null;
+  }
 
   return (
     <section className="rounded-3xl bg-surface p-6 shadow-soft ring-1 ring-border/60 sm:p-8">
@@ -235,6 +257,14 @@ export default function TutorOnboardingWizard() {
         )}
 
         {step === 3 && (
+          <AvatarUpload
+            userId={user.uid}
+            currentUrl={avatarUrl}
+            onUploaded={setAvatarUrl}
+          />
+        )}
+
+        {step === 4 && (
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label
@@ -274,7 +304,7 @@ export default function TutorOnboardingWizard() {
           </div>
         )}
 
-        {step === 4 && (
+        {step === 5 && (
           <div>
             <span className="mb-2 block text-sm font-medium">Modalidade</span>
             <div className="flex flex-wrap gap-2">
@@ -301,6 +331,16 @@ export default function TutorOnboardingWizard() {
               ))}
             </div>
           </div>
+        )}
+
+        {step === 6 && (
+          <CredentialUpload
+            tutorId={user.uid}
+            currentFileName={credentialFileName}
+            persistToFirestore={false}
+            onUploaded={setCredentialFileName}
+            description="Envie RG, CNH ou diploma. O arquivo fica visível apenas para você e administradores. Máximo de 10 MB (imagem ou PDF)."
+          />
         )}
 
         {error && (
