@@ -3,11 +3,18 @@
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import BookingStatusBadge from "@/components/bookings/BookingStatusBadge";
+import CancelBookingDialog from "@/components/bookings/CancelBookingDialog";
 import JoinLessonButton from "@/components/bookings/JoinLessonButton";
 import { useAuth } from "@/lib/auth/AuthContext";
 import type { Booking } from "@/lib/bookings/types";
 import { BOOKING_TYPE_LABELS } from "@/lib/bookings/types";
 import {
+  decideCancellation,
+  getCancellationCopy,
+  toScheduledDate,
+} from "@/lib/bookings/cancellation";
+import {
+  cancelBookingAsTutor,
   fetchUserDisplayName,
   formatBookingDate,
   formatBookingPrice,
@@ -26,6 +33,7 @@ export default function TutorConfirmedBookings() {
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<EnrichedBooking | null>(null);
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -56,6 +64,28 @@ export default function TutorConfirmedBookings() {
     const interval = window.setInterval(() => setNow(new Date()), 60_000);
     return () => window.clearInterval(interval);
   }, []);
+
+  async function handleCancelConfirm() {
+    if (!cancelTarget) {
+      return;
+    }
+
+    setActionId(cancelTarget.id);
+    setError(null);
+
+    try {
+      await cancelBookingAsTutor(cancelTarget.id);
+      setCancelTarget(null);
+    } catch (cancelError) {
+      setError(
+        cancelError instanceof Error
+          ? cancelError.message
+          : "Não foi possível cancelar a aula.",
+      );
+    } finally {
+      setActionId(null);
+    }
+  }
 
   async function handleComplete(bookingId: string) {
     setActionId(bookingId);
@@ -97,6 +127,16 @@ export default function TutorConfirmedBookings() {
       <div className="space-y-4">
         {bookings.map((booking) => {
           const canComplete = hasScheduledTimePassed(booking.scheduledAt, now);
+          const cancellation = decideCancellation({
+            status: booking.status,
+            paymentStatus: booking.paymentStatus,
+            scheduledAt: toScheduledDate(booking.scheduledAt),
+            actor: "tutor",
+          });
+          const cancellationCopy = getCancellationCopy(
+            cancellation,
+            formatBookingPrice(booking.price),
+          );
 
           return (
             <article
@@ -131,10 +171,30 @@ export default function TutorConfirmedBookings() {
                 </div>
               </dl>
 
+              {booking.paymentStatus === "paid" && (
+                <p className="mt-4 text-sm text-muted-foreground">
+                  {cancellationCopy.amountNote}
+                </p>
+              )}
+
               {booking.meetingUrl && (
                 <div className="mt-4">
                   <JoinLessonButton meetingUrl={booking.meetingUrl} />
                 </div>
+              )}
+
+              {cancellation.canCancel && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError(null);
+                    setCancelTarget(booking);
+                  }}
+                  disabled={actionId === booking.id}
+                  className="mt-4 mr-2 rounded-2xl border border-red-200 px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 disabled:opacity-60"
+                >
+                  Cancelar aula
+                </button>
               )}
 
               <button
@@ -162,6 +222,17 @@ export default function TutorConfirmedBookings() {
           );
         })}
       </div>
+
+      {cancelTarget && (
+        <CancelBookingDialog
+          booking={cancelTarget}
+          actor="tutor"
+          submitting={actionId === cancelTarget.id}
+          error={error}
+          onClose={() => setCancelTarget(null)}
+          onConfirm={handleCancelConfirm}
+        />
+      )}
     </section>
   );
 }

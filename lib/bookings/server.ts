@@ -8,9 +8,19 @@
  */
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
+import {
+  decideCancellation,
+  lateStudentCancellationError,
+  toScheduledDate,
+  type CancelActor,
+} from "@/lib/bookings/cancellation";
 import { generateMeetingUrl } from "@/lib/bookings/meeting";
 import type { Booking, BookingStatus, BookingType, PaymentStatus } from "@/lib/bookings/types";
 import type { BookingFeeSplit } from "@/lib/payments/fees";
+import {
+  refundMercadoPagoPayment,
+  resolveMercadoPagoPaymentId,
+} from "@/lib/payments/mercadopago";
 
 let adminApp: App | undefined;
 
@@ -58,7 +68,12 @@ export interface BookingRecord {
   paymentStatus?: PaymentStatus;
   paymentId?: string;
   asaasCheckoutId?: string;
+  mercadoPagoPaymentId?: string;
+  refundId?: string;
+  refundStatus?: string;
+  refundAmount?: number;
   meetingUrl?: string;
+  scheduledAt: Date;
 }
 
 export async function getBookingById(bookingId: string): Promise<BookingRecord | null> {
@@ -87,7 +102,17 @@ export async function getBookingById(bookingId: string): Promise<BookingRecord |
     paymentStatus: (data.paymentStatus as PaymentStatus | undefined) ?? "unpaid",
     paymentId: data.paymentId ? String(data.paymentId) : undefined,
     asaasCheckoutId: data.asaasCheckoutId ? String(data.asaasCheckoutId) : undefined,
+    mercadoPagoPaymentId: data.mercadoPagoPaymentId
+      ? String(data.mercadoPagoPaymentId)
+      : undefined,
+    refundId: data.refundId ? String(data.refundId) : undefined,
+    refundStatus: data.refundStatus ? String(data.refundStatus) : undefined,
+    refundAmount:
+      typeof data.refundAmount === "number" && Number.isFinite(data.refundAmount)
+        ? data.refundAmount
+        : undefined,
     meetingUrl: data.meetingUrl ? String(data.meetingUrl) : undefined,
+    scheduledAt: toScheduledDate(data.scheduledAt),
   };
 }
 
@@ -138,4 +163,83 @@ export async function confirmBookingWithMeetingUrl(
   }
 
   await db.collection("bookings").doc(bookingId).update(updates);
+}
+
+export interface CancelBookingInput {
+  bookingId: string;
+  actorUid: string;
+  actor: CancelActor;
+}
+
+export async function cancelBookingWithRefund(input: CancelBookingInput): Promise<{
+  bookingId: string;
+  refunded: boolean;
+  refundId?: string;
+}> {
+  const booking = await getBookingById(input.bookingId);
+  if (!booking) {
+    throw new Error("Reserva não encontrada.");
+  }
+
+  if (input.actor === "student" && booking.studentId !== input.actorUid) {
+    throw new Error("Você só pode cancelar as suas próprias reservas.");
+  }
+
+  if (input.actor === "tutor" && booking.tutorId !== input.actorUid) {
+    throw new Error("Você só pode cancelar as reservas do seu painel.");
+  }
+
+  const decision = decideCancellation({
+    status: booking.status,
+    paymentStatus: booking.paymentStatus,
+    scheduledAt: booking.scheduledAt,
+    actor: input.actor,
+  });
+
+  if (!decision.canCancel) {
+    if (decision.reason === "late_student") {
+      throw new Error(lateStudentCancellationError());
+    }
+    if (decision.reason === "already_cancelled") {
+      throw new Error("Esta reserva já está cancelada.");
+    }
+    throw new Error("Esta reserva não pode ser cancelada.");
+  }
+
+  const updates: Record<string, unknown> = {
+    status: "cancelled",
+    updatedAt: FieldValue.serverTimestamp(),
+  };
+
+  let refunded = Boolean(booking.refundId);
+  let refundId = booking.refundId;
+
+  if (decision.willRefund && !booking.refundId) {
+    const paymentId = resolveMercadoPagoPaymentId(booking);
+    if (!paymentId) {
+      throw new Error(
+        "Não foi possível reembolsar: o identificador do pagamento no Mercado Pago está ausente.",
+      );
+    }
+
+    const refund = await refundMercadoPagoPayment({
+      paymentId,
+      idempotencyKey: `booking-refund-${booking.id}`,
+    });
+
+    updates.refundId = refund.id;
+    updates.refundStatus = refund.status ?? "approved";
+    updates.refundAmount = refund.amount ?? booking.price;
+    updates.mercadoPagoPaymentId = paymentId;
+    refunded = true;
+    refundId = refund.id;
+  }
+
+  await requireAdminFirestore().collection("bookings").doc(booking.id).update(updates);
+
+  return {
+    bookingId: booking.id,
+    refunded,
+    refundId,
+  };
 }

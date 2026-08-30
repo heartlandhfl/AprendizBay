@@ -26,7 +26,8 @@ rules_version = '2';
 //     studentId, tutorId, hubId?, type: "individual" | "coletivo"
 //     status: "pending" | "confirmed" | "cancelled" | "completed"
 //     paymentStatus?: "unpaid" | "awaiting_payment" | "paid" | "failed"
-//     paymentId?, asaasCheckoutId?
+//     paymentId?, asaasCheckoutId?, mercadoPagoPaymentId?
+//     refundId?, refundStatus?, refundAmount?
 //     scheduledAt, price, platformFee?, tutorAmount?, meetingUrl?, createdAt, updatedAt
 //
 //   reviews/{reviewId}
@@ -43,10 +44,10 @@ rules_version = '2';
 // ---------------------------------------------------------------------------
 // MATCH  users/{uid} create          → lib/auth/service.ts (signup)
 // MATCH  bookings create             → lib/bookings/service.ts (student reserve)
-// MATCH  bookings student cancel       → lib/bookings/service.ts (status → cancelled)
+// MATCH  bookings student cancel       → unpaid client update; paid via /api/bookings/cancel + refund
 // MATCH  bookings tutor accept payment → lib/bookings/service.ts (paymentStatus, updatedAt)
 // ADMIN  bookings confirm (webhook)    → lib/bookings/server.ts (status, meetingUrl, payment fields)
-// MATCH  bookings tutor cancel         → lib/bookings/service.ts (status → cancelled)
+// MATCH  bookings tutor cancel         → unpaid client-capable; paid via /api/bookings/cancel + refund
 // MATCH  bookings tutor complete       → lib/bookings/service.ts (status → completed)
 // MATCH  collectiveHubs create         → lib/hubs/service.ts (tutor dashboard)
 // MATCH  collectiveHubs student join   → lib/hubs/service.ts (confirmedStudentIds + updatedAt)
@@ -247,7 +248,9 @@ service cloud.firestore {
       allow update: if isAdmin()
         || (resource.data.studentId == request.auth.uid
           && request.resource.data.status == "cancelled"
-          && resource.data.status in ["pending", "confirmed"])
+          && resource.data.status in ["pending", "confirmed"]
+          && (!("paymentStatus" in resource.data)
+            || resource.data.paymentStatus != "paid"))
         || (resource.data.tutorId == request.auth.uid
           && resource.data.status == "pending"
           && request.resource.data.diff(resource.data).affectedKeys()
@@ -257,7 +260,10 @@ service cloud.firestore {
         || (resource.data.tutorId == request.auth.uid
           && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(["status", "updatedAt", "meetingUrl"])
-          && request.resource.data.status in ["cancelled", "completed"]);
+          && request.resource.data.status in ["cancelled", "completed"]
+          && (request.resource.data.status == "completed"
+            || !("paymentStatus" in resource.data)
+            || resource.data.paymentStatus != "paid"));
 
       allow delete: if isAdmin();
     }
