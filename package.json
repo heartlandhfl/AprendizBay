@@ -14,7 +14,7 @@
     "test": "npm run test:unit && npm run test:rules && npm run test:node",
     "test:unit": "vitest run --project unit",
     "test:rules": "firebase emulators:exec --only firestore --project demo-aprendiz-bay \"vitest run --project rules\"",
-    "test:node": "node --test lib/conversations/ids.test.ts server/serve-static-ui.test.js",
+    "test:node": "tsx --test lib/conversations/ids.test.ts && node --test server/serve-static-ui.test.js",
     "test:watch": "vitest"
   },
   "dependencies": {
@@ -23,6 +23,7 @@
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.2",
+    "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.6",
@@ -30,6 +31,7 @@
     "@types/node": "^24",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "@vitejs/plugin-react": "^6.1.1",
     "dotenv": "^17.4.2",
     "eslint": "^8",
     "eslint-config-next": "14.2.35",

@@ -114,7 +114,14 @@ describe("BookingWidget", () => {
     );
     expect(screen.getByRole("button", { name: "Reservar Minha Vaga" })).toBeInTheDocument();
     expect(
-      await screen.findByText(/Você está reservando:\s*Inglês para Viagem/),
+      await screen.findByText((content, element) => {
+        const text = element?.textContent ?? "";
+        return (
+          element?.tagName === "P" &&
+          text.includes("Você está reservando") &&
+          text.includes("Inglês para Viagem")
+        );
+      }),
     ).toBeInTheDocument();
   });
 
@@ -137,7 +144,10 @@ describe("BookingWidget", () => {
     const user = userEvent.setup();
     render(<BookingWidget tutor={tutor} />);
 
-    await screen.findByText(/Você está reservando/);
+    await screen.findByText((content, element) => {
+      const text = element?.textContent ?? "";
+      return element?.tagName === "P" && text.includes("Você está reservando");
+    });
     await user.click(screen.getByRole("button", { name: "Reservar Minha Vaga" }));
 
     expect(mockPush).toHaveBeenCalledWith("/login?next=%2Ftutor%2F1");
@@ -178,7 +188,10 @@ describe("BookingWidget", () => {
     const user = userEvent.setup();
     render(<BookingWidget tutor={tutor} />);
 
-    await screen.findByText(/Você está reservando/);
+    await screen.findByText((content, element) => {
+      const text = element?.textContent ?? "";
+      return element?.tagName === "P" && text.includes("Você está reservando");
+    });
     await user.click(screen.getByRole("button", { name: "Reservar Minha Vaga" }));
 
     await waitFor(() => {
@@ -223,7 +236,10 @@ describe("BookingWidget", () => {
     const user = userEvent.setup();
     render(<BookingWidget tutor={tutor} />);
 
-    await screen.findByText(/Você está reservando/);
+    await screen.findByText((content, element) => {
+      const text = element?.textContent ?? "";
+      return element?.tagName === "P" && text.includes("Você está reservando");
+    });
     await user.click(screen.getByRole("button", { name: "Reservar Minha Vaga" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(

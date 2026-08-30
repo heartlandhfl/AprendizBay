@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import CreateHubForm from "@/components/hubs/CreateHubForm";
@@ -70,10 +70,11 @@ describe("CreateHubForm", () => {
   it("rejects a class size outside the 2–20 range", async () => {
     render(<CreateHubForm />);
 
-    const user = await fillRequiredFields();
-    await user.clear(screen.getByLabelText("Máximo de alunos"));
-    await user.type(screen.getByLabelText("Máximo de alunos"), "1");
-    await user.click(screen.getByRole("button", { name: "Criar turma" }));
+    await fillRequiredFields();
+    fireEvent.change(screen.getByLabelText("Máximo de alunos"), {
+      target: { value: "1" },
+    });
+    fireEvent.submit(screen.getByRole("button", { name: "Criar turma" }).closest("form")!);
 
     expect(screen.getByRole("alert")).toHaveTextContent(
       "A turma deve ter entre 2 e 20 alunos.",
