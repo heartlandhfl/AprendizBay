@@ -1,11 +1,12 @@
 {
   "/_not-found/page": "app/_not-found/page.js",
-  "/bookings/page": "app/bookings/page.js",
   "/favicon.ico/route": "app/favicon.ico/route.js",
+  "/bookings/page": "app/bookings/page.js",
   "/page": "app/page.js",
   "/tutor/dashboard/page": "app/tutor/dashboard/page.js",
+  "/tutor/onboarding/page": "app/tutor/onboarding/page.js",
   "/search/page": "app/search/page.js",
   "/tutor/[id]/page": "app/tutor/[id]/page.js",
-  "/(auth)/signup/page": "app/(auth)/signup/page.js",
-  "/(auth)/login/page": "app/(auth)/login/page.js"
+  "/(auth)/login/page": "app/(auth)/login/page.js",
+  "/(auth)/signup/page": "app/(auth)/signup/page.js"
 }
