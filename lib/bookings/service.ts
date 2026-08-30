@@ -16,8 +16,8 @@ import type {
   Booking,
   BookingStatus,
   CreateBookingInput,
+  PaymentStatus,
 } from "@/lib/bookings/types";
-import { generateMeetingUrl } from "@/lib/bookings/meeting";
 
 function mapBookingDoc(id: string, data: Record<string, unknown>): Booking {
   return {
@@ -32,6 +32,9 @@ function mapBookingDoc(id: string, data: Record<string, unknown>): Booking {
     createdAt: data.createdAt as Timestamp,
     updatedAt: data.updatedAt as Timestamp | undefined,
     meetingUrl: data.meetingUrl as string | undefined,
+    paymentStatus: (data.paymentStatus as PaymentStatus | undefined) ?? "unpaid",
+    paymentId: data.paymentId as string | undefined,
+    asaasCheckoutId: data.asaasCheckoutId as string | undefined,
   };
 }
 
@@ -45,6 +48,7 @@ export async function createBooking(
     tutorId: input.tutorId,
     type: input.type,
     status: "pending" as const,
+    paymentStatus: "unpaid" as const,
     price: input.price,
     scheduledAt: Timestamp.fromDate(input.scheduledAt),
     createdAt: serverTimestamp(),
@@ -73,8 +77,7 @@ export async function cancelBookingAsStudent(bookingId: string): Promise<void> {
 export async function confirmBookingAsTutor(bookingId: string): Promise<void> {
   await requireFirebaseApp();
   await updateDoc(doc(db, "bookings", bookingId), {
-    status: "confirmed",
-    meetingUrl: generateMeetingUrl(bookingId),
+    paymentStatus: "awaiting_payment" as PaymentStatus,
     updatedAt: serverTimestamp(),
   });
 }

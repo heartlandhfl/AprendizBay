@@ -9,7 +9,15 @@ Plataforma brasileira de tutoria e aprendizado coletivo — um marketplace de pr
 - **Tailwind CSS**
 - **Lucide React** (ícones)
 
-HTTP APIs live in `server/api/` and are mounted at `/api`. `npm run dev` starts Express + Next together.
+HTTP APIs live in `server/api/` and are mounted at `/api`. `npm run dev` starts Express + Next together. Unmatched `/api/*` routes (including Asaas checkout) are forwarded to Next.js in development.
+
+### Pagamentos Asaas
+
+After a tutor accepts a booking, the student pays via Asaas Checkout (`PIX` or `CREDIT_CARD`):
+
+1. `POST /api/payments/create-checkout` creates a sandbox checkout at `https://api-sandbox.asaas.com/v3/checkouts` (or production `https://api.asaas.com/v3/checkouts` when `ASAAS_ENVIRONMENT=production`).
+2. The student is redirected to `https://asaas.com/checkoutSession/show?id={id}` (or the `link` returned by Asaas).
+3. `POST /api/payments/webhook` confirms the booking with `confirmBookingWithMeetingUrl` when Asaas reports a successful payment (`externalReference` is the booking ID).
 
 ## Desenvolvimento
 
@@ -123,7 +131,8 @@ Production installs only **Express** (`dependencies` in `package.json`). Next.js
 | Feature | Module | Hostinger behavior |
 |---------|--------|-------------------|
 | Tutor SSG data | `lib/tutors/server.ts` | Runs at `npm run build:hostinger` locally; HTML is committed in `hostinger-next/` |
-| Booking webhook confirm | `lib/bookings/server.ts` | Not wired to Express yet |
+| Booking webhook confirm | `lib/bookings/server.ts` via `POST /api/payments/webhook` | Next.js only (Vercel / `npm run dev`). Not on Hostinger Express |
+| Asaas checkout create | `POST /api/payments/create-checkout` | Next.js only. Student pays after the tutor accepts the booking |
 | Review rating recompute | `lib/reviews/server.ts` via `lib/reviews/actions.ts` | Server Action POST never runs without Next.js — ratings are **not** recomputed after a review until you add an Express API (`server/api/`) or deploy to Vercel / another Next host |
 | Tutor approval (`isVerified`) | `lib/tutors/admin-server.ts` via `lib/tutors/actions.ts` | Server Action POST never runs without Next.js — use Firestore console or deploy to Vercel |
 
@@ -163,6 +172,9 @@ Use Vercel (or Netlify, Railway, a VPS with `next start`, etc.) when you need th
 | `FIREBASE_ADMIN_CLIENT_EMAIL` | Service account JSON → `client_email` |
 | `FIREBASE_ADMIN_PRIVATE_KEY` | Service account JSON → `private_key` (paste with `\n` escapes on one line) |
 | `NEXT_PUBLIC_SITE_URL` | Your production URL, e.g. `https://www.aprendizbay.com.br` (Open Graph / `metadataBase`) |
+| `ASAAS_API_KEY` | Asaas API key (`access_token`). Use a sandbox key (`$aact_hmlg_...`) until you switch environments |
+| `ASAAS_ENVIRONMENT` | `sandbox` (default, `https://api-sandbox.asaas.com/v3`) or `production` (`https://api.asaas.com/v3`) |
+| `ASAAS_WEBHOOK_TOKEN` | Optional token Asaas sends as `asaas-access-token` |
 
 `FIREBASE_ADMIN_*` is required on **Vercel** for Server Actions that recompute tutor ratings after reviews. It is **not** required on Hostinger — see [Hostinger](#2-hostinger--static-ui--express-api-production-target). Client features (auth, bookings, hubs) only need the `NEXT_PUBLIC_FIREBASE_*` vars on either target.
 

@@ -25,6 +25,8 @@ rules_version = '2';
 //   bookings/{bookingId}
 //     studentId, tutorId, hubId?, type: "individual" | "coletivo"
 //     status: "pending" | "confirmed" | "cancelled" | "completed"
+//     paymentStatus?: "unpaid" | "awaiting_payment" | "paid" | "failed"
+//     paymentId?, asaasCheckoutId?
 //     scheduledAt, price, meetingUrl?, createdAt, updatedAt
 //
 //   reviews/{reviewId}
@@ -42,7 +44,8 @@ rules_version = '2';
 // MATCH  users/{uid} create          → lib/auth/service.ts (signup)
 // MATCH  bookings create             → lib/bookings/service.ts (student reserve)
 // MATCH  bookings student cancel       → lib/bookings/service.ts (status → cancelled)
-// MATCH  bookings tutor confirm        → lib/bookings/service.ts (status, meetingUrl, updatedAt)
+// MATCH  bookings tutor accept payment → lib/bookings/service.ts (paymentStatus, updatedAt)
+// ADMIN  bookings confirm (webhook)    → lib/bookings/server.ts (status, meetingUrl, payment fields)
 // MATCH  bookings tutor cancel         → lib/bookings/service.ts (status → cancelled)
 // MATCH  bookings tutor complete       → lib/bookings/service.ts (status → completed)
 // MATCH  collectiveHubs create         → lib/hubs/service.ts (tutor dashboard)
@@ -51,7 +54,6 @@ rules_version = '2';
 // READ   bookings pending/confirmed     → lib/bookings/service.ts (slot picker occupancy)
 // MATCH  reviews create              → lib/reviews/client.ts (requires completed booking)
 // ADMIN  tutors rating/reviewCount   → lib/reviews/server.ts (Server Action; bypasses rules)
-// ADMIN  bookings confirm (webhook)  → lib/bookings/server.ts (payment webhook placeholder)
 // ADMIN  seed data                     → scripts/seed.ts
 // GAP    No client UI creates tutors/{tutorId} on tutor signup; profiles come from seed/admin.
 // GAP    No Storage upload UI yet; storage.rules paths are unused by the current app.
@@ -232,6 +234,8 @@ service cloud.firestore {
         && request.resource.data.type in ["individual", "coletivo"]
         && request.resource.data.price is number
         && request.resource.data.price > 0
+        && (!("paymentStatus" in request.resource.data)
+          || request.resource.data.paymentStatus == "unpaid")
         && isVerifiedTutor(request.resource.data.tutorId);
 
       allow update: if isAdmin()
@@ -239,9 +243,15 @@ service cloud.firestore {
           && request.resource.data.status == "cancelled"
           && resource.data.status in ["pending", "confirmed"])
         || (resource.data.tutorId == request.auth.uid
+          && resource.data.status == "pending"
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(["paymentStatus", "updatedAt"])
+          && request.resource.data.paymentStatus == "awaiting_payment"
+          && unchanged("status"))
+        || (resource.data.tutorId == request.auth.uid
           && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(["status", "updatedAt", "meetingUrl"])
-          && request.resource.data.status in ["confirmed", "cancelled", "completed"]);
+          && request.resource.data.status in ["cancelled", "completed"]);
 
       allow delete: if isAdmin();
     }

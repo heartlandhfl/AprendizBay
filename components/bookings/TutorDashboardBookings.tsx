@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import BookingStatusBadge from "@/components/bookings/BookingStatusBadge";
+import PaymentStatusBadge from "@/components/bookings/PaymentStatusBadge";
 import { useAuth } from "@/lib/auth/AuthContext";
-import type { Booking } from "@/lib/bookings/types";
+import type { Booking, PaymentStatus } from "@/lib/bookings/types";
 import { BOOKING_TYPE_LABELS } from "@/lib/bookings/types";
 import {
   cancelBookingAsTutor,
@@ -92,7 +93,7 @@ export default function TutorDashboardBookings() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Meu painel</h1>
         <p className="mt-2 text-muted-foreground">
-          Gerencie solicitações de aula pendentes dos seus alunos.
+          Aceite solicitações para liberar o pagamento. A aula só é confirmada depois que o aluno pagar.
         </p>
       </div>
 
@@ -111,7 +112,11 @@ export default function TutorDashboardBookings() {
         </div>
       ) : (
         <div className="space-y-4">
-          {bookings.map((booking) => (
+          {bookings.map((booking) => {
+            const paymentStatus: PaymentStatus = booking.paymentStatus ?? "unpaid";
+            const awaitingPayment = paymentStatus === "awaiting_payment";
+
+            return (
             <article
               key={booking.id}
               className="rounded-2xl bg-surface p-5 shadow-card ring-1 ring-border/50"
@@ -126,7 +131,10 @@ export default function TutorDashboardBookings() {
                     {booking.hubId ? ` · Turma ${booking.hubId}` : ""}
                   </p>
                 </div>
-                <BookingStatusBadge status={booking.status} />
+                <div className="flex flex-wrap gap-2">
+                  <BookingStatusBadge status={booking.status} />
+                  <PaymentStatusBadge status={paymentStatus} />
+                </div>
               </div>
 
               <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
@@ -144,15 +152,23 @@ export default function TutorDashboardBookings() {
                 </div>
               </dl>
 
+              {awaitingPayment && (
+                <p className="mt-4 text-sm text-amber-800">
+                  Você aceitou esta aula. O aluno ainda precisa pagar para liberar o link da reunião.
+                </p>
+              )}
+
               <div className="mt-4 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleConfirm(booking.id)}
-                  disabled={actionId === booking.id}
-                  className="rounded-2xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-60"
-                >
-                  Confirmar
-                </button>
+                {!awaitingPayment && (
+                  <button
+                    type="button"
+                    onClick={() => handleConfirm(booking.id)}
+                    disabled={actionId === booking.id}
+                    className="rounded-2xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-60"
+                  >
+                    {actionId === booking.id ? "Confirmando..." : "Confirmar e solicitar pagamento"}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => handleCancel(booking.id)}
@@ -163,7 +179,8 @@ export default function TutorDashboardBookings() {
                 </button>
               </div>
             </article>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
