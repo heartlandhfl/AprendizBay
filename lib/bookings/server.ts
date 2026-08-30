@@ -18,9 +18,10 @@ import { generateMeetingUrl } from "@/lib/bookings/meeting";
 import type { Booking, BookingStatus, BookingType, PaymentStatus } from "@/lib/bookings/types";
 import type { BookingFeeSplit } from "@/lib/payments/fees";
 import {
-  refundMercadoPagoPayment,
-  resolveMercadoPagoPaymentId,
-} from "@/lib/payments/mercadopago";
+  findAsaasPaymentIdByExternalReference,
+  refundAsaasPayment,
+  resolveAsaasPaymentId,
+} from "@/lib/payments/asaas";
 
 let adminApp: App | undefined;
 
@@ -68,7 +69,6 @@ export interface BookingRecord {
   paymentStatus?: PaymentStatus;
   paymentId?: string;
   asaasCheckoutId?: string;
-  mercadoPagoPaymentId?: string;
   refundId?: string;
   refundStatus?: string;
   refundAmount?: number;
@@ -102,9 +102,6 @@ export async function getBookingById(bookingId: string): Promise<BookingRecord |
     paymentStatus: (data.paymentStatus as PaymentStatus | undefined) ?? "unpaid",
     paymentId: data.paymentId ? String(data.paymentId) : undefined,
     asaasCheckoutId: data.asaasCheckoutId ? String(data.asaasCheckoutId) : undefined,
-    mercadoPagoPaymentId: data.mercadoPagoPaymentId
-      ? String(data.mercadoPagoPaymentId)
-      : undefined,
     refundId: data.refundId ? String(data.refundId) : undefined,
     refundStatus: data.refundStatus ? String(data.refundStatus) : undefined,
     refundAmount:
@@ -215,24 +212,27 @@ export async function cancelBookingWithRefund(input: CancelBookingInput): Promis
   let refundId = booking.refundId;
 
   if (decision.willRefund && !booking.refundId) {
-    const paymentId = resolveMercadoPagoPaymentId(booking);
+    const paymentId =
+      resolveAsaasPaymentId(booking) ??
+      (await findAsaasPaymentIdByExternalReference(booking.id));
     if (!paymentId) {
       throw new Error(
-        "Não foi possível reembolsar: o identificador do pagamento no Mercado Pago está ausente.",
+        "Não foi possível estornar: o identificador do pagamento no Asaas está ausente.",
       );
     }
 
-    const refund = await refundMercadoPagoPayment({
+    const refund = await refundAsaasPayment({
       paymentId,
-      idempotencyKey: `booking-refund-${booking.id}`,
+      description: "Cancelamento da aula no Aprendiz Bay",
+      value: booking.price,
     });
 
-    updates.refundId = refund.id;
-    updates.refundStatus = refund.status ?? "approved";
-    updates.refundAmount = refund.amount ?? booking.price;
-    updates.mercadoPagoPaymentId = paymentId;
+    updates.refundId = refund.refundId ?? refund.paymentId;
+    updates.refundStatus = refund.status ?? "REFUNDED";
+    updates.refundAmount = refund.refundAmount ?? booking.price;
+    updates.paymentId = paymentId;
     refunded = true;
-    refundId = refund.id;
+    refundId = refund.refundId ?? refund.paymentId;
   }
 
   await requireAdminFirestore().collection("bookings").doc(booking.id).update(updates);
