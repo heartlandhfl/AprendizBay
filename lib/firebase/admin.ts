@@ -1,6 +1,7 @@
 /**
- * Shared Firebase Admin bootstrap. Not imported by Express (server.js / server/api/).
- * Prefer lib/tutors|bookings|reviews/server.ts for domain-specific admin access.
+ * Shared Firebase Admin bootstrap for Next.js server modules.
+ * Express uses server/api/firebase-admin.js instead — do not import this file
+ * from server.js. Prefer lib/tutors|bookings|reviews/server.ts on Vercel.
  */
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 
