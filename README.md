@@ -52,6 +52,18 @@ This repo supports a **two-target** setup. Production today stays on the slim Ho
 
 Client Firebase features (auth, Firestore reads/writes from the browser, bookings UI) work on **both** targets with `NEXT_PUBLIC_FIREBASE_*` only.
 
+### Primeiro administrador (manual no Firestore)
+
+Não há fluxo de cadastro para `role: "admin"`. O primeiro administrador deve ser promovido manualmente no **Firebase Console**:
+
+1. Abra [Firebase Console](https://console.firebase.google.com/) → seu projeto → **Firestore Database**.
+2. Coleção `users` → documento do usuário (`users/{uid}`) que será administrador.
+3. Edite o campo `role` e altere de `student` ou `tutor` para **`admin`**.
+4. Salve o documento.
+
+Somente usuários com `users/{uid}.role == "admin"` podem acessar `/admin/tutors`. Aprovações de professores (`isVerified: true`) usam **Server Action** com `firebase-admin` (`lib/tutors/actions.ts`) — funcionam no deploy **Vercel** (Next.js completo). No Hostinger estático, use o console do Firestore para definir `tutors/{tutorId}.isVerified` manualmente ou migre essa ação para Vercel / uma API Express futura.
+
+
 ### 1. Firebase (Firestore + Storage rules)
 
 Install the [Firebase CLI](https://firebase.google.com/docs/cli) and log in:
@@ -113,6 +125,7 @@ Production installs only **Express** (`dependencies` in `package.json`). Next.js
 | Tutor SSG data | `lib/tutors/server.ts` | Runs at `npm run build` locally; HTML is committed in `hostinger-next/` |
 | Booking webhook confirm | `lib/bookings/server.ts` | Not wired to Express yet |
 | Review rating recompute | `lib/reviews/server.ts` via `lib/reviews/actions.ts` | Server Action POST never runs without Next.js — ratings are **not** recomputed after a review until you add an Express API (`server/api/`) or deploy to Vercel / another Next host |
+| Tutor approval (`isVerified`) | `lib/tutors/admin-server.ts` via `lib/tutors/actions.ts` | Server Action POST never runs without Next.js — use Firestore console or deploy to Vercel |
 
 `/api/health` includes `"firebaseAdminRuntime":false` so you can confirm the admin SDK never initialized in the Node process.
 

@@ -3,11 +3,11 @@
 import type { ReactNode } from "react";
 import { Loader2 } from "lucide-react";
 import { useRequireAuth } from "@/lib/auth/useRequireAuth";
-import type { SignupRole } from "@/lib/auth/types";
+import type { UserRole } from "@/lib/auth/types";
 
 interface RequireAuthProps {
   children: ReactNode;
-  roles?: SignupRole[];
+  roles?: UserRole[];
 }
 
 export default function RequireAuth({ children, roles }: RequireAuthProps) {

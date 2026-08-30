@@ -11,6 +11,23 @@ import { getMockTutorsForFallback, warnMockTutorFallback } from "@/lib/tutors/fa
 import type { FirestoreTutorDoc, TutorQueryFilters } from "@/lib/tutors/firestore-types";
 import { mapFirestoreTutorDoc } from "@/lib/tutors/map";
 
+export async function fetchUnverifiedTutors(): Promise<Tutor[]> {
+  const app = await ensureFirebaseApp();
+  if (!app) {
+    return [];
+  }
+
+  const snapshot = await getDocs(
+    query(collection(db, "tutors"), where("isVerified", "==", false)),
+  );
+
+  return snapshot.docs
+    .map((docSnap) =>
+      mapFirestoreTutorDoc(docSnap.id, docSnap.data() as FirestoreTutorDoc),
+    )
+    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+}
+
 export async function fetchVerifiedTutors(filters: TutorQueryFilters = {}): Promise<Tutor[]> {
   const app = await ensureFirebaseApp();
   if (!app) {
