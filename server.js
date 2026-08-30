@@ -12,6 +12,12 @@ if (process.env.NODE_ENV !== "development") {
   process.env.NODE_ENV = "production";
 }
 
+try {
+  require("dotenv").config({ path: require("path").join(__dirname, ".env.local") });
+} catch {
+  // dotenv is a devDependency; Hostinger/Vercel use panel environment variables.
+}
+
 const { installNextRequireGuard } = require("./server/next-runtime-guard");
 installNextRequireGuard();
 
