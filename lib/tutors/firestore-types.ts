@@ -38,6 +38,16 @@ export interface FirestoreCollectiveHubDoc {
   status: string;
 }
 
+export interface FirestoreAvailabilitySlot {
+  weekday: number;
+  startTime: string;
+  endTime: string;
+}
+
+export interface FirestoreAvailabilityDoc {
+  slots: FirestoreAvailabilitySlot[];
+}
+
 export interface TutorQueryFilters {
   subject?: string;
   city?: string;

@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import RequireAuth from "@/components/auth/RequireAuth";
+import TutorAvailabilityEditor from "@/components/availability/TutorAvailabilityEditor";
 import TutorDashboardBookings from "@/components/bookings/TutorDashboardBookings";
 import TutorConfirmedBookings from "@/components/bookings/TutorConfirmedBookings";
 import CreateHubForm from "@/components/hubs/CreateHubForm";
@@ -11,6 +12,7 @@ export default function TutorDashboardPage() {
       <RequireAuth roles={["tutor"]}>
         <div className="mx-auto max-w-7xl space-y-8 px-4 py-12 sm:px-6 lg:px-8">
           <IncompleteProfileBanner />
+          <TutorAvailabilityEditor />
           <CreateHubForm />
           <TutorDashboardBookings />
           <TutorConfirmedBookings />
