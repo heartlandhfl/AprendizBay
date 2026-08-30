@@ -1,6 +1,7 @@
 import {
   COOKIE_CONSENT_STORAGE_KEY,
   COOKIE_PREFERENCES_EVENT,
+  COOKIE_PREFERENCES_OPEN_EVENT,
 } from "@/lib/legal/constants";
 
 export type CookieConsentDecision = {
@@ -75,5 +76,5 @@ export function openCookiePreferences(): void {
     return;
   }
 
-  window.dispatchEvent(new Event(COOKIE_PREFERENCES_EVENT));
+  window.dispatchEvent(new Event(COOKIE_PREFERENCES_OPEN_EVENT));
 }

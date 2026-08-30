@@ -6,3 +6,4 @@ export const SUPPORT_CONTACT_EMAIL = "contato@aprendizbay.com.br";
 
 export const COOKIE_CONSENT_STORAGE_KEY = "ab_cookie_consent";
 export const COOKIE_PREFERENCES_EVENT = "ab-cookie-preferences";
+export const COOKIE_PREFERENCES_OPEN_EVENT = "ab-cookie-preferences-open";

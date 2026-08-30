@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
+import {
+  COOKIE_PREFERENCES_EVENT,
+  COOKIE_PREFERENCES_OPEN_EVENT,
+} from "./constants";
 import { parseCookieConsent } from "./cookie-consent";
+
+assert.notEqual(COOKIE_PREFERENCES_EVENT, COOKIE_PREFERENCES_OPEN_EVENT);
 
 assert.equal(parseCookieConsent(null), null);
 assert.equal(parseCookieConsent({ necessary: true, optional: true }), null);

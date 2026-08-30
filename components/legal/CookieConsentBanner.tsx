@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Cookie } from "lucide-react";
-import { COOKIE_PREFERENCES_EVENT } from "@/lib/legal/constants";
+import { COOKIE_PREFERENCES_OPEN_EVENT } from "@/lib/legal/constants";
 import {
   hasCookieConsentDecision,
   writeCookieConsent,
@@ -21,9 +21,9 @@ export default function CookieConsentBanner() {
       setOpen(true);
     }
 
-    window.addEventListener(COOKIE_PREFERENCES_EVENT, handleOpenPreferences);
+    window.addEventListener(COOKIE_PREFERENCES_OPEN_EVENT, handleOpenPreferences);
     return () => {
-      window.removeEventListener(COOKIE_PREFERENCES_EVENT, handleOpenPreferences);
+      window.removeEventListener(COOKIE_PREFERENCES_OPEN_EVENT, handleOpenPreferences);
     };
   }, []);
 
