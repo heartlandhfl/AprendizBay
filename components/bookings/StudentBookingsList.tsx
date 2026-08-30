@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import BookingStatusBadge from "@/components/bookings/BookingStatusBadge";
 import JoinLessonButton from "@/components/bookings/JoinLessonButton";
+import PayBookingForm from "@/components/bookings/PayBookingForm";
+import PaymentStatusBadge from "@/components/bookings/PaymentStatusBadge";
 import ReviewModal from "@/components/reviews/ReviewModal";
 import { useAuth } from "@/lib/auth/AuthContext";
-import type { Booking } from "@/lib/bookings/types";
+import type { Booking, PaymentStatus } from "@/lib/bookings/types";
 import { BOOKING_TYPE_LABELS } from "@/lib/bookings/types";
 import {
   cancelBookingAsStudent,
@@ -27,8 +30,16 @@ interface ReviewTarget {
   tutorName: string;
 }
 
+const PAYMENT_RETURN_MESSAGES: Record<string, string> = {
+  sucesso: "Pagamento enviado. Assim que o Asaas confirmar, sua aula será liberada.",
+  cancelado: "O pagamento foi cancelado. Você pode tentar novamente quando quiser.",
+  expirado: "O link de pagamento expirou. Gere um novo checkout para continuar.",
+};
+
 export default function StudentBookingsList() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
+  const paymentReturn = searchParams.get("pagamento");
   const [bookings, setBookings] = useState<EnrichedBooking[]>([]);
   const [reviewedBookingIds, setReviewedBookingIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -97,9 +108,22 @@ export default function StudentBookingsList() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">Minhas aulas</h1>
         <p className="mt-2 text-muted-foreground">
-          Acompanhe suas reservas e cancele quando necessário.
+          Acompanhe suas reservas, pague após a confirmação do professor e cancele quando necessário.
         </p>
       </div>
+
+      {paymentReturn && PAYMENT_RETURN_MESSAGES[paymentReturn] && (
+        <p
+          className={`rounded-2xl px-4 py-3 text-sm ${
+            paymentReturn === "sucesso"
+              ? "bg-primary-50 text-primary-800"
+              : "bg-amber-50 text-amber-900"
+          }`}
+          role="status"
+        >
+          {PAYMENT_RETURN_MESSAGES[paymentReturn]}
+        </p>
+      )}
 
       {error && (
         <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
@@ -117,6 +141,9 @@ export default function StudentBookingsList() {
       ) : (
         <div className="space-y-4">
           {bookings.map((booking) => {
+            const paymentStatus: PaymentStatus = booking.paymentStatus ?? "unpaid";
+            const canPay =
+              booking.status === "pending" && paymentStatus === "awaiting_payment";
             const canCancel =
               booking.status === "pending" || booking.status === "confirmed";
             const canReview =
@@ -137,7 +164,10 @@ export default function StudentBookingsList() {
                       {booking.hubId ? ` · Turma ${booking.hubId}` : ""}
                     </p>
                   </div>
-                  <BookingStatusBadge status={booking.status} />
+                  <div className="flex flex-wrap gap-2">
+                    <BookingStatusBadge status={booking.status} />
+                    <PaymentStatusBadge status={paymentStatus} />
+                  </div>
                 </div>
 
                 <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
@@ -154,6 +184,14 @@ export default function StudentBookingsList() {
                     </dd>
                   </div>
                 </dl>
+
+                {booking.status === "pending" && paymentStatus === "unpaid" && (
+                  <p className="mt-4 text-sm text-muted-foreground">
+                    Aguardando o professor confirmar. Depois você poderá pagar para liberar a aula.
+                  </p>
+                )}
+
+                {canPay && <PayBookingForm bookingId={booking.id} price={booking.price} />}
 
                 {booking.status === "confirmed" && booking.meetingUrl && (
                   <div className="mt-4">

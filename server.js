@@ -60,7 +60,8 @@ const BOOT_HTML = `<!doctype html>
 
 const app = express();
 app.set("trust proxy", 1);
-app.use(express.json({ limit: "1mb" }));
+// Parse JSON only on Express-owned API routers (see server/api). Leave the
+// raw body intact for Next.js App Router routes such as /api/payments/*.
 
 const dev = process.env.NODE_ENV === "development";
 let uiMode = "starting";
@@ -115,6 +116,10 @@ if (!dev) {
 } else {
   app.use((req, res, next) => {
     if (req.path.startsWith("/api")) {
+      if (nextHandle) {
+        nextHandle(req, res);
+        return;
+      }
       next();
       return;
     }

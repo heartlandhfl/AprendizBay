@@ -87,7 +87,9 @@ export default function BookingWidget({ tutor }: BookingWidgetProps) {
         scheduledAt,
       });
 
-      setSuccess("Reserva enviada! Acompanhe o status em Minhas aulas.");
+      setSuccess(
+        "Reserva enviada! Depois que o professor confirmar, você pagará a aula em Minhas aulas.",
+      );
       setTimeout(() => router.push("/bookings"), 1200);
     } catch {
       setError("Não foi possível criar a reserva. Verifique se o professor está verificado.");
