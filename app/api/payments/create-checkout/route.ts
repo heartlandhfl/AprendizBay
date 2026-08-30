@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { captureServerException } from "@/lib/observability/sentry-server";
 import { getUserProfile, verifyUserIdToken } from "@/lib/auth/admin-server";
 import { getBookingById, saveBookingCheckoutId, saveBookingFeeSplit } from "@/lib/bookings/server";
 import { BOOKING_TYPE_LABELS } from "@/lib/bookings/types";
@@ -151,6 +152,9 @@ export async function POST(request: Request) {
         : message.includes("ASAAS_API_KEY") || message.includes("Firebase Admin")
           ? 503
           : 400;
+    if (status >= 500) {
+      captureServerException(error);
+    }
 
     return NextResponse.json({ error: message }, { status });
   }

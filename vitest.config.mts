@@ -17,7 +17,11 @@ export default defineConfig({
           name: "unit",
           environment: "jsdom",
           setupFiles: ["./vitest.setup.ts"],
-          include: ["components/**/*.test.tsx"],
+          include: [
+            "components/**/*.test.tsx",
+            "lib/analytics/**/*.test.ts",
+            "lib/observability/**/*.test.ts",
+          ],
           exclude: ["node_modules", "hostinger-next", ".next"],
         },
       },

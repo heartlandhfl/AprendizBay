@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import JsonLd from "@/components/seo/JsonLd";
 import TutorHeader from "@/components/tutor/TutorHeader";
 import TutorAbout from "@/components/tutor/TutorAbout";
+import ProfileViewTracker from "@/components/observability/ProfileViewTracker";
 import BookingWidget from "@/components/tutor/BookingWidget";
 import SendMessageButton from "@/components/conversations/SendMessageButton";
 import { buildTutorPersonJsonLd } from "@/lib/seo/tutor-jsonld";
@@ -41,6 +42,7 @@ export default async function TutorPage({ params }: TutorPageProps) {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <ProfileViewTracker tutorId={tutor.id} subject={tutor.subject} />
       <JsonLd data={buildTutorPersonJsonLd(tutor)} />
       <Link
         href="/search"

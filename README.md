@@ -193,8 +193,14 @@ Use Vercel (or Netlify, Railway, a VPS with `next start`, etc.) when you need th
 | `NOTIFICATIONS_CRON_SECRET` | Bearer token for `/api/notifications/reminders` (Hostinger/external cron; not scheduled in `vercel.json` on Hobby) |
 | `PLATFORM_FEE_PERCENT` | Percent of each booking kept as the platform fee (`0`-`100`, default `10`). Stored as `platformFee` + `tutorAmount` on the booking |
 | `NEXT_PUBLIC_PLATFORM_FEE_PERCENT` | Optional client alias of `PLATFORM_FEE_PERCENT` (same default) |
+| `NEXT_PUBLIC_SENTRY_DSN` | Sentry project DSN (client + optional server fallback). Safe to expose; no PII is sent |
+| `SENTRY_DSN` | Optional server-only Sentry DSN for Express / Next API routes |
+| `SENTRY_ENVIRONMENT` / `NEXT_PUBLIC_SENTRY_ENVIRONMENT` | Sentry environment label (`production`, `development`, …) |
+| `NEXT_PUBLIC_PLAUSIBLE_DOMAIN` / `PLAUSIBLE_DOMAIN` | Plausible site hostname (cookie-free analytics). Custom events: `sign_up`, `search`, `profile_view`, `booking_started`, `payment_completed` |
+| `NEXT_PUBLIC_PLAUSIBLE_SRC` | Optional Plausible script URL (default `https://plausible.io/js/script.manual.js`) |
+| `PLAUSIBLE_API_HOST` | Optional Events API host for server-side `payment_completed` (default `https://plausible.io`) |
 
-`FIREBASE_ADMIN_*` is required on **Hostinger** for `POST /api/reviews/recompute-rating` and on **Vercel** for the matching App Router route / Server Action. Client features (auth, bookings, hubs) only need the `NEXT_PUBLIC_FIREBASE_*` vars on either target.
+`FIREBASE_ADMIN_*` is required on **Hostinger** for `POST /api/reviews/recompute-rating` and on **Vercel** for the matching App Router route / Server Action. Client features (auth, bookings, hubs) only need the `NEXT_PUBLIC_FIREBASE_*` vars on either target. Sentry and Plausible keys are optional — leave them empty to disable tracking. Client keys are also served at runtime from `GET /api/public-config` so Hostinger does not need a rebuild to enable them.
 
 6. Deploy. After the first deploy, add the Vercel URL to Firebase **Authorized domains** if you test auth on the preview domain.
 

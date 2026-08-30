@@ -7,6 +7,7 @@ const {
   readBearerToken,
   verifyIdToken,
 } = require("./firebase-admin");
+const { captureException } = require("./sentry");
 
 /**
  * Average tutor rating from review scores. Shared with scripts/test-reviews-api.js.
@@ -83,6 +84,9 @@ reviewsRouter.post("/recompute-rating", async (req, res) => {
         : message.includes("Firebase Admin")
           ? 503
           : 500;
+    if (status >= 500) {
+      captureException(error);
+    }
     res.status(status).json({ error: message });
   }
 });

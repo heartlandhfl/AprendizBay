@@ -7,8 +7,34 @@ import SearchFilters, {
   type SearchFilterState,
 } from "@/components/search/SearchFilters";
 import TutorCard from "@/components/search/TutorCard";
-import { PRICE_RANGES, type Tutor } from "@/lib/mock-tutors";
+import { trackEvent } from "@/lib/analytics/client";
+import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
+import {
+  PRICE_RANGES,
+  SUBJECTS,
+  type FilterModality,
+  type Tutor,
+} from "@/lib/mock-tutors";
 import { fetchVerifiedTutors } from "@/lib/tutors/client";
+
+function subjectFromQuery(query: string): string {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) {
+    return DEFAULT_FILTERS.subject;
+  }
+
+  const match = SUBJECTS.find(
+    (subject) => subject !== "Todas as matérias" && subject.toLowerCase() === normalized,
+  );
+  return match ?? DEFAULT_FILTERS.subject;
+}
+
+function modalityFromQuery(value?: string): FilterModality {
+  if (value === "online" || value === "presencial") {
+    return value;
+  }
+  return DEFAULT_FILTERS.modality;
+}
 
 function applyClientFilters(tutors: Tutor[], filters: SearchFilterState) {
   const priceRange = PRICE_RANGES[filters.priceRangeIndex];
@@ -51,8 +77,20 @@ function applyClientFilters(tutors: Tutor[], filters: SearchFilterState) {
     .sort((a, b) => b.rating - a.rating);
 }
 
-export default function SearchResults() {
-  const [filters, setFilters] = useState<SearchFilterState>(DEFAULT_FILTERS);
+interface SearchResultsProps {
+  initialQuery?: string;
+  initialModality?: string;
+}
+
+export default function SearchResults({
+  initialQuery = "",
+  initialModality,
+}: SearchResultsProps) {
+  const [filters, setFilters] = useState<SearchFilterState>({
+    ...DEFAULT_FILTERS,
+    subject: subjectFromQuery(initialQuery),
+    modality: modalityFromQuery(initialModality),
+  });
   const [tutors, setTutors] = useState<Tutor[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -89,6 +127,15 @@ export default function SearchResults() {
       cancelled = true;
     };
   }, [filters.subject, filters.modality]);
+
+  useEffect(() => {
+    trackEvent(ANALYTICS_EVENTS.search, {
+      subject: filters.subject,
+      modality: filters.modality,
+      lesson_type: filters.lessonType,
+      source: "results",
+    });
+  }, [filters.lessonType, filters.modality, filters.subject]);
 
   const results = useMemo(
     () => applyClientFilters(tutors, filters),

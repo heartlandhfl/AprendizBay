@@ -7,6 +7,15 @@ export const metadata: Metadata = {
     "Encontre tutores verificados para aulas individuais ou coletivas. Compare preços e economize aprendendo em grupo.",
 };
 
-export default function SearchPage() {
-  return <SearchResults />;
+export default function SearchPage({
+  searchParams,
+}: {
+  searchParams: { q?: string; subject?: string; modality?: string };
+}) {
+  return (
+    <SearchResults
+      initialQuery={searchParams.q ?? searchParams.subject ?? ""}
+      initialModality={searchParams.modality}
+    />
+  );
 }

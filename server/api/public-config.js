@@ -34,6 +34,28 @@ function publicPlatformFeePercent() {
   );
 }
 
+const DEFAULT_PLAUSIBLE_SRC = "https://plausible.io/js/script.manual.js";
+
+function trimConfigValue(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function publicObservabilityConfig() {
+  return {
+    sentryDsn: trimConfigValue(process.env.NEXT_PUBLIC_SENTRY_DSN),
+    sentryEnvironment:
+      trimConfigValue(
+        process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT ||
+          process.env.SENTRY_ENVIRONMENT ||
+          process.env.NODE_ENV,
+      ) || "production",
+    plausibleDomain: trimConfigValue(
+      process.env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN || process.env.PLAUSIBLE_DOMAIN,
+    ),
+    plausibleSrc: trimConfigValue(process.env.NEXT_PUBLIC_PLAUSIBLE_SRC) || DEFAULT_PLAUSIBLE_SRC,
+  };
+}
+
 const publicConfigRouter = Router();
 
 publicConfigRouter.get("/", (_req, res) => {
@@ -42,12 +64,14 @@ publicConfigRouter.get("/", (_req, res) => {
     firebase,
     configured: Boolean(String(firebase.apiKey).trim()),
     platformFeePercent: publicPlatformFeePercent(),
+    observability: publicObservabilityConfig(),
   });
 });
 
 module.exports = {
   publicConfigRouter,
   publicFirebaseConfig,
+  publicObservabilityConfig,
   publicPlatformFeePercent,
   parsePlatformFeePercent,
 };
