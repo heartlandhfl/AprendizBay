@@ -1,6 +1,7 @@
 "use strict";
 
 const { Router } = require("express");
+const { accountRouter } = require("./account");
 const { healthRouter } = require("./health");
 const { publicConfigRouter } = require("./public-config");
 const { reviewsRouter } = require("./reviews");
@@ -16,6 +17,7 @@ const { reviewsRouter } = require("./reviews");
  */
 const apiRouter = Router();
 
+apiRouter.use("/account", accountRouter);
 apiRouter.use("/health", healthRouter);
 apiRouter.use("/public-config", publicConfigRouter);
 apiRouter.use("/reviews", reviewsRouter);
