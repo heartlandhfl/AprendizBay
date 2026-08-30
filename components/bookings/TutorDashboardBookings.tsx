@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import BookingPaymentSummary from "@/components/bookings/BookingPaymentSummary";
 import BookingStatusBadge from "@/components/bookings/BookingStatusBadge";
+import CancelBookingDialog from "@/components/bookings/CancelBookingDialog";
 import PaymentStatusBadge from "@/components/bookings/PaymentStatusBadge";
 import { useAuth } from "@/lib/auth/AuthContext";
 import type { Booking, PaymentStatus } from "@/lib/bookings/types";
@@ -27,6 +28,7 @@ export default function TutorDashboardBookings() {
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<EnrichedBooking | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -68,14 +70,23 @@ export default function TutorDashboardBookings() {
     }
   }
 
-  async function handleCancel(bookingId: string) {
-    setActionId(bookingId);
+  async function handleCancelConfirm() {
+    if (!cancelTarget) {
+      return;
+    }
+
+    setActionId(cancelTarget.id);
     setError(null);
 
     try {
-      await cancelBookingAsTutor(bookingId);
-    } catch {
-      setError("Não foi possível recusar a reserva.");
+      await cancelBookingAsTutor(cancelTarget.id);
+      setCancelTarget(null);
+    } catch (cancelError) {
+      setError(
+        cancelError instanceof Error
+          ? cancelError.message
+          : "Não foi possível recusar a reserva.",
+      );
     } finally {
       setActionId(null);
     }
@@ -181,7 +192,10 @@ export default function TutorDashboardBookings() {
                 )}
                 <button
                   type="button"
-                  onClick={() => handleCancel(booking.id)}
+                  onClick={() => {
+                    setError(null);
+                    setCancelTarget(booking);
+                  }}
                   disabled={actionId === booking.id}
                   className="rounded-2xl border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-60"
                 >
@@ -192,6 +206,17 @@ export default function TutorDashboardBookings() {
             );
           })}
         </div>
+      )}
+
+      {cancelTarget && (
+        <CancelBookingDialog
+          booking={cancelTarget}
+          actor="tutor"
+          submitting={actionId === cancelTarget.id}
+          error={error}
+          onClose={() => setCancelTarget(null)}
+          onConfirm={handleCancelConfirm}
+        />
       )}
     </div>
   );
