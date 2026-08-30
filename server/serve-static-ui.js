@@ -145,6 +145,15 @@ function attachStaticUi(app, appDir) {
     );
   }
 
+  function streamMetadataBody(res, filename, contentType) {
+    const file = path.join(appOut, `${filename}.body`);
+    streamFile(res, file, { contentType }, () => {
+      if (!res.headersSent) {
+        res.status(404).type("text").send("Not found");
+      }
+    });
+  }
+
   app.get("/favicon.ico", (req, res, next) => {
     const file = path.join(appOut, "favicon.ico.body");
     res.type("image/x-icon");
@@ -157,6 +166,14 @@ function attachStaticUi(app, appDir) {
         next(error);
       }
     });
+  });
+
+  app.get("/robots.txt", (_req, res) => {
+    streamMetadataBody(res, "robots.txt", "text/plain; charset=utf-8");
+  });
+
+  app.get("/sitemap.xml", (_req, res) => {
+    streamMetadataBody(res, "sitemap.xml", "application/xml; charset=utf-8");
   });
 
   app.get("*", (req, res) => {
