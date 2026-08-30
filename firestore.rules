@@ -15,6 +15,9 @@ rules_version = '2';
 //     individualPrice, collectivePrice, modality, isVerified, isOnline
 //     hoursTaught, studentsServed, rating, reviewCount, createdAt, updatedAt
 //
+//   tutors/{tutorId}/availability/{docId}  // weekly schedule (docId usually "weekly")
+//     slots[]: { weekday: 0-6, startTime: "HH:mm", endTime: "HH:mm" }, updatedAt
+//
 //   collectiveHubs/{hubId}
 //     tutorId, title, description, maxStudents, confirmedStudentIds[]
 //     currentPrice, fullPrice, schedule, modality, status, createdAt, updatedAt
@@ -43,6 +46,7 @@ rules_version = '2';
 // MATCH  bookings tutor cancel         → lib/bookings/service.ts (status → cancelled)
 // MATCH  collectiveHubs create         → lib/hubs/service.ts (tutor dashboard)
 // MATCH  collectiveHubs student join   → lib/hubs/service.ts (confirmedStudentIds + updatedAt)
+// MATCH  tutors/{tutorId}/availability  → lib/availability/service.ts (tutor dashboard)
 // MATCH  reviews create              → lib/reviews/client.ts (requires completed booking)
 // ADMIN  tutors rating/reviewCount   → lib/reviews/server.ts (Server Action; bypasses rules)
 // ADMIN  bookings confirm (webhook)  → lib/bookings/server.ts (payment webhook placeholder)
@@ -124,6 +128,28 @@ service cloud.firestore {
         && !(request.auth.uid in before);
     }
 
+    function validTimeHHMM(value) {
+      return value is string
+        && value.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$');
+    }
+
+    function validAvailabilitySlot(slot) {
+      return slot.keys().hasAll(["weekday", "startTime", "endTime"])
+        && slot.weekday is int
+        && slot.weekday >= 0
+        && slot.weekday <= 6
+        && validTimeHHMM(slot.startTime)
+        && validTimeHHMM(slot.endTime);
+    }
+
+    function validAvailabilityDoc() {
+      let data = request.resource.data;
+
+      return data.keys().hasOnly(["slots", "updatedAt"])
+        && data.slots is list
+        && data.slots.size() <= 42;
+    }
+
     // -------------------------------------------------------------------------
     // users
     // -------------------------------------------------------------------------
@@ -167,6 +193,16 @@ service cloud.firestore {
         || isAdmin();
 
       allow delete: if isAdmin();
+
+      match /availability/{docId} {
+        allow read: if true;
+
+        allow create, update: if isTutor()
+          && tutorOwnedByAuth(tutorId)
+          && validAvailabilityDoc();
+
+        allow delete: if tutorOwnedByAuth(tutorId) || isAdmin();
+      }
     }
 
     // -------------------------------------------------------------------------
