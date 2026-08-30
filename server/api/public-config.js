@@ -45,4 +45,9 @@ publicConfigRouter.get("/", (_req, res) => {
   });
 });
 
-module.exports = { publicConfigRouter, publicFirebaseConfig };
+module.exports = {
+  publicConfigRouter,
+  publicFirebaseConfig,
+  publicPlatformFeePercent,
+  parsePlatformFeePercent,
+};

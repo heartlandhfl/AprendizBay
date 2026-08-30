@@ -7,6 +7,8 @@ import {
   resolveBookingFeeSplit,
   splitBookingPrice,
 } from "../lib/payments/fees";
+import { BOOKING_FEE_LABELS } from "../lib/bookings/types";
+import { parsePlatformFeePercent as parseExpressPlatformFeePercent } from "../server/api/public-config.js";
 
 assert.equal(isValidCpf("24971563792"), true);
 assert.equal(isValidCpf("249.715.637-92"), true);
@@ -72,5 +74,12 @@ assert.deepEqual(resolveBookingFeeSplit({ price: 80, platformFee: 12, tutorAmoun
   tutorAmount: 68,
 });
 assert.deepEqual(resolveBookingFeeSplit({ price: 80 }), splitBookingPrice(80));
+
+assert.equal(BOOKING_FEE_LABELS.lesson, "Valor da aula");
+assert.equal(BOOKING_FEE_LABELS.tutor, "Valor do professor");
+assert.equal(BOOKING_FEE_LABELS.platform, "Taxa da plataforma");
+assert.equal(BOOKING_FEE_LABELS.total, "Total a pagar");
+assert.equal(parseExpressPlatformFeePercent("12.5"), 12.5);
+assert.equal(parseExpressPlatformFeePercent("nope"), DEFAULT_PLATFORM_FEE_PERCENT);
 
 console.log("payment unit checks passed");

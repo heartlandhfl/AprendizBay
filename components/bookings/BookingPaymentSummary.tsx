@@ -1,3 +1,4 @@
+import React from "react";
 import { BOOKING_FEE_LABELS } from "@/lib/bookings/types";
 import { formatBookingPrice } from "@/lib/bookings/service";
 import { resolveBookingFeeSplit } from "@/lib/payments/fees";
