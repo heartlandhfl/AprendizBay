@@ -47,6 +47,7 @@ rules_version = '2';
 // MATCH  collectiveHubs create         → lib/hubs/service.ts (tutor dashboard)
 // MATCH  collectiveHubs student join   → lib/hubs/service.ts (confirmedStudentIds + updatedAt)
 // MATCH  tutors/{tutorId}/availability  → lib/availability/service.ts (tutor dashboard)
+// READ   bookings pending/confirmed     → lib/bookings/service.ts (slot picker occupancy)
 // MATCH  reviews create              → lib/reviews/client.ts (requires completed booking)
 // ADMIN  tutors rating/reviewCount   → lib/reviews/server.ts (Server Action; bypasses rules)
 // ADMIN  bookings confirm (webhook)  → lib/bookings/server.ts (payment webhook placeholder)
@@ -222,7 +223,9 @@ service cloud.firestore {
       allow read: if isAuthenticated()
         && (resource.data.studentId == request.auth.uid
           || resource.data.tutorId == request.auth.uid
-          || isAdmin());
+          || isAdmin()
+          || (isStudent()
+            && resource.data.status in ["pending", "confirmed"]));
 
       allow create: if isStudent()
         && request.resource.data.studentId == request.auth.uid

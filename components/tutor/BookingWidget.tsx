@@ -3,15 +3,16 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Calendar,
   Loader2,
   User,
   Users,
 } from "lucide-react";
 import CollectiveHubList from "@/components/hubs/CollectiveHubList";
+import IndividualSlotPicker from "@/components/tutor/IndividualSlotPicker";
 import type { TutorProfile } from "@/lib/tutor-profiles";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { createBooking, defaultScheduledAt, formatBookingPrice } from "@/lib/bookings/service";
+import { createBooking, formatBookingPrice } from "@/lib/bookings/service";
+import { resolveHubScheduledAt } from "@/lib/hubs/schedule";
 import type { CollectiveHubLive } from "@/lib/hubs/types";
 
 interface BookingWidgetProps {
@@ -27,6 +28,7 @@ export default function BookingWidget({ tutor }: BookingWidgetProps) {
   const [option, setOption] = useState<BookingOption>("coletivo");
   const [hubs, setHubs] = useState<CollectiveHubLive[]>([]);
   const [selectedHubId, setSelectedHubId] = useState("");
+  const [selectedSlot, setSelectedSlot] = useState<Date | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -63,16 +65,26 @@ export default function BookingWidget({ tutor }: BookingWidgetProps) {
       return;
     }
 
+    if (option === "individual" && !selectedSlot) {
+      setError("Selecione um horário disponível para continuar.");
+      return;
+    }
+
     setSubmitting(true);
 
     try {
+      const scheduledAt =
+        option === "individual"
+          ? selectedSlot!
+          : resolveHubScheduledAt(selectedHub!.schedule);
+
       await createBooking(user.uid, {
         tutorId: tutor.id,
         type: option,
         price:
           option === "individual" ? tutor.individualPrice : selectedHub!.currentPrice,
         hubId: option === "coletivo" ? selectedHubId : undefined,
-        scheduledAt: defaultScheduledAt(),
+        scheduledAt,
       });
 
       setSuccess("Reserva enviada! Acompanhe o status em Minhas aulas.");
@@ -139,10 +151,11 @@ export default function BookingWidget({ tutor }: BookingWidgetProps) {
               </p>
             </div>
 
-            <div className="flex items-center gap-2 rounded-xl bg-muted/60 px-3 py-2 text-sm text-muted-foreground">
-              <Calendar className="h-4 w-4 shrink-0" aria-hidden="true" />
-              Primeira aula disponível: amanhã
-            </div>
+            <IndividualSlotPicker
+              tutorId={tutor.id}
+              selectedSlot={selectedSlot}
+              onSelectSlot={setSelectedSlot}
+            />
           </div>
         ) : (
           <div className="mt-5 space-y-4">
@@ -202,6 +215,9 @@ export default function BookingWidget({ tutor }: BookingWidgetProps) {
             <span className="font-medium text-foreground">
               {selectedHub.title}
             </span>
+            {" · "}
+            Horário da turma:{" "}
+            <span className="font-medium text-foreground">{selectedHub.schedule}</span>
           </p>
         )}
 
