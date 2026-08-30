@@ -10,6 +10,7 @@ import {
   LogOut,
   Menu,
   Search,
+  Settings,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { usePendingBookingCount } from "@/lib/bookings/usePendingBookingCount";
@@ -129,6 +130,17 @@ export default function Navbar() {
                       </span>
                     )}
                   </Link>
+                  {userDoc?.role === "tutor" && (
+                    <Link
+                      href="/tutor/settings"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2.5 text-sm text-foreground transition-colors hover:bg-muted"
+                      role="menuitem"
+                    >
+                      <Settings className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                      Configurações
+                    </Link>
+                  )}
                   <button
                     type="button"
                     onClick={handleSignOut}

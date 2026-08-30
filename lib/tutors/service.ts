@@ -4,6 +4,7 @@ import {
   onSnapshot,
   serverTimestamp,
   setDoc,
+  updateDoc,
   type Unsubscribe,
 } from "firebase/firestore";
 import type { Modality } from "@/lib/mock-tutors";
@@ -19,6 +20,8 @@ export interface CreateTutorProfileInput {
   individualPrice: number;
   collectivePrice: number;
   modality: Modality;
+  avatarUrl?: string;
+  credentialFileName?: string;
 }
 
 export async function getTutorProfile(tutorId: string): Promise<FirestoreTutorDoc | null> {
@@ -75,7 +78,35 @@ export async function createTutorProfile(
     isOnline: false,
     rating: 0,
     reviewCount: 0,
+    ...(input.avatarUrl ? { avatarUrl: input.avatarUrl } : {}),
+    ...(input.credentialFileName ? { credentialFileName: input.credentialFileName } : {}),
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+}
+
+export interface UpdateTutorProfileInput {
+  avatarUrl?: string;
+  credentialFileName?: string;
+}
+
+export async function updateTutorProfile(
+  tutorId: string,
+  input: UpdateTutorProfileInput,
+): Promise<void> {
+  await requireFirebaseApp();
+
+  const updates: Record<string, unknown> = {
+    updatedAt: serverTimestamp(),
+  };
+
+  if (input.avatarUrl !== undefined) {
+    updates.avatarUrl = input.avatarUrl;
+  }
+
+  if (input.credentialFileName !== undefined) {
+    updates.credentialFileName = input.credentialFileName;
+  }
+
+  await updateDoc(doc(db, "tutors", tutorId), updates);
 }
