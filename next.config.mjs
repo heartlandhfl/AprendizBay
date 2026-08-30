@@ -1,9 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Hostinger copies git-tracked files into hbuilds. Keep this folder
-  // committed (except cache/) so BUILD_ID exists at runtime.
-  // Vercel expects the default ".next" output directory.
-  distDir: process.env.VERCEL ? ".next" : "hostinger-next",
+  // Default ".next" for Vercel and local dev. Hostinger static deploys use
+  // `npm run build:hostinger` to output committed `hostinger-next/`.
+  distDir: process.env.HOSTINGER_BUILD ? "hostinger-next" : ".next",
   eslint: {
     ignoreDuringBuilds: true,
   },
