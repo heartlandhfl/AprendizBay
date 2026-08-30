@@ -139,6 +139,8 @@ Production installs only **Express** (`dependencies` in `package.json`). Next.js
 | Paid booking cancel + Asaas refund | `POST /api/bookings/cancel` | Next.js only. Enforces the 24h free-cancellation rule and refunds via Asaas |
 | Review rating recompute | `server/api/reviews.js` via `POST /api/reviews/recompute-rating` | Runs on Hostinger after `createReview` (`lib/reviews/client.ts`). Needs `FIREBASE_ADMIN_*`. Vercel uses the same URL via `app/api/reviews/recompute-rating` (Server Action `lib/reviews/actions.ts` still works on Next hosts) |
 | Account deletion (LGPD) | `server/api/account.js` via `POST /api/account/delete` | Deletes `users/{uid}` and anonymizes bookings/reviews (does not delete those docs). Needs `FIREBASE_ADMIN_*`. Vercel uses `app/api/account/delete` |
+| Transactional e-mail | `lib/notifications/` via `POST /api/notifications` | Pending booking (tutor), confirmed lesson link (student), new review (tutor). Hostinger: `server/api/notifications.js`. Vercel: `app/api/notifications`. Needs `RESEND_API_KEY` or `SENDGRID_API_KEY` plus `FIREBASE_ADMIN_*` |
+| Lesson reminder (1h) | `GET/POST /api/notifications/reminders` | Call this path every 15 minutes from Hostinger cron or an external ping (`NOTIFICATIONS_CRON_SECRET`). Vercel Hobby cannot run sub-daily crons, so `vercel.json` does not schedule it |
 | Tutor approval (`isVerified`) | `lib/tutors/admin-server.ts` via `lib/tutors/actions.ts` | Server Action POST never runs without Next.js — use Firestore console or deploy to Vercel |
 
 `/api/health` includes `"firebaseAdminRuntime"` — `false` until a `server/api/` route (review recompute) initializes the admin SDK, then `true`.
@@ -154,9 +156,12 @@ NEXT_PUBLIC_SITE_URL=https://teal-penguin-833668.hostingersite.com
 FIREBASE_ADMIN_PROJECT_ID=
 FIREBASE_ADMIN_CLIENT_EMAIL=
 FIREBASE_ADMIN_PRIVATE_KEY=
+RESEND_API_KEY=
+EMAIL_FROM=Aprendiz Bay <noreply@aprendizbay.com.br>
+NOTIFICATIONS_CRON_SECRET=
 ```
 
-and every Firebase key from `.env.local.example`. `FIREBASE_ADMIN_*` is required for `POST /api/reviews/recompute-rating`. Add `teal-penguin-833668.hostingersite.com` to Firebase **Authentication → Authorized domains**.
+and every Firebase key from `.env.local.example`. `FIREBASE_ADMIN_*` is required for `POST /api/reviews/recompute-rating` and e-mail lookups. Add `teal-penguin-833668.hostingersite.com` to Firebase **Authentication → Authorized domains**.
 
 ### 3. Vercel — full Next.js (optional Server Actions target)
 
@@ -183,6 +188,10 @@ Use Vercel (or Netlify, Railway, a VPS with `next start`, etc.) when you need th
 | `ASAAS_API_KEY` | Asaas API key (`access_token`). Use a sandbox key (`$aact_hmlg_...`) until you switch environments |
 | `ASAAS_ENVIRONMENT` | `sandbox` (default, `https://api-sandbox.asaas.com/v3`) or `production` (`https://api.asaas.com/v3`) |
 | `ASAAS_WEBHOOK_TOKEN` | Optional token Asaas sends as `asaas-access-token` |
+| `RESEND_API_KEY` | [Resend](https://resend.com) API key (preferred mailer) |
+| `SENDGRID_API_KEY` | SendGrid API key (used if Resend is unset) |
+| `EMAIL_FROM` | From header, e.g. `Aprendiz Bay <noreply@aprendizbay.com.br>` |
+| `NOTIFICATIONS_CRON_SECRET` | Bearer token for `/api/notifications/reminders` (Hostinger/external cron; not scheduled in `vercel.json` on Hobby) |
 | `PLATFORM_FEE_PERCENT` | Percent of each booking kept as the platform fee (`0`-`100`, default `10`). Stored as `platformFee` + `tutorAmount` on the booking |
 | `NEXT_PUBLIC_PLATFORM_FEE_PERCENT` | Optional client alias of `PLATFORM_FEE_PERCENT` (same default) |
 

@@ -19,6 +19,7 @@ import type {
   PaymentStatus,
 } from "@/lib/bookings/types";
 import type { CancelActor } from "@/lib/bookings/cancellation";
+import { requestNotification } from "@/lib/notifications/client";
 import { loadPlatformFeePercent, splitBookingPrice } from "@/lib/payments/fees";
 
 function readOptionalMoney(value: unknown): number | undefined {
@@ -76,6 +77,7 @@ export async function createBooking(
   };
 
   const docRef = await addDoc(collection(db, "bookings"), bookingData);
+  void requestNotification({ type: "pending_booking", bookingId: docRef.id });
   return docRef.id;
 }
 
@@ -88,6 +90,10 @@ export async function updateBookingStatus(
     status,
     updatedAt: serverTimestamp(),
   });
+
+  if (status === "confirmed") {
+    void requestNotification({ type: "confirmed_booking", bookingId });
+  }
 }
 
 async function cancelBookingViaApi(bookingId: string, actor: CancelActor): Promise<void> {

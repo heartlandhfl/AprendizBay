@@ -15,6 +15,7 @@ import {
   type CancelActor,
 } from "@/lib/bookings/cancellation";
 import { generateMeetingUrl } from "@/lib/bookings/meeting";
+import { notifyConfirmedBooking, safeNotify } from "@/lib/notifications/server";
 import type { Booking, BookingStatus, BookingType, PaymentStatus } from "@/lib/bookings/types";
 import type { BookingFeeSplit } from "@/lib/payments/fees";
 import {
@@ -160,6 +161,7 @@ export async function confirmBookingWithMeetingUrl(
   }
 
   await db.collection("bookings").doc(bookingId).update(updates);
+  await safeNotify(() => notifyConfirmedBooking(bookingId), "confirmed_booking");
 }
 
 export interface CancelBookingInput {

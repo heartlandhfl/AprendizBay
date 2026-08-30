@@ -8,6 +8,7 @@ import {
   type Unsubscribe,
 } from "firebase/firestore";
 import { auth, db, requireFirebaseApp, whenFirebaseReady } from "@/lib/firebase/client";
+import { requestNotification } from "@/lib/notifications/client";
 import type { CreateReviewInput } from "@/lib/reviews/types";
 
 export async function createReview(input: CreateReviewInput): Promise<string> {
@@ -21,6 +22,7 @@ export async function createReview(input: CreateReviewInput): Promise<string> {
     createdAt: serverTimestamp(),
   });
 
+  void requestNotification({ type: "new_review", reviewId: docRef.id });
   return docRef.id;
 }
 

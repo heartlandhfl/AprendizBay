@@ -5,6 +5,7 @@ const { accountRouter } = require("./account");
 const { healthRouter } = require("./health");
 const { publicConfigRouter } = require("./public-config");
 const { reviewsRouter } = require("./reviews");
+const { notificationsRouter } = require("./notifications");
 
 /**
  * Express API for this app. Add routers here — they are mounted at `/api`
@@ -21,5 +22,6 @@ apiRouter.use("/account", accountRouter);
 apiRouter.use("/health", healthRouter);
 apiRouter.use("/public-config", publicConfigRouter);
 apiRouter.use("/reviews", reviewsRouter);
+apiRouter.use("/notifications", notificationsRouter);
 
 module.exports = { apiRouter };

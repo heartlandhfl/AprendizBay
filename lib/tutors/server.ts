@@ -1,10 +1,11 @@
 /**
  * Hostinger audit — firebase-admin (Next.js server modules only)
  *
- * Used at `npm run build` by app/tutor/[id]/page.tsx (SSG: generateStaticParams,
- * generateMetadata, prerender). Bundled into hostinger-next/server/app/tutor/[id]/page.js
- * for Next.js RSC, but Express never executes those chunks — serve-static-ui.js only
- * streams the committed .html files.
+ * Used at `npm run build` by app/tutor/[id]/page.tsx and
+ * app/professores/[materia]/[cidade]/page.tsx (SSG: generateStaticParams,
+ * generateMetadata, prerender) plus app/sitemap.ts. Bundled into
+ * hostinger-next/server/app/** for Next.js RSC, but Express never executes
+ * those chunks — serve-static-ui.js only streams the committed .html / .body files.
  *
  * Not imported by server.js or server/api/. Production Express must not require this module.
  */

@@ -3,42 +3,11 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import CookieConsentBanner from "@/components/legal/CookieConsentBanner";
 import { AuthProvider } from "@/lib/auth/AuthContext";
+import { getSiteUrl } from "@/lib/seo/site-url";
 import "./globals.css";
 
-function getMetadataBase(): URL {
-  const candidates = [
-    process.env.NEXT_PUBLIC_SITE_URL,
-    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined,
-  ];
-
-  for (const value of candidates) {
-    const url = tryParseAbsoluteUrl(value);
-    if (url) {
-      return url;
-    }
-  }
-
-  return new URL("http://localhost:3000");
-}
-
-function tryParseAbsoluteUrl(value: string | undefined): URL | undefined {
-  const trimmed = value?.trim();
-  if (!trimmed) {
-    return undefined;
-  }
-
-  try {
-    const withProtocol = /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(trimmed)
-      ? trimmed
-      : `https://${trimmed}`;
-    return new URL(withProtocol);
-  } catch {
-    return undefined;
-  }
-}
-
 export const metadata: Metadata = {
-  metadataBase: getMetadataBase(),
+  metadataBase: getSiteUrl(),
   title: "Aprendiz Bay — Encontre seu professor ideal",
   description:
     "Plataforma brasileira de tutoria e aprendizado coletivo. Encontre professores particulares e participe de aulas em grupo com preços acessíveis.",

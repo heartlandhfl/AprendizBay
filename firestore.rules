@@ -29,6 +29,7 @@ rules_version = '2';
 //     paymentId?, asaasCheckoutId?
 //     refundId?, refundStatus?, refundAmount?
 //     scheduledAt, price, platformFee?, tutorAmount?, meetingUrl?, createdAt, updatedAt
+//     lessonReminderSentAt?             // admin-only, set after the 1h reminder email
 //
 //   reviews/{reviewId}
 //     tutorId, studentId, bookingId, rating, comment, createdAt
@@ -53,7 +54,8 @@ rules_version = '2';
 // MATCH  bookings create             → lib/bookings/service.ts (student reserve)
 // MATCH  bookings student cancel       → unpaid client update; paid via /api/bookings/cancel + refund
 // MATCH  bookings tutor accept payment → lib/bookings/service.ts (paymentStatus, updatedAt)
-// ADMIN  bookings confirm (webhook)    → lib/bookings/server.ts (status, meetingUrl, payment fields)
+// ADMIN  bookings confirm (webhook)    → lib/bookings/server.ts (status, meetingUrl, payment fields + e-mail)
+// ADMIN  bookings lesson reminder      → lib/notifications (lessonReminderSentAt)
 // MATCH  bookings tutor cancel         → unpaid client-capable; paid via /api/bookings/cancel + refund
 // MATCH  bookings tutor complete       → lib/bookings/service.ts (status → completed)
 // MATCH  collectiveHubs create         → lib/hubs/service.ts (tutor dashboard)
@@ -63,7 +65,7 @@ rules_version = '2';
 // MATCH  conversations create        → lib/conversations/service.ts (student starts thread)
 // MATCH  conversations update        → lib/conversations/service.ts (lastMessage preview)
 // MATCH  conversations/messages create → lib/conversations/service.ts (either participant)
-// MATCH  reviews create              → lib/reviews/client.ts (requires completed booking)
+// MATCH  reviews create              → lib/reviews/client.ts (requires completed booking + e-mail ao professor)
 // ADMIN  tutors rating/reviewCount   → POST /api/reviews/recompute-rating after createReview
 //        Hostinger Express: server/api/reviews.js (firebase-admin; bypasses rules)
 //        Vercel / next start: app/api/reviews/recompute-rating + lib/reviews/server.ts
@@ -97,7 +99,8 @@ service cloud.firestore {
     }
 
     function userExists() {
-      return isAuthenticated() && userDoc().exists;
+      return isAuthenticated()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
 
     function userRole() {
