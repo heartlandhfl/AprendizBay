@@ -83,7 +83,45 @@ export async function cancelBookingAsTutor(bookingId: string): Promise<void> {
   await updateBookingStatus(bookingId, "cancelled");
 }
 
-// Rules audit: no client write sets status "completed" yet; reviews require completed bookings.
+export async function markBookingCompleted(bookingId: string): Promise<void> {
+  await requireFirebaseApp();
+  await updateDoc(doc(db, "bookings", bookingId), {
+    status: "completed",
+    updatedAt: serverTimestamp(),
+  });
+}
+
+export function hasScheduledTimePassed(scheduledAt: Timestamp, now: Date = new Date()): boolean {
+  return scheduledAt.toMillis() <= now.getTime();
+}
+
+export function subscribeToTutorOccupiedBookings(
+  tutorId: string,
+  onChange: (bookings: Booking[]) => void,
+  onError?: (error: Error) => void,
+): Unsubscribe {
+  return whenFirebaseReady(() => {
+    const bookingsQuery = query(
+      collection(db, "bookings"),
+      where("tutorId", "==", tutorId),
+      where("status", "in", ["pending", "confirmed"]),
+    );
+
+    return onSnapshot(
+      bookingsQuery,
+      (snapshot) => {
+        const bookings = snapshot.docs
+          .map((docSnap) =>
+            mapBookingDoc(docSnap.id, docSnap.data() as Record<string, unknown>),
+          )
+          .sort((a, b) => a.scheduledAt.toMillis() - b.scheduledAt.toMillis());
+
+        onChange(bookings);
+      },
+      (error) => onError?.(error),
+    );
+  });
+}
 
 export function subscribeToTutorOccupiedBookings(
   tutorId: string,

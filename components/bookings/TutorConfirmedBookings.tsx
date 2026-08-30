@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
 import BookingStatusBadge from "@/components/bookings/BookingStatusBadge";
 import JoinLessonButton from "@/components/bookings/JoinLessonButton";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -10,6 +11,8 @@ import {
   fetchUserDisplayName,
   formatBookingDate,
   formatBookingPrice,
+  hasScheduledTimePassed,
+  markBookingCompleted,
   subscribeToTutorConfirmedBookings,
 } from "@/lib/bookings/service";
 
@@ -21,6 +24,9 @@ export default function TutorConfirmedBookings() {
   const { user } = useAuth();
   const [bookings, setBookings] = useState<EnrichedBooking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actionId, setActionId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
     if (!user) {
@@ -46,6 +52,24 @@ export default function TutorConfirmedBookings() {
     return unsubscribe;
   }, [user]);
 
+  useEffect(() => {
+    const interval = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  async function handleComplete(bookingId: string) {
+    setActionId(bookingId);
+    setError(null);
+
+    try {
+      await markBookingCompleted(bookingId);
+    } catch {
+      setError("Não foi possível marcar a aula como concluída.");
+    } finally {
+      setActionId(null);
+    }
+  }
+
   if (loading) {
     return null;
   }
@@ -59,51 +83,84 @@ export default function TutorConfirmedBookings() {
       <div>
         <h2 className="text-xl font-bold text-foreground">Aulas confirmadas</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Entre na sala de videoconferência quando for hora da aula.
+          Entre na sala de videoconferência quando for hora da aula e marque como concluída
+          depois do horário agendado.
         </p>
       </div>
 
+      {error && (
+        <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+          {error}
+        </p>
+      )}
+
       <div className="space-y-4">
-        {bookings.map((booking) => (
-          <article
-            key={booking.id}
-            className="rounded-2xl bg-surface p-5 shadow-card ring-1 ring-border/50"
-          >
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h3 className="text-lg font-semibold text-foreground">
-                  {booking.studentName}
-                </h3>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {BOOKING_TYPE_LABELS[booking.type]}
-                  {booking.hubId ? ` · Turma ${booking.hubId}` : ""}
+        {bookings.map((booking) => {
+          const canComplete = hasScheduledTimePassed(booking.scheduledAt, now);
+
+          return (
+            <article
+              key={booking.id}
+              className="rounded-2xl bg-surface p-5 shadow-card ring-1 ring-border/50"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">
+                    {booking.studentName}
+                  </h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {BOOKING_TYPE_LABELS[booking.type]}
+                    {booking.hubId ? ` · Turma ${booking.hubId}` : ""}
+                  </p>
+                </div>
+                <BookingStatusBadge status={booking.status} />
+              </div>
+
+              <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
+                <div>
+                  <dt className="text-muted-foreground">Data agendada</dt>
+                  <dd className="font-medium text-foreground">
+                    {formatBookingDate(booking.scheduledAt)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground">Valor</dt>
+                  <dd className="font-medium text-foreground">
+                    {formatBookingPrice(booking.price)}/h
+                  </dd>
+                </div>
+              </dl>
+
+              {booking.meetingUrl && (
+                <div className="mt-4">
+                  <JoinLessonButton meetingUrl={booking.meetingUrl} />
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => handleComplete(booking.id)}
+                disabled={!canComplete || actionId === booking.id}
+                className="mt-4 inline-flex items-center rounded-2xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {actionId === booking.id ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                    Concluindo...
+                  </>
+                ) : (
+                  "Marcar aula como concluída"
+                )}
+              </button>
+
+              {!canComplete && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Disponível após o horário agendado.
                 </p>
-              </div>
-              <BookingStatusBadge status={booking.status} />
-            </div>
-
-            <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
-              <div>
-                <dt className="text-muted-foreground">Data agendada</dt>
-                <dd className="font-medium text-foreground">
-                  {formatBookingDate(booking.scheduledAt)}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">Valor</dt>
-                <dd className="font-medium text-foreground">
-                  {formatBookingPrice(booking.price)}/h
-                </dd>
-              </div>
-            </dl>
-
-            {booking.meetingUrl && (
-              <div className="mt-4">
-                <JoinLessonButton meetingUrl={booking.meetingUrl} />
-              </div>
-            )}
-          </article>
-        ))}
+              )}
+            </article>
+          );
+        })}
       </div>
     </section>
   );
