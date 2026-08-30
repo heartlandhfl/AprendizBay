@@ -11,13 +11,22 @@ import {
   where,
   type Unsubscribe,
 } from "firebase/firestore";
-import { db, requireFirebaseApp, whenFirebaseReady } from "@/lib/firebase/client";
+import { auth, db, requireFirebaseApp, whenFirebaseReady } from "@/lib/firebase/client";
 import type {
   Booking,
   BookingStatus,
   CreateBookingInput,
   PaymentStatus,
 } from "@/lib/bookings/types";
+import type { CancelActor } from "@/lib/bookings/cancellation";
+import { loadPlatformFeePercent, splitBookingPrice } from "@/lib/payments/fees";
+
+function readOptionalMoney(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return undefined;
+  }
+  return value;
+}
 
 function mapBookingDoc(id: string, data: Record<string, unknown>): Booking {
   return {
@@ -28,6 +37,8 @@ function mapBookingDoc(id: string, data: Record<string, unknown>): Booking {
     type: data.type as Booking["type"],
     status: data.status as BookingStatus,
     price: data.price as number,
+    platformFee: readOptionalMoney(data.platformFee),
+    tutorAmount: readOptionalMoney(data.tutorAmount),
     scheduledAt: data.scheduledAt as Timestamp,
     createdAt: data.createdAt as Timestamp,
     updatedAt: data.updatedAt as Timestamp | undefined,
@@ -35,6 +46,9 @@ function mapBookingDoc(id: string, data: Record<string, unknown>): Booking {
     paymentStatus: (data.paymentStatus as PaymentStatus | undefined) ?? "unpaid",
     paymentId: data.paymentId as string | undefined,
     asaasCheckoutId: data.asaasCheckoutId as string | undefined,
+    refundId: data.refundId as string | undefined,
+    refundStatus: data.refundStatus as string | undefined,
+    refundAmount: readOptionalMoney(data.refundAmount),
   };
 }
 
@@ -43,6 +57,10 @@ export async function createBooking(
   input: CreateBookingInput,
 ): Promise<string> {
   await requireFirebaseApp();
+  const feeSplit =
+    typeof input.platformFee === "number" && typeof input.tutorAmount === "number"
+      ? { platformFee: input.platformFee, tutorAmount: input.tutorAmount }
+      : splitBookingPrice(input.price, await loadPlatformFeePercent());
   const bookingData = {
     studentId,
     tutorId: input.tutorId,
@@ -50,6 +68,8 @@ export async function createBooking(
     status: "pending" as const,
     paymentStatus: "unpaid" as const,
     price: input.price,
+    platformFee: feeSplit.platformFee,
+    tutorAmount: feeSplit.tutorAmount,
     scheduledAt: Timestamp.fromDate(input.scheduledAt),
     createdAt: serverTimestamp(),
     ...(input.hubId ? { hubId: input.hubId } : {}),
@@ -70,8 +90,31 @@ export async function updateBookingStatus(
   });
 }
 
+async function cancelBookingViaApi(bookingId: string, actor: CancelActor): Promise<void> {
+  await requireFirebaseApp();
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error("Faça login para cancelar esta reserva.");
+  }
+
+  const idToken = await user.getIdToken();
+  const response = await fetch("/api/bookings/cancel", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({ bookingId, actor }),
+  });
+
+  const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+  if (!response.ok) {
+    throw new Error(payload?.error || "Não foi possível cancelar a reserva.");
+  }
+}
+
 export async function cancelBookingAsStudent(bookingId: string): Promise<void> {
-  await updateBookingStatus(bookingId, "cancelled");
+  await cancelBookingViaApi(bookingId, "student");
 }
 
 export async function confirmBookingAsTutor(bookingId: string): Promise<void> {
@@ -83,7 +126,7 @@ export async function confirmBookingAsTutor(bookingId: string): Promise<void> {
 }
 
 export async function cancelBookingAsTutor(bookingId: string): Promise<void> {
-  await updateBookingStatus(bookingId, "cancelled");
+  await cancelBookingViaApi(bookingId, "tutor");
 }
 
 export async function markBookingCompleted(bookingId: string): Promise<void> {
@@ -251,11 +294,12 @@ export function formatBookingDate(timestamp: Timestamp): string {
 }
 
 export function formatBookingPrice(price: number): string {
+  const hasCents = Math.round(price * 100) % 100 !== 0;
   return price.toLocaleString("pt-BR", {
     style: "currency",
     currency: "BRL",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    minimumFractionDigits: hasCents ? 2 : 0,
+    maximumFractionDigits: 2,
   });
 }
 

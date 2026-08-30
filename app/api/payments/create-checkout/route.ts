@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { getUserProfile, verifyUserIdToken } from "@/lib/auth/admin-server";
-import { getBookingById, saveBookingCheckoutId } from "@/lib/bookings/server";
+import { getBookingById, saveBookingCheckoutId, saveBookingFeeSplit } from "@/lib/bookings/server";
 import { BOOKING_TYPE_LABELS } from "@/lib/bookings/types";
 import { createAsaasCheckout } from "@/lib/payments/asaas";
+import { resolveBookingFeeSplit } from "@/lib/payments/fees";
 import {
   digitsOnly,
   isValidCpf,
@@ -101,6 +102,11 @@ export async function POST(request: Request) {
 
     if (!Number.isFinite(booking.price) || booking.price <= 0) {
       return NextResponse.json({ error: "O valor da reserva é inválido." }, { status: 400 });
+    }
+
+    const feeSplit = resolveBookingFeeSplit(booking);
+    if (booking.platformFee == null || booking.tutorAmount == null) {
+      await saveBookingFeeSplit(booking.id, feeSplit);
     }
 
     const email = body.email?.trim() || profile?.email || "";

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import BookingStatusBadge from "@/components/bookings/BookingStatusBadge";
+import CancelBookingDialog from "@/components/bookings/CancelBookingDialog";
 import JoinLessonButton from "@/components/bookings/JoinLessonButton";
 import PayBookingForm from "@/components/bookings/PayBookingForm";
 import PaymentStatusBadge from "@/components/bookings/PaymentStatusBadge";
@@ -11,6 +12,11 @@ import ReviewModal from "@/components/reviews/ReviewModal";
 import { useAuth } from "@/lib/auth/AuthContext";
 import type { Booking, PaymentStatus } from "@/lib/bookings/types";
 import { BOOKING_TYPE_LABELS } from "@/lib/bookings/types";
+import {
+  decideCancellation,
+  getCancellationCopy,
+  toScheduledDate,
+} from "@/lib/bookings/cancellation";
 import {
   cancelBookingAsStudent,
   fetchTutorName,
@@ -46,6 +52,7 @@ export default function StudentBookingsList() {
   const [actionId, setActionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reviewTarget, setReviewTarget] = useState<ReviewTarget | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<EnrichedBooking | null>(null);
 
   useEffect(() => {
     if (!user) {
@@ -82,14 +89,23 @@ export default function StudentBookingsList() {
     };
   }, [user]);
 
-  async function handleCancel(bookingId: string) {
-    setActionId(bookingId);
+  async function handleCancelConfirm() {
+    if (!cancelTarget) {
+      return;
+    }
+
+    setActionId(cancelTarget.id);
     setError(null);
 
     try {
-      await cancelBookingAsStudent(bookingId);
-    } catch {
-      setError("Não foi possível cancelar a reserva.");
+      await cancelBookingAsStudent(cancelTarget.id);
+      setCancelTarget(null);
+    } catch (cancelError) {
+      setError(
+        cancelError instanceof Error
+          ? cancelError.message
+          : "Não foi possível cancelar a reserva.",
+      );
     } finally {
       setActionId(null);
     }
@@ -144,7 +160,17 @@ export default function StudentBookingsList() {
             const paymentStatus: PaymentStatus = booking.paymentStatus ?? "unpaid";
             const canPay =
               booking.status === "pending" && paymentStatus === "awaiting_payment";
-            const canCancel =
+            const cancellation = decideCancellation({
+              status: booking.status,
+              paymentStatus,
+              scheduledAt: toScheduledDate(booking.scheduledAt),
+              actor: "student",
+            });
+            const cancellationCopy = getCancellationCopy(
+              cancellation,
+              formatBookingPrice(booking.price),
+            );
+            const showCancel =
               booking.status === "pending" || booking.status === "confirmed";
             const canReview =
               booking.status === "completed" && !reviewedBookingIds.has(booking.id);
@@ -191,7 +217,14 @@ export default function StudentBookingsList() {
                   </p>
                 )}
 
-                {canPay && <PayBookingForm bookingId={booking.id} price={booking.price} />}
+                {canPay && (
+                  <PayBookingForm
+                    bookingId={booking.id}
+                    price={booking.price}
+                    platformFee={booking.platformFee}
+                    tutorAmount={booking.tutorAmount}
+                  />
+                )}
 
                 {booking.status === "confirmed" && booking.meetingUrl && (
                   <div className="mt-4">
@@ -215,20 +248,40 @@ export default function StudentBookingsList() {
                   </button>
                 )}
 
-                {canCancel && (
+                {showCancel && paymentStatus === "paid" && (
+                  <p className="mt-4 text-sm text-muted-foreground">
+                    {cancellationCopy.amountNote}
+                  </p>
+                )}
+
+                {showCancel && (
                   <button
                     type="button"
-                    onClick={() => handleCancel(booking.id)}
+                    onClick={() => {
+                      setError(null);
+                      setCancelTarget(booking);
+                    }}
                     disabled={actionId === booking.id}
                     className="mt-4 rounded-2xl border border-red-200 px-4 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-50 disabled:opacity-60"
                   >
-                    {actionId === booking.id ? "Cancelando..." : "Cancelar reserva"}
+                    {cancellation.canCancel ? "Cancelar reserva" : "Ver política de cancelamento"}
                   </button>
                 )}
               </article>
             );
           })}
         </div>
+      )}
+
+      {cancelTarget && (
+        <CancelBookingDialog
+          booking={cancelTarget}
+          actor="student"
+          submitting={actionId === cancelTarget.id}
+          error={error}
+          onClose={() => setCancelTarget(null)}
+          onConfirm={handleCancelConfirm}
+        />
       )}
 
       {reviewTarget && user && (

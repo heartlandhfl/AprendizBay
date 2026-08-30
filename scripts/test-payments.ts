@@ -1,6 +1,26 @@
 import assert from "node:assert/strict";
 import { formatCpf, formatPostalCode, isValidCpf, isValidPhone, isValidPostalCode } from "../lib/payments/cpf";
-import { buildCheckoutUrl, parseAsaasWebhook } from "../lib/payments/asaas";
+import {
+  buildAsaasRefundUrl,
+  buildCheckoutUrl,
+  parseAsaasRefund,
+  parseAsaasWebhook,
+  refundAsaasPayment,
+  resolveAsaasPaymentId,
+} from "../lib/payments/asaas";
+import {
+  DEFAULT_PLATFORM_FEE_PERCENT,
+  parsePlatformFeePercent,
+  resolveBookingFeeSplit,
+  splitBookingPrice,
+} from "../lib/payments/fees";
+import { BOOKING_FEE_LABELS } from "../lib/bookings/types";
+import { parsePlatformFeePercent as parseExpressPlatformFeePercent } from "../server/api/public-config.js";
+import {
+  decideCancellation,
+  getCancellationCopy,
+  isFreeCancellationWindow,
+} from "../lib/bookings/cancellation";
 
 assert.equal(isValidCpf("24971563792"), true);
 assert.equal(isValidCpf("249.715.637-92"), true);
@@ -52,4 +72,154 @@ assert.equal(
   "https://sandbox.asaas.com/checkoutSession/show/checkout-1",
 );
 
-console.log("payment unit checks passed");
+assert.equal(parsePlatformFeePercent(undefined), DEFAULT_PLATFORM_FEE_PERCENT);
+assert.equal(parsePlatformFeePercent(""), DEFAULT_PLATFORM_FEE_PERCENT);
+assert.equal(parsePlatformFeePercent("15"), 15);
+assert.equal(parsePlatformFeePercent(-1), DEFAULT_PLATFORM_FEE_PERCENT);
+assert.equal(parsePlatformFeePercent(101), DEFAULT_PLATFORM_FEE_PERCENT);
+
+assert.deepEqual(splitBookingPrice(80, 10), { platformFee: 8, tutorAmount: 72 });
+assert.deepEqual(splitBookingPrice(85, 10), { platformFee: 8.5, tutorAmount: 76.5 });
+assert.deepEqual(splitBookingPrice(100, 0), { platformFee: 0, tutorAmount: 100 });
+assert.deepEqual(resolveBookingFeeSplit({ price: 80, platformFee: 12, tutorAmount: 68 }), {
+  platformFee: 12,
+  tutorAmount: 68,
+});
+assert.deepEqual(resolveBookingFeeSplit({ price: 80 }), splitBookingPrice(80));
+
+assert.equal(BOOKING_FEE_LABELS.lesson, "Valor da aula");
+assert.equal(BOOKING_FEE_LABELS.tutor, "Valor do professor");
+assert.equal(BOOKING_FEE_LABELS.platform, "Taxa da plataforma");
+assert.equal(BOOKING_FEE_LABELS.total, "Total a pagar");
+assert.equal(parseExpressPlatformFeePercent("12.5"), 12.5);
+assert.equal(parseExpressPlatformFeePercent("nope"), DEFAULT_PLATFORM_FEE_PERCENT);
+
+const inThreeDays = new Date("2026-09-02T12:00:00.000Z");
+const now = new Date("2026-08-30T12:00:00.000Z");
+const inTwelveHours = new Date("2026-08-31T00:00:00.000Z");
+
+assert.equal(isFreeCancellationWindow(inThreeDays, now), true);
+assert.equal(isFreeCancellationWindow(inTwelveHours, now), false);
+
+assert.deepEqual(
+  decideCancellation({
+    status: "confirmed",
+    paymentStatus: "paid",
+    scheduledAt: inThreeDays,
+    actor: "student",
+    now,
+  }),
+  { canCancel: true, willRefund: true, reason: "free_window_refund" },
+);
+assert.deepEqual(
+  decideCancellation({
+    status: "confirmed",
+    paymentStatus: "paid",
+    scheduledAt: inTwelveHours,
+    actor: "student",
+    now,
+  }),
+  { canCancel: false, willRefund: false, reason: "late_student" },
+);
+assert.deepEqual(
+  decideCancellation({
+    status: "confirmed",
+    paymentStatus: "paid",
+    scheduledAt: inTwelveHours,
+    actor: "tutor",
+    now,
+  }),
+  { canCancel: true, willRefund: true, reason: "tutor_refund" },
+);
+assert.deepEqual(
+  decideCancellation({
+    status: "pending",
+    paymentStatus: "unpaid",
+    scheduledAt: inTwelveHours,
+    actor: "student",
+    now,
+  }),
+  { canCancel: true, willRefund: false, reason: "unpaid" },
+);
+
+const refundCopy = getCancellationCopy(
+  { canCancel: true, willRefund: true, reason: "free_window_refund" },
+  "R$ 80",
+);
+assert.match(refundCopy.amountNote, /R\$ 80/);
+assert.match(refundCopy.amountNote, /Asaas/);
+assert.match(
+  getCancellationCopy(
+    { canCancel: false, willRefund: false, reason: "late_student" },
+    "R$ 80",
+  ).amountNote,
+  /não será reembolsado/,
+);
+
+assert.equal(
+  buildAsaasRefundUrl("pay_080225913252"),
+  "https://api-sandbox.asaas.com/v3/payments/pay_080225913252/refund",
+);
+assert.equal(resolveAsaasPaymentId({ paymentId: "pay_080225913252" }), "pay_080225913252");
+assert.deepEqual(
+  parseAsaasRefund({
+    id: "pay_080225913252",
+    status: "REFUNDED",
+    value: 80,
+    refunds: [{ status: "DONE", value: 80, endToEndIdentifier: "E123" }],
+  }),
+  {
+    paymentId: "pay_080225913252",
+    status: "REFUNDED",
+    refundId: "E123",
+    refundAmount: 80,
+  },
+);
+
+process.env.ASAAS_API_KEY = "aact_test_key";
+
+async function assertAsaasRefundRequest() {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (url, init) => {
+    assert.equal(String(url), "https://api-sandbox.asaas.com/v3/payments/pay_080225913252/refund");
+    assert.equal(init?.method, "POST");
+    const headers = init?.headers as Record<string, string>;
+    assert.equal(headers.access_token, "aact_test_key");
+    const body = JSON.parse(String(init?.body));
+    assert.equal(body.description, "Cancelamento da aula no Aprendiz Bay");
+    assert.equal(body.value, 80);
+    return {
+      ok: true,
+      json: async () => ({
+        id: "pay_080225913252",
+        status: "REFUNDED",
+        value: 80,
+        refunds: [{ status: "DONE", value: 80 }],
+      }),
+    } as Response;
+  }) as typeof fetch;
+
+  try {
+    const refund = await refundAsaasPayment({
+      paymentId: "pay_080225913252",
+      value: 80,
+    });
+    assert.deepEqual(refund, {
+      paymentId: "pay_080225913252",
+      status: "REFUNDED",
+      refundId: "pay_080225913252",
+      refundAmount: 80,
+    });
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+}
+
+void assertAsaasRefundRequest()
+  .then(() => {
+    console.log("payment unit checks passed");
+  })
+  .catch((error: unknown) => {
+    console.error(error);
+    process.exit(1);
+  });
