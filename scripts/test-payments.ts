@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { formatCpf, formatPostalCode, isValidCpf, isValidPhone, isValidPostalCode } from "../lib/payments/cpf";
 import { buildCheckoutUrl, parseAsaasWebhook } from "../lib/payments/asaas";
+import {
+  DEFAULT_PLATFORM_FEE_PERCENT,
+  parsePlatformFeePercent,
+  resolveBookingFeeSplit,
+  splitBookingPrice,
+} from "../lib/payments/fees";
 
 assert.equal(isValidCpf("24971563792"), true);
 assert.equal(isValidCpf("249.715.637-92"), true);
@@ -51,5 +57,20 @@ assert.equal(
   buildCheckoutUrl("checkout-1", "https://sandbox.asaas.com/checkoutSession/show/checkout-1"),
   "https://sandbox.asaas.com/checkoutSession/show/checkout-1",
 );
+
+assert.equal(parsePlatformFeePercent(undefined), DEFAULT_PLATFORM_FEE_PERCENT);
+assert.equal(parsePlatformFeePercent(""), DEFAULT_PLATFORM_FEE_PERCENT);
+assert.equal(parsePlatformFeePercent("15"), 15);
+assert.equal(parsePlatformFeePercent(-1), DEFAULT_PLATFORM_FEE_PERCENT);
+assert.equal(parsePlatformFeePercent(101), DEFAULT_PLATFORM_FEE_PERCENT);
+
+assert.deepEqual(splitBookingPrice(80, 10), { platformFee: 8, tutorAmount: 72 });
+assert.deepEqual(splitBookingPrice(85, 10), { platformFee: 8.5, tutorAmount: 76.5 });
+assert.deepEqual(splitBookingPrice(100, 0), { platformFee: 0, tutorAmount: 100 });
+assert.deepEqual(resolveBookingFeeSplit({ price: 80, platformFee: 12, tutorAmount: 68 }), {
+  platformFee: 12,
+  tutorAmount: 68,
+});
+assert.deepEqual(resolveBookingFeeSplit({ price: 80 }), splitBookingPrice(80));
 
 console.log("payment unit checks passed");

@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { Loader2 } from "lucide-react";
+import BookingPaymentSummary from "@/components/bookings/BookingPaymentSummary";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { formatBookingPrice } from "@/lib/bookings/service";
 import {
@@ -16,9 +17,16 @@ import {
 interface PayBookingFormProps {
   bookingId: string;
   price: number;
+  platformFee?: number;
+  tutorAmount?: number;
 }
 
-export default function PayBookingForm({ bookingId, price }: PayBookingFormProps) {
+export default function PayBookingForm({
+  bookingId,
+  price,
+  platformFee,
+  tutorAmount,
+}: PayBookingFormProps) {
   const { user, userDoc } = useAuth();
   const [cpf, setCpf] = useState("");
   const [phone, setPhone] = useState("");
@@ -96,9 +104,16 @@ export default function PayBookingForm({ bookingId, price }: PayBookingFormProps
           O professor confirmou. Pague {formatBookingPrice(price)} para liberar a aula.
         </p>
         <p className="mt-1 text-xs text-amber-900/80">
+          Confira quanto vai para o professor e quanto é a taxa da plataforma antes de pagar.
           O Asaas exige CPF e dados de cobrança do aluno para Pix ou cartão de crédito.
         </p>
       </div>
+
+      <BookingPaymentSummary
+        price={price}
+        platformFee={platformFee}
+        tutorAmount={tutorAmount}
+      />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block text-sm font-medium text-foreground" htmlFor={`cpf-${bookingId}`}>

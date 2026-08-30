@@ -10,6 +10,7 @@ import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
 import { generateMeetingUrl } from "@/lib/bookings/meeting";
 import type { Booking, BookingStatus, BookingType, PaymentStatus } from "@/lib/bookings/types";
+import type { BookingFeeSplit } from "@/lib/payments/fees";
 
 let adminApp: App | undefined;
 
@@ -52,6 +53,8 @@ export interface BookingRecord {
   type: BookingType;
   status: BookingStatus;
   price: number;
+  platformFee?: number;
+  tutorAmount?: number;
   paymentStatus?: PaymentStatus;
   paymentId?: string;
   asaasCheckoutId?: string;
@@ -73,6 +76,14 @@ export async function getBookingById(bookingId: string): Promise<BookingRecord |
     type: data.type as Booking["type"],
     status: data.status as BookingStatus,
     price: Number(data.price ?? 0),
+    platformFee:
+      typeof data.platformFee === "number" && Number.isFinite(data.platformFee)
+        ? data.platformFee
+        : undefined,
+    tutorAmount:
+      typeof data.tutorAmount === "number" && Number.isFinite(data.tutorAmount)
+        ? data.tutorAmount
+        : undefined,
     paymentStatus: (data.paymentStatus as PaymentStatus | undefined) ?? "unpaid",
     paymentId: data.paymentId ? String(data.paymentId) : undefined,
     asaasCheckoutId: data.asaasCheckoutId ? String(data.asaasCheckoutId) : undefined,
@@ -86,6 +97,17 @@ export async function saveBookingCheckoutId(
 ): Promise<void> {
   await requireAdminFirestore().collection("bookings").doc(bookingId).update({
     asaasCheckoutId,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+}
+
+export async function saveBookingFeeSplit(
+  bookingId: string,
+  split: BookingFeeSplit,
+): Promise<void> {
+  await requireAdminFirestore().collection("bookings").doc(bookingId).update({
+    platformFee: split.platformFee,
+    tutorAmount: split.tutorAmount,
     updatedAt: FieldValue.serverTimestamp(),
   });
 }

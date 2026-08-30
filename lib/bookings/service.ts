@@ -18,6 +18,14 @@ import type {
   CreateBookingInput,
   PaymentStatus,
 } from "@/lib/bookings/types";
+import { loadPlatformFeePercent, splitBookingPrice } from "@/lib/payments/fees";
+
+function readOptionalMoney(value: unknown): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return undefined;
+  }
+  return value;
+}
 
 function mapBookingDoc(id: string, data: Record<string, unknown>): Booking {
   return {
@@ -28,6 +36,8 @@ function mapBookingDoc(id: string, data: Record<string, unknown>): Booking {
     type: data.type as Booking["type"],
     status: data.status as BookingStatus,
     price: data.price as number,
+    platformFee: readOptionalMoney(data.platformFee),
+    tutorAmount: readOptionalMoney(data.tutorAmount),
     scheduledAt: data.scheduledAt as Timestamp,
     createdAt: data.createdAt as Timestamp,
     updatedAt: data.updatedAt as Timestamp | undefined,
@@ -43,6 +53,10 @@ export async function createBooking(
   input: CreateBookingInput,
 ): Promise<string> {
   await requireFirebaseApp();
+  const feeSplit =
+    typeof input.platformFee === "number" && typeof input.tutorAmount === "number"
+      ? { platformFee: input.platformFee, tutorAmount: input.tutorAmount }
+      : splitBookingPrice(input.price, await loadPlatformFeePercent());
   const bookingData = {
     studentId,
     tutorId: input.tutorId,
@@ -50,6 +64,8 @@ export async function createBooking(
     status: "pending" as const,
     paymentStatus: "unpaid" as const,
     price: input.price,
+    platformFee: feeSplit.platformFee,
+    tutorAmount: feeSplit.tutorAmount,
     scheduledAt: Timestamp.fromDate(input.scheduledAt),
     createdAt: serverTimestamp(),
     ...(input.hubId ? { hubId: input.hubId } : {}),
@@ -251,11 +267,12 @@ export function formatBookingDate(timestamp: Timestamp): string {
 }
 
 export function formatBookingPrice(price: number): string {
+  const hasCents = Math.round(price * 100) % 100 !== 0;
   return price.toLocaleString("pt-BR", {
     style: "currency",
     currency: "BRL",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
+    minimumFractionDigits: hasCents ? 2 : 0,
+    maximumFractionDigits: 2,
   });
 }
 

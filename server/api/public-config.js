@@ -2,6 +2,8 @@
 
 const { Router } = require("express");
 
+const DEFAULT_PLATFORM_FEE_PERCENT = 10;
+
 function publicFirebaseConfig() {
   return {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "",
@@ -13,6 +15,25 @@ function publicFirebaseConfig() {
   };
 }
 
+function parsePlatformFeePercent(value) {
+  if (value == null || value === "") {
+    return DEFAULT_PLATFORM_FEE_PERCENT;
+  }
+
+  const parsed = Number.parseFloat(String(value).trim());
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 100) {
+    return DEFAULT_PLATFORM_FEE_PERCENT;
+  }
+
+  return parsed;
+}
+
+function publicPlatformFeePercent() {
+  return parsePlatformFeePercent(
+    process.env.PLATFORM_FEE_PERCENT ?? process.env.NEXT_PUBLIC_PLATFORM_FEE_PERCENT,
+  );
+}
+
 const publicConfigRouter = Router();
 
 publicConfigRouter.get("/", (_req, res) => {
@@ -20,6 +41,7 @@ publicConfigRouter.get("/", (_req, res) => {
   res.json({
     firebase,
     configured: Boolean(String(firebase.apiKey).trim()),
+    platformFeePercent: publicPlatformFeePercent(),
   });
 });
 

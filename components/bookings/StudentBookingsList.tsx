@@ -191,7 +191,14 @@ export default function StudentBookingsList() {
                   </p>
                 )}
 
-                {canPay && <PayBookingForm bookingId={booking.id} price={booking.price} />}
+                {canPay && (
+                  <PayBookingForm
+                    bookingId={booking.id}
+                    price={booking.price}
+                    platformFee={booking.platformFee}
+                    tutorAmount={booking.tutorAmount}
+                  />
+                )}
 
                 {booking.status === "confirmed" && booking.meetingUrl && (
                   <div className="mt-4">
