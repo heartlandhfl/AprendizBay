@@ -92,7 +92,7 @@ In hPanel → **Deployments** → **Deployment settings**:
 | Setting | Required value |
 |---------|----------------|
 | Framework / application type | **express** |
-| Node.js version | **20** |
+| Node.js version | **22** |
 | Build command | **leave empty** (not required — `hostinger-next/` is committed; Hostinger only needs `npm install --omit=dev` + `node server.js`) |
 | Output directory | **leave empty** (do not set `.next` or `dist`) |
 | Entry file | **`server.js`** |
