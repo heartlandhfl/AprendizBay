@@ -9,6 +9,7 @@ import {
   subjectCityHeading,
   subjectCityPath,
 } from "../lib/seo/subject-city";
+import { buildTutorPersonJsonLd, serializeJsonLd } from "../lib/seo/tutor-jsonld";
 
 assert.equal(toSeoSlug("Inglês"), "ingles");
 assert.equal(toSeoSlug("São Paulo"), "sao-paulo");
@@ -60,4 +61,28 @@ assert.equal(remoteCity.local.length, 0);
 assert.equal(remoteCity.online.length, 1);
 assert.equal(remoteCity.online[0]?.name, "Mariana Silva");
 
-console.log(`ok ${pairs.length} subject×city pairs`);
+const mariana = MOCK_TUTORS[0]!;
+const person = buildTutorPersonJsonLd(mariana, "https://www.aprendizbay.com.br");
+assert.equal(person["@context"], "https://schema.org");
+assert.equal(person["@type"], "Person");
+assert.equal(person.name, "Mariana Silva");
+assert.equal(person.jobTitle, "Professor de Inglês");
+assert.equal(person.knowsAbout, "Inglês");
+assert.equal(person.url, "https://www.aprendizbay.com.br/tutor/1");
+assert.equal(person.aggregateRating?.["@type"], "AggregateRating");
+assert.equal(person.aggregateRating?.ratingValue, 4.9);
+assert.equal(person.aggregateRating?.reviewCount, 84);
+assert.equal(person.aggregateRating?.bestRating, 5);
+assert.equal(person.aggregateRating?.worstRating, 1);
+
+const withoutReviews = buildTutorPersonJsonLd({
+  ...mariana,
+  reviewCount: 0,
+});
+assert.equal(withoutReviews.aggregateRating, undefined);
+
+const serialized = serializeJsonLd({ html: "<script>alert(1)</script>" });
+assert.ok(!serialized.includes("<script>"));
+assert.ok(serialized.includes("\\u003cscript>"));
+
+console.log(`ok ${pairs.length} subject×city pairs + tutor JSON-LD`);
