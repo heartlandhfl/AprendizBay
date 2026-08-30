@@ -44,6 +44,7 @@ rules_version = '2';
 // MATCH  bookings student cancel       → lib/bookings/service.ts (status → cancelled)
 // MATCH  bookings tutor confirm        → lib/bookings/service.ts (status, meetingUrl, updatedAt)
 // MATCH  bookings tutor cancel         → lib/bookings/service.ts (status → cancelled)
+// MATCH  bookings tutor complete       → lib/bookings/service.ts (status → completed)
 // MATCH  collectiveHubs create         → lib/hubs/service.ts (tutor dashboard)
 // MATCH  collectiveHubs student join   → lib/hubs/service.ts (confirmedStudentIds + updatedAt)
 // MATCH  tutors/{tutorId}/availability  → lib/availability/service.ts (tutor dashboard)
@@ -52,8 +53,6 @@ rules_version = '2';
 // ADMIN  tutors rating/reviewCount   → lib/reviews/server.ts (Server Action; bypasses rules)
 // ADMIN  bookings confirm (webhook)  → lib/bookings/server.ts (payment webhook placeholder)
 // ADMIN  seed data                     → scripts/seed.ts
-// GAP    No client UI sets booking status to "completed"; review create is denied until
-//        a tutor "concluir aula" action or admin/webhook writes completed (see bookings).
 // GAP    No client UI creates tutors/{tutorId} on tutor signup; profiles come from seed/admin.
 // GAP    No Storage upload UI yet; storage.rules paths are unused by the current app.
 // =============================================================================
