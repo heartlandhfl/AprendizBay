@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { GraduationCap } from "lucide-react";
+import CookiePreferencesButton from "@/components/legal/CookiePreferencesButton";
 
 const footerLinks = {
   plataforma: [
@@ -71,9 +72,12 @@ export default function Footer() {
           <p className="text-sm text-muted-foreground">
             © {new Date().getFullYear()} Aprendiz Bay. Todos os direitos reservados.
           </p>
-          <p className="text-sm text-muted-foreground">
-            Feito com dedicação para o Brasil 🇧🇷
-          </p>
+          <div className="flex items-center gap-4">
+            <CookiePreferencesButton />
+            <p className="text-sm text-muted-foreground">
+              Feito com dedicação para o Brasil 🇧🇷
+            </p>
+          </div>
         </div>
       </div>
     </footer>

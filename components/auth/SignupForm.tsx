@@ -203,7 +203,19 @@ export default function SignupForm() {
           </button>
         </div>
 
-        <p className="mt-6 text-center text-sm text-muted-foreground">
+        <p className="mt-6 text-center text-xs leading-relaxed text-muted-foreground">
+          Ao criar a conta, você declara ter lido os{" "}
+          <Link href="/termos" className="font-medium text-primary-700 hover:text-primary-600">
+            Termos de Uso
+          </Link>{" "}
+          e a{" "}
+          <Link href="/privacidade" className="font-medium text-primary-700 hover:text-primary-600">
+            Política de Privacidade
+          </Link>
+          . Os textos ainda dependem de revisão jurídica.
+        </p>
+
+        <p className="mt-4 text-center text-sm text-muted-foreground">
           Já tem uma conta?{" "}
           <Link href="/login" className="font-medium text-primary-700 hover:text-primary-600">
             Entrar

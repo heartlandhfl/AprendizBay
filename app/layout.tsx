@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import CookieConsentBanner from "@/components/legal/CookieConsentBanner";
 import { AuthProvider } from "@/lib/auth/AuthContext";
 import "./globals.css";
 
@@ -62,6 +63,7 @@ export default function RootLayout({
           <Navbar />
           <main className="flex-1">{children}</main>
           <Footer />
+          <CookieConsentBanner />
         </AuthProvider>
       </body>
     </html>
