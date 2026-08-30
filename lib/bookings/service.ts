@@ -276,7 +276,7 @@ export async function fetchUserDisplayName(userId: string): Promise<string> {
   await requireFirebaseApp();
   const snapshot = await getDoc(doc(db, "users", userId));
   if (!snapshot.exists()) {
-    return "Usuário";
+    return "Conta encerrada";
   }
 
   return (snapshot.data().displayName as string) || "Usuário";
