@@ -19,6 +19,7 @@ const express = require("express");
 const path = require("path");
 const fs = require("fs");
 const { apiRouter } = require("./server/api");
+const { isFirebaseAdminInitialized } = require("./server/api/firebase-admin");
 const {
   attachStaticUi,
   resolveAppDir,
@@ -75,7 +76,7 @@ app.get("/api/health", (_req, res) => {
     mode: "express",
     next: uiError ? "error" : nextHandle ? "ready" : uiMode,
     nextRuntime: dev ? Boolean(nextHandle) : false,
-    firebaseAdminRuntime: false,
+    firebaseAdminRuntime: isFirebaseAdminInitialized(),
     nextError: uiError
       ? String(uiError.stack || uiError.message || uiError).slice(0, 4000)
       : null,

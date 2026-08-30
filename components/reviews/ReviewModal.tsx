@@ -2,8 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { Loader2, Star, X } from "lucide-react";
-import { createReview } from "@/lib/reviews/client";
-import { recomputeTutorRatingAction } from "@/lib/reviews/actions";
+import { createReview, recomputeTutorRating } from "@/lib/reviews/client";
 
 interface ReviewModalProps {
   bookingId: string;
@@ -42,7 +41,7 @@ export default function ReviewModal({
         comment,
       });
 
-      await recomputeTutorRatingAction(tutorId);
+      await recomputeTutorRating(tutorId);
       onSubmitted();
       onClose();
     } catch {

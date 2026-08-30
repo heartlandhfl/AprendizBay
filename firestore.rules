@@ -53,7 +53,10 @@ rules_version = '2';
 // MATCH  tutors/{tutorId}/availability  → lib/availability/service.ts (tutor dashboard)
 // READ   bookings pending/confirmed     → lib/bookings/service.ts (slot picker occupancy)
 // MATCH  reviews create              → lib/reviews/client.ts (requires completed booking)
-// ADMIN  tutors rating/reviewCount   → lib/reviews/server.ts (Server Action; bypasses rules)
+// ADMIN  tutors rating/reviewCount   → POST /api/reviews/recompute-rating after createReview
+//        Hostinger Express: server/api/reviews.js (firebase-admin; bypasses rules)
+//        Vercel / next start: app/api/reviews/recompute-rating + lib/reviews/server.ts
+//        Server Action lib/reviews/actions.ts remains for Next hosts only
 // ADMIN  seed data                     → scripts/seed.ts
 // GAP    No client UI creates tutors/{tutorId} on tutor signup; profiles come from seed/admin.
 // GAP    No Storage upload UI yet; storage.rules paths are unused by the current app.

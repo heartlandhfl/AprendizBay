@@ -1,18 +1,41 @@
 "use strict";
 
-const BLOCKED_PREFIXES = ["firebase-admin"];
-
 function isProduction() {
   return process.env.NODE_ENV === "production";
 }
 
-function isBlockedProductionModule(request) {
-  if (request === "next") {
+function isNextRuntimeRequest(request) {
+  return request === "next" || request.startsWith("next/");
+}
+
+function isFirebaseAdminRequest(request) {
+  return request === "firebase-admin" || request.startsWith("firebase-admin/");
+}
+
+/**
+ * firebase-admin is allowed only from server/api/ (review rating recompute).
+ * Next.js server bundles under hostinger-next/ and lib/ server modules must not
+ * load it in the Express process.
+ */
+function isAllowedFirebaseAdminCaller(filename) {
+  if (!filename || typeof filename !== "string") {
+    return false;
+  }
+  const normalized = filename.replace(/\\/g, "/");
+  return (
+    normalized.includes("/server/api/") ||
+    normalized.includes("/node_modules/firebase-admin/")
+  );
+}
+
+function isBlockedProductionModule(request, filename) {
+  if (isNextRuntimeRequest(request)) {
     return true;
   }
-  return BLOCKED_PREFIXES.some(
-    (prefix) => request === prefix || request.startsWith(`${prefix}/`),
-  );
+  if (isFirebaseAdminRequest(request)) {
+    return !isAllowedFirebaseAdminCaller(filename);
+  }
+  return false;
 }
 
 function blockProductionModule(context, request) {
@@ -39,7 +62,8 @@ function loadNext(context) {
 let guardInstalled = false;
 
 /**
- * Patch require() so production cannot load Next.js or firebase-admin.
+ * Patch require() so production cannot load Next.js.
+ * firebase-admin is allowed only from server/api/ (Hostinger review recompute).
  * Next server modules under lib/ and hostinger-next/server/ are build-time only.
  */
 function installNextRequireGuard() {
@@ -51,8 +75,8 @@ function installNextRequireGuard() {
   const originalRequire = Module.prototype.require;
 
   Module.prototype.require = function patchedRequire(request) {
-    if (isBlockedProductionModule(request)) {
-      const caller = this.filename || "unknown";
+    const caller = this.filename || "unknown";
+    if (isBlockedProductionModule(request, caller)) {
       blockProductionModule(caller, request);
     }
     return originalRequire.apply(this, arguments);
@@ -64,6 +88,7 @@ function installNextRequireGuard() {
 module.exports = {
   isProduction,
   isBlockedProductionModule,
+  isAllowedFirebaseAdminCaller,
   loadNext,
   installNextRequireGuard,
 };

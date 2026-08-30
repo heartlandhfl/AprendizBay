@@ -1,14 +1,17 @@
 {
   "/_not-found/page": "app/_not-found/page.js",
-  "/bookings/page": "app/bookings/page.js",
+  "/admin/tutors/page": "app/admin/tutors/page.js",
   "/favicon.ico/route": "app/favicon.ico/route.js",
   "/page": "app/page.js",
-  "/admin/tutors/page": "app/admin/tutors/page.js",
+  "/bookings/page": "app/bookings/page.js",
   "/tutor/dashboard/page": "app/tutor/dashboard/page.js",
   "/tutor/onboarding/page": "app/tutor/onboarding/page.js",
   "/tutor/settings/page": "app/tutor/settings/page.js",
   "/search/page": "app/search/page.js",
+  "/api/reviews/recompute-rating/route": "app/api/reviews/recompute-rating/route.js",
+  "/api/payments/webhook/route": "app/api/payments/webhook/route.js",
+  "/api/payments/create-checkout/route": "app/api/payments/create-checkout/route.js",
   "/tutor/[id]/page": "app/tutor/[id]/page.js",
-  "/(auth)/login/page": "app/(auth)/login/page.js",
-  "/(auth)/signup/page": "app/(auth)/signup/page.js"
+  "/(auth)/signup/page": "app/(auth)/signup/page.js",
+  "/(auth)/login/page": "app/(auth)/login/page.js"
 }
