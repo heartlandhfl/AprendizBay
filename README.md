@@ -112,7 +112,7 @@ In hPanel → **Deployments** → **Deployment settings**:
 
 Then **Save and redeploy**.
 
-Hostinger copies **git-tracked files** into `hbuilds` and does not keep untracked `next build` output. After changing UI code, run `npm run build` **locally** and **commit `hostinger-next/`** (webpack `cache/` is gitignored).
+Hostinger copies **git-tracked files** into `hbuilds` and does not keep untracked `next build` output. After changing UI code, run `npm run build:hostinger` **locally** and **commit `hostinger-next/`** (webpack `cache/` is gitignored).
 
 Production installs only **Express** (`dependencies` in `package.json`). Next.js, React, Firebase, TypeScript, Tailwind, and `@types/*` are **devDependencies** — they are not installed on the server. Production **does not load the Next.js runtime** in `server.js` (that OOMs Hostinger LiteSpeed and returns 503, including `/api/health`). Express serves the prerendered HTML and `/_next/static` from `hostinger-next/`. After deploy, `/api/health` should return `"next":"static"` and `"nextRuntime":false`.
 
@@ -122,7 +122,7 @@ Production installs only **Express** (`dependencies` in `package.json`). Next.js
 
 | Feature | Module | Hostinger behavior |
 |---------|--------|-------------------|
-| Tutor SSG data | `lib/tutors/server.ts` | Runs at `npm run build` locally; HTML is committed in `hostinger-next/` |
+| Tutor SSG data | `lib/tutors/server.ts` | Runs at `npm run build:hostinger` locally; HTML is committed in `hostinger-next/` |
 | Booking webhook confirm | `lib/bookings/server.ts` | Not wired to Express yet |
 | Review rating recompute | `lib/reviews/server.ts` via `lib/reviews/actions.ts` | Server Action POST never runs without Next.js — ratings are **not** recomputed after a review until you add an Express API (`server/api/`) or deploy to Vercel / another Next host |
 | Tutor approval (`isVerified`) | `lib/tutors/admin-server.ts` via `lib/tutors/actions.ts` | Server Action POST never runs without Next.js — use Firestore console or deploy to Vercel |
@@ -147,7 +147,9 @@ Use Vercel (or Netlify, Railway, a VPS with `next start`, etc.) when you need th
 
 1. Import this repository in [Vercel](https://vercel.com).
 2. Framework preset: **Next.js** (default build: `npm run build`). Do **not** point Vercel at `server.js` — use the Next.js preset so Server Actions work.
-3. In **Project → Settings → Environment Variables**, set every variable from `.env.local.example`:
+3. In **Project → Settings → Build and Deployment**, set **Node.js Version** to **24.x** (or disable any override so it follows `package.json` / `.nvmrc`). If the dashboard still pins **20.x**, Vercel will warn and builds will fail after 2026-10-01.
+4. Leave **Output Directory** empty (default `.next`). Do not set `hostinger-next`.
+5. In **Project → Settings → Environment Variables**, set every variable from `.env.local.example`:
 
 | Variable | Where to get it |
 |----------|-------------------|
@@ -164,7 +166,7 @@ Use Vercel (or Netlify, Railway, a VPS with `next start`, etc.) when you need th
 
 `FIREBASE_ADMIN_*` is required on **Vercel** for Server Actions that recompute tutor ratings after reviews. It is **not** required on Hostinger — see [Hostinger](#2-hostinger--static-ui--express-api-production-target). Client features (auth, bookings, hubs) only need the `NEXT_PUBLIC_FIREBASE_*` vars on either target.
 
-4. Deploy. After the first deploy, add the Vercel URL to Firebase **Authorized domains** if you test auth on the preview domain.
+6. Deploy. After the first deploy, add the Vercel URL to Firebase **Authorized domains** if you test auth on the preview domain.
 
 To use both targets: keep the public site on Hostinger and deploy Vercel to a subdomain (e.g. `app.aprendizbay.com.br`) or preview URL for features that need Server Actions. Routing users between them is outside this repo — plan DNS and links when you actually need the split.
 

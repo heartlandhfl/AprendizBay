@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "NODE_ENV=development node server.js",
     "build": "next build",
+    "build:hostinger": "HOSTINGER_BUILD=1 next build",
     "start": "NODE_ENV=production node server.js",
     "lint": "next lint"
   },
