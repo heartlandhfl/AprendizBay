@@ -128,20 +128,6 @@ service cloud.firestore {
         && !(request.auth.uid in before);
     }
 
-    function validTimeHHMM(value) {
-      return value is string
-        && value.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$');
-    }
-
-    function validAvailabilitySlot(slot) {
-      return slot.keys().hasAll(["weekday", "startTime", "endTime"])
-        && slot.weekday is int
-        && slot.weekday >= 0
-        && slot.weekday <= 6
-        && validTimeHHMM(slot.startTime)
-        && validTimeHHMM(slot.endTime);
-    }
-
     function validAvailabilityDoc() {
       let data = request.resource.data;
 
