@@ -224,7 +224,8 @@ export default function BookingWidget({ tutor }: BookingWidgetProps) {
         )}
 
         <p className="mt-4 text-center text-xs text-muted-foreground">
-          Cancelamento gratuito até 24h antes da aula
+          Cancelamento gratuito até 24h antes da aula, com reembolso integral do valor pago.
+          Depois disso, o valor pago não é reembolsado.
         </p>
       </div>
     </aside>

@@ -13,7 +13,9 @@ HTTP APIs live in `server/api/` and are mounted at `/api`. `npm run dev` starts 
 
 ### Pagamentos Asaas
 
-After a tutor accepts a booking, the student pays via Asaas Checkout (`PIX` or `CREDIT_CARD`). The booking summary shows how much goes to the tutor versus the platform fee (`PLATFORM_FEE_PERCENT`, default 10%) before payment confirmation. Both amounts are stored on the booking document (`platformFee`, `tutorAmount`) for reporting:
+After a tutor accepts a booking, the student pays via Asaas Checkout (`PIX` or `CREDIT_CARD`). The booking summary shows how much goes to the tutor versus the platform fee (`PLATFORM_FEE_PERCENT`, default 10%) before payment confirmation. Both amounts are stored on the booking document (`platformFee`, `tutorAmount`) for reporting.
+
+Paid bookings can be cancelled only through `POST /api/bookings/cancel`. Students get a full Mercado Pago refund when they cancel at least 24 hours before the class; later student cancellations are blocked and the amount paid is kept. If the tutor cancels a paid booking, the student is always refunded. Set `MERCADO_PAGO_ACCESS_TOKEN` for refunds.
 
 1. `POST /api/payments/create-checkout` creates a sandbox checkout at `https://api-sandbox.asaas.com/v3/checkouts` (or production `https://api.asaas.com/v3/checkouts` when `ASAAS_ENVIRONMENT=production`).
 2. The student is redirected to `https://asaas.com/checkoutSession/show?id={id}` (or the `link` returned by Asaas).
@@ -133,6 +135,7 @@ Production installs only **Express** (`dependencies` in `package.json`). Next.js
 | Tutor SSG data | `lib/tutors/server.ts` | Runs at `npm run build:hostinger` locally; HTML is committed in `hostinger-next/` |
 | Booking webhook confirm | `lib/bookings/server.ts` via `POST /api/payments/webhook` | Next.js only (Vercel / `npm run dev`). Not on Hostinger Express |
 | Asaas checkout create | `POST /api/payments/create-checkout` | Next.js only. Student pays after the tutor accepts the booking |
+| Paid booking cancel + Mercado Pago refund | `POST /api/bookings/cancel` | Next.js only. Enforces the 24h free-cancellation rule and refunds via Mercado Pago |
 | Review rating recompute | `lib/reviews/server.ts` via `lib/reviews/actions.ts` | Server Action POST never runs without Next.js — ratings are **not** recomputed after a review until you add an Express API (`server/api/`) or deploy to Vercel / another Next host |
 | Tutor approval (`isVerified`) | `lib/tutors/admin-server.ts` via `lib/tutors/actions.ts` | Server Action POST never runs without Next.js — use Firestore console or deploy to Vercel |
 
@@ -177,6 +180,7 @@ Use Vercel (or Netlify, Railway, a VPS with `next start`, etc.) when you need th
 | `ASAAS_WEBHOOK_TOKEN` | Optional token Asaas sends as `asaas-access-token` |
 | `PLATFORM_FEE_PERCENT` | Percent of each booking kept as the platform fee (`0`-`100`, default `10`). Stored as `platformFee` + `tutorAmount` on the booking |
 | `NEXT_PUBLIC_PLATFORM_FEE_PERCENT` | Optional client alias of `PLATFORM_FEE_PERCENT` (same default) |
+| `MERCADO_PAGO_ACCESS_TOKEN` | Mercado Pago Access Token used to refund paid bookings on cancel |
 
 `FIREBASE_ADMIN_*` is required on **Vercel** for Server Actions that recompute tutor ratings after reviews. It is **not** required on Hostinger — see [Hostinger](#2-hostinger--static-ui--express-api-production-target). Client features (auth, bookings, hubs) only need the `NEXT_PUBLIC_FIREBASE_*` vars on either target.
 

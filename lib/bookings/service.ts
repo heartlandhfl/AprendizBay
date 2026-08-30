@@ -11,13 +11,14 @@ import {
   where,
   type Unsubscribe,
 } from "firebase/firestore";
-import { db, requireFirebaseApp, whenFirebaseReady } from "@/lib/firebase/client";
+import { auth, db, requireFirebaseApp, whenFirebaseReady } from "@/lib/firebase/client";
 import type {
   Booking,
   BookingStatus,
   CreateBookingInput,
   PaymentStatus,
 } from "@/lib/bookings/types";
+import type { CancelActor } from "@/lib/bookings/cancellation";
 import { loadPlatformFeePercent, splitBookingPrice } from "@/lib/payments/fees";
 
 function readOptionalMoney(value: unknown): number | undefined {
@@ -45,6 +46,10 @@ function mapBookingDoc(id: string, data: Record<string, unknown>): Booking {
     paymentStatus: (data.paymentStatus as PaymentStatus | undefined) ?? "unpaid",
     paymentId: data.paymentId as string | undefined,
     asaasCheckoutId: data.asaasCheckoutId as string | undefined,
+    mercadoPagoPaymentId: data.mercadoPagoPaymentId as string | undefined,
+    refundId: data.refundId as string | undefined,
+    refundStatus: data.refundStatus as string | undefined,
+    refundAmount: readOptionalMoney(data.refundAmount),
   };
 }
 
@@ -86,8 +91,31 @@ export async function updateBookingStatus(
   });
 }
 
+async function cancelBookingViaApi(bookingId: string, actor: CancelActor): Promise<void> {
+  await requireFirebaseApp();
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error("Faça login para cancelar esta reserva.");
+  }
+
+  const idToken = await user.getIdToken();
+  const response = await fetch("/api/bookings/cancel", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({ bookingId, actor }),
+  });
+
+  const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+  if (!response.ok) {
+    throw new Error(payload?.error || "Não foi possível cancelar a reserva.");
+  }
+}
+
 export async function cancelBookingAsStudent(bookingId: string): Promise<void> {
-  await updateBookingStatus(bookingId, "cancelled");
+  await cancelBookingViaApi(bookingId, "student");
 }
 
 export async function confirmBookingAsTutor(bookingId: string): Promise<void> {
@@ -99,7 +127,7 @@ export async function confirmBookingAsTutor(bookingId: string): Promise<void> {
 }
 
 export async function cancelBookingAsTutor(bookingId: string): Promise<void> {
-  await updateBookingStatus(bookingId, "cancelled");
+  await cancelBookingViaApi(bookingId, "tutor");
 }
 
 export async function markBookingCompleted(bookingId: string): Promise<void> {
