@@ -114,12 +114,12 @@ describe("BookingWidget", () => {
   it("renders the booking card and collective option by default", async () => {
     render(<BookingWidget tutor={tutor} />);
 
-    expect(screen.getByRole("heading", { name: "Agendar Aula" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Agendar aula" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Coletivo" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
-    expect(screen.getByRole("button", { name: "Reservar Minha Vaga" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Agendar aula" })).toBeInTheDocument();
     expect(
       await screen.findByText((content, element) => {
         const text = element?.textContent ?? "";
@@ -155,7 +155,7 @@ describe("BookingWidget", () => {
       const text = element?.textContent ?? "";
       return element?.tagName === "P" && text.includes("Você está reservando");
     });
-    await user.click(screen.getByRole("button", { name: "Reservar Minha Vaga" }));
+    await user.click(screen.getByRole("button", { name: "Agendar aula" }));
 
     expect(mockPush).toHaveBeenCalledWith("/login?next=%2Ftutor%2F1");
     expect(mockCreateBooking).not.toHaveBeenCalled();
@@ -170,7 +170,7 @@ describe("BookingWidget", () => {
     const user = userEvent.setup();
     render(<BookingWidget tutor={tutor} />);
 
-    await user.click(screen.getByRole("button", { name: "Reservar Minha Vaga" }));
+    await user.click(screen.getByRole("button", { name: "Agendar aula" }));
 
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Apenas alunos podem reservar aulas.",
@@ -183,7 +183,7 @@ describe("BookingWidget", () => {
     render(<BookingWidget tutor={tutor} />);
 
     await user.click(screen.getByRole("button", { name: "Individual" }));
-    await user.click(screen.getByRole("button", { name: "Reservar Minha Vaga" }));
+    await user.click(screen.getByRole("button", { name: "Agendar aula" }));
 
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Selecione um horário disponível para continuar.",
@@ -199,7 +199,7 @@ describe("BookingWidget", () => {
       const text = element?.textContent ?? "";
       return element?.tagName === "P" && text.includes("Você está reservando");
     });
-    await user.click(screen.getByRole("button", { name: "Reservar Minha Vaga" }));
+    await user.click(screen.getByRole("button", { name: "Agendar aula" }));
 
     await waitFor(() => {
       expect(mockCreateBooking).toHaveBeenCalledWith(
@@ -227,7 +227,7 @@ describe("BookingWidget", () => {
 
     await user.click(screen.getByRole("button", { name: "Individual" }));
     await user.click(screen.getByRole("button", { name: "Escolher horário" }));
-    await user.click(screen.getByRole("button", { name: "Reservar Minha Vaga" }));
+    await user.click(screen.getByRole("button", { name: "Agendar aula" }));
 
     await waitFor(() => {
       expect(mockCreateBooking).toHaveBeenCalledWith(
@@ -246,6 +246,20 @@ describe("BookingWidget", () => {
     });
   });
 
+  it("hides the collective option when the tutor only offers individual lessons", () => {
+    render(
+      <BookingWidget
+        tutor={{
+          ...tutor,
+          lessonTypes: ["individual"],
+        }}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Coletivo" })).not.toBeInTheDocument();
+    expect(screen.getByText("Aula Individual (1-on-1)")).toBeInTheDocument();
+  });
+
   it("explains when the booking cannot be created", async () => {
     mockCreateBooking.mockRejectedValue(new Error("permission-denied"));
     const user = userEvent.setup();
@@ -255,7 +269,7 @@ describe("BookingWidget", () => {
       const text = element?.textContent ?? "";
       return element?.tagName === "P" && text.includes("Você está reservando");
     });
-    await user.click(screen.getByRole("button", { name: "Reservar Minha Vaga" }));
+    await user.click(screen.getByRole("button", { name: "Agendar aula" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Não foi possível criar a reserva. Verifique se o professor está verificado.",

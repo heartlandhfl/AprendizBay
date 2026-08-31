@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check, Loader2, MapPin, RefreshCw } from "lucide-react";
 import ConfirmActionDialog from "@/components/admin/ConfirmActionDialog";
+import TutorAvatar from "@/components/tutor/TutorAvatar";
 import CredentialDocumentPreview from "@/components/admin/CredentialDocumentPreview";
 import type { AdminTutorApplication } from "@/lib/tutors/firestore-types";
 import { formatTutorPrice, modalityLabel } from "@/lib/tutors/format";
@@ -227,16 +227,7 @@ export default function PendingTutorsList() {
               className="rounded-3xl bg-surface p-6 shadow-soft ring-1 ring-border/60"
             >
               <div className="flex flex-col gap-6 lg:flex-row">
-                <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full ring-4 ring-primary-100">
-                  <Image
-                    src={tutor.avatarUrl}
-                    alt={`Foto de ${tutor.name}`}
-                    width={96}
-                    height={96}
-                    className="h-full w-full object-cover"
-                    unoptimized
-                  />
-                </div>
+                <TutorAvatar name={tutor.name} src={tutor.avatarUrl} size="md" />
 
                 <div className="min-w-0 flex-1 space-y-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">

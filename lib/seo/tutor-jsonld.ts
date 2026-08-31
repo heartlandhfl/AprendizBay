@@ -7,7 +7,7 @@ export interface TutorPersonJsonLd {
   name: string;
   url: string;
   jobTitle: string;
-  knowsAbout: string;
+  knowsAbout: string | string[];
   description?: string;
   image?: string;
   address?: {
@@ -30,6 +30,7 @@ export interface TutorJsonLdInput extends Pick<
   "id" | "name" | "subject" | "city" | "state" | "rating" | "reviewCount" | "avatarUrl" | "bio"
 > {
   headline?: string;
+  subjects?: string[];
 }
 
 /**
@@ -45,7 +46,8 @@ export function buildTutorPersonJsonLd(
     name: tutor.name,
     url: `${origin}/tutor/${tutor.id}`,
     jobTitle: `Professor de ${tutor.subject}`,
-    knowsAbout: tutor.subject,
+    knowsAbout:
+      tutor.subjects && tutor.subjects.length > 1 ? tutor.subjects : tutor.subject,
   };
 
   const description = tutor.headline?.trim() || tutor.bio?.trim();

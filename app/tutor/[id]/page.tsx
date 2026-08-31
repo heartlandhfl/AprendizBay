@@ -5,11 +5,18 @@ import { ArrowLeft } from "lucide-react";
 import JsonLd from "@/components/seo/JsonLd";
 import TutorHeader from "@/components/tutor/TutorHeader";
 import TutorAbout from "@/components/tutor/TutorAbout";
+import TutorTeaching from "@/components/tutor/TutorTeaching";
+import TutorPricing from "@/components/tutor/TutorPricing";
+import TutorAvailabilitySection from "@/components/tutor/TutorAvailabilitySection";
+import TutorReviews from "@/components/tutor/TutorReviews";
+import TutorCollectiveClasses from "@/components/tutor/TutorCollectiveClasses";
+import TutorStickyActions from "@/components/tutor/TutorStickyActions";
 import ProfileViewTracker from "@/components/observability/ProfileViewTracker";
 import BookingWidget from "@/components/tutor/BookingWidget";
 import SendMessageButton from "@/components/conversations/SendMessageButton";
 import { buildTutorPersonJsonLd } from "@/lib/seo/tutor-jsonld";
 import { fetchAllTutorIds, fetchTutorProfile } from "@/lib/tutors/server";
+import { offersLessonType } from "@/lib/tutors/profile-display";
 
 interface TutorPageProps {
   params: { id: string };
@@ -27,9 +34,21 @@ export async function generateMetadata({ params }: TutorPageProps): Promise<Meta
     return { title: "Professor não encontrado — Aprendiz Bay" };
   }
 
+  const description =
+    tutor.headline?.trim() ||
+    tutor.about?.trim() ||
+    tutor.bio?.trim() ||
+    `Conheça ${tutor.name}, professor de ${tutor.subject} na Aprendiz Bay.`;
+
   return {
     title: `${tutor.name} — ${tutor.subject} | Aprendiz Bay`,
-    description: tutor.headline,
+    description,
+    openGraph: {
+      title: `${tutor.name} — ${tutor.subject} | Aprendiz Bay`,
+      description,
+      locale: "pt_BR",
+      type: "profile",
+    },
   };
 }
 
@@ -41,7 +60,7 @@ export default async function TutorPage({ params }: TutorPageProps) {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className="mx-auto max-w-7xl px-4 py-8 pb-28 sm:px-6 lg:px-8 lg:pb-8">
       <ProfileViewTracker tutorId={tutor.id} subject={tutor.subject} />
       <JsonLd data={buildTutorPersonJsonLd(tutor)} />
       <Link
@@ -53,9 +72,18 @@ export default async function TutorPage({ params }: TutorPageProps) {
       </Link>
 
       <div className="lg:grid lg:grid-cols-[1fr_380px] lg:gap-8 lg:items-start">
-        <div className="space-y-8">
+        <div className="space-y-6 sm:space-y-8">
           <TutorHeader tutor={tutor} />
           <TutorAbout tutor={tutor} />
+          <TutorTeaching tutor={tutor} />
+          <TutorPricing tutor={tutor} />
+          <TutorAvailabilitySection tutorId={tutor.id} />
+          <TutorCollectiveClasses tutor={tutor} />
+          <TutorReviews
+            tutorId={tutor.id}
+            initialRating={tutor.rating}
+            initialReviewCount={tutor.reviewCount}
+          />
         </div>
 
         <div className="mt-8 space-y-4 lg:mt-0">
@@ -63,6 +91,8 @@ export default async function TutorPage({ params }: TutorPageProps) {
           <BookingWidget tutor={tutor} />
         </div>
       </div>
+
+      <TutorStickyActions showJoinClass={offersLessonType(tutor, "coletivo")} />
     </div>
   );
 }
