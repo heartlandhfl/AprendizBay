@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, MapPin, Monitor, Users } from "lucide-react";
+import TutorCatalogProblem from "@/components/catalog/TutorCatalogProblem";
 import TutorCard from "@/components/search/TutorCard";
 import {
   cityPreposition,
@@ -11,6 +12,7 @@ import {
   subjectCityHeading,
   subjectCityPath,
 } from "@/lib/seo/subject-city";
+import { isCatalogProblem, tutorsForPublicPages } from "@/lib/tutors/catalog";
 import { fetchVerifiedTutorsServer } from "@/lib/tutors/server";
 
 interface SubjectCityPageProps {
@@ -18,7 +20,8 @@ interface SubjectCityPageProps {
 }
 
 export async function generateStaticParams() {
-  const tutors = await fetchVerifiedTutorsServer();
+  const catalog = await fetchVerifiedTutorsServer();
+  const tutors = tutorsForPublicPages(catalog);
   return getPopularSubjectCityPairs(tutors).map(({ materia, cidade }) => ({
     materia,
     cidade,
@@ -28,7 +31,8 @@ export async function generateStaticParams() {
 export async function generateMetadata({
   params,
 }: SubjectCityPageProps): Promise<Metadata> {
-  const tutors = await fetchVerifiedTutorsServer();
+  const catalog = await fetchVerifiedTutorsServer();
+  const tutors = tutorsForPublicPages(catalog);
   const resolved = resolveSubjectCity(tutors, params.materia, params.cidade);
 
   if (!resolved) {
@@ -47,7 +51,13 @@ export async function generateMetadata({
 }
 
 export default async function SubjectCityPage({ params }: SubjectCityPageProps) {
-  const tutors = await fetchVerifiedTutorsServer();
+  const catalog = await fetchVerifiedTutorsServer();
+
+  if (isCatalogProblem(catalog.state)) {
+    return <TutorCatalogProblem kind={catalog.state} />;
+  }
+
+  const tutors = tutorsForPublicPages(catalog);
   const resolved = resolveSubjectCity(tutors, params.materia, params.cidade);
 
   if (!resolved) {

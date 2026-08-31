@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { MapPin } from "lucide-react";
+import TutorCatalogProblem from "@/components/catalog/TutorCatalogProblem";
 import {
   cityPreposition,
   getPopularSubjectCityPairs,
   subjectCityPath,
 } from "@/lib/seo/subject-city";
+import { TUTOR_CATALOG_COPY, isCatalogProblem, tutorsForPublicPages } from "@/lib/tutors/catalog";
 import { fetchVerifiedTutorsServer } from "@/lib/tutors/server";
 
 export const metadata: Metadata = {
@@ -15,7 +17,13 @@ export const metadata: Metadata = {
 };
 
 export default async function ProfessoresIndexPage() {
-  const tutors = await fetchVerifiedTutorsServer();
+  const catalog = await fetchVerifiedTutorsServer();
+
+  if (isCatalogProblem(catalog.state)) {
+    return <TutorCatalogProblem kind={catalog.state} />;
+  }
+
+  const tutors = tutorsForPublicPages(catalog);
   const pairs = getPopularSubjectCityPairs(tutors);
 
   const bySubject = new Map<string, typeof pairs>();
@@ -36,6 +44,13 @@ export default async function ProfessoresIndexPage() {
           do jeito que os alunos pesquisam.
         </p>
       </header>
+
+      {pairs.length === 0 ? (
+        <div className="rounded-2xl bg-muted/60 px-6 py-16 text-center">
+          <h2 className="text-lg font-semibold text-foreground">{TUTOR_CATALOG_COPY.empty.title}</h2>
+          <p className="mt-2 text-sm text-muted-foreground">{TUTOR_CATALOG_COPY.empty.description}</p>
+        </div>
+      ) : null}
 
       <div className="space-y-10">
         {[...bySubject.entries()].map(([subject, subjectPairs]) => (

@@ -190,6 +190,7 @@ export const TUTOR_PROFILE_DETAILS: Record<
   },
 };
 
+/** Development/test fixture. Do not call from production user-facing paths. */
 export function getTutorProfile(id: string): TutorProfile | undefined {
   const base = MOCK_TUTORS.find((t) => t.id === id);
   if (!base) return undefined;
@@ -200,6 +201,7 @@ export function getTutorProfile(id: string): TutorProfile | undefined {
   return { ...base, ...details };
 }
 
+/** Development/test fixture IDs. Do not use to generate production routes. */
 export function getAllTutorIds(): string[] {
   return Object.keys(TUTOR_PROFILE_DETAILS);
 }
