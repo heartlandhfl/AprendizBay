@@ -10,11 +10,14 @@ import type { Booking } from "@/lib/bookings/types";
 import { BOOKING_TYPE_LABELS } from "@/lib/bookings/types";
 import { describeCancellation } from "@/lib/bookings/cancellation";
 import {
+  COMPLETE_COPY,
+  canTutorMarkCompleted,
+} from "@/lib/bookings/complete-lesson";
+import {
   cancelBookingAsTutor,
   fetchUserDisplayName,
   formatBookingDate,
   formatBookingPrice,
-  hasScheduledTimePassed,
   markBookingCompleted,
   subscribeToTutorConfirmedBookings,
 } from "@/lib/bookings/service";
@@ -90,8 +93,12 @@ export default function TutorConfirmedBookings() {
 
     try {
       await markBookingCompleted(bookingId);
-    } catch {
-      setError("Não foi possível marcar a aula como concluída.");
+    } catch (completeError) {
+      setError(
+        completeError instanceof Error
+          ? completeError.message
+          : "Não foi possível marcar a aula como concluída.",
+      );
     } finally {
       setActionId(null);
     }
@@ -108,10 +115,9 @@ export default function TutorConfirmedBookings() {
   return (
     <section className="space-y-4">
       <div>
-        <h2 className="text-xl font-bold text-foreground">Aulas confirmadas</h2>
+        <h2 className="text-xl font-bold text-foreground">{COMPLETE_COPY.tutorSectionTitle}</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Entre na sala de videoconferência quando for hora da aula e marque como concluída
-          depois do horário agendado.
+          {COMPLETE_COPY.tutorSectionHelp}
         </p>
       </div>
 
@@ -123,7 +129,7 @@ export default function TutorConfirmedBookings() {
 
       <div className="space-y-4">
         {bookings.map((booking) => {
-          const canComplete = hasScheduledTimePassed(booking.scheduledAt, now);
+          const canComplete = canTutorMarkCompleted(booking, now);
           const { decision: cancellation, copy: cancellationCopy } = describeCancellation(
             booking,
             "tutor",
@@ -198,16 +204,18 @@ export default function TutorConfirmedBookings() {
                 {actionId === booking.id ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-                    Concluindo...
+                    {COMPLETE_COPY.tutorSubmitting}
                   </>
                 ) : (
-                  "Marcar aula como concluída"
+                  COMPLETE_COPY.tutorButton
                 )}
               </button>
 
               {!canComplete && (
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Disponível após o horário agendado.
+                  {booking.paymentStatus !== "paid"
+                    ? COMPLETE_COPY.tutorNeedsPayment
+                    : COMPLETE_COPY.tutorBeforeSchedule}
                 </p>
               )}
             </article>

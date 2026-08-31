@@ -15,6 +15,9 @@ import {
   type CancelStore,
   type CancelTransaction,
 } from "@/lib/bookings/cancel-booking";
+import {
+  completeLessonForActor,
+} from "@/lib/bookings/complete-lesson";
 import { generateMeetingUrl } from "@/lib/bookings/meeting";
 import { notifyConfirmedBooking, safeNotify } from "@/lib/notifications/server";
 import type { Booking, BookingStatus, BookingType, PaymentStatus } from "@/lib/bookings/types";
@@ -74,6 +77,7 @@ export interface BookingRecord {
   refundLockUntil?: Date;
   meetingUrl?: string;
   scheduledAt: Date;
+  completedAt?: Date;
 }
 
 function optionalDate(value: unknown): Date | undefined {
@@ -118,6 +122,7 @@ export function mapBookingRecord(
     refundLockUntil: optionalDate(data.refundLockUntil),
     meetingUrl: data.meetingUrl ? String(data.meetingUrl) : undefined,
     scheduledAt: toScheduledDate(data.scheduledAt),
+    completedAt: optionalDate(data.completedAt),
   };
 }
 
@@ -226,6 +231,17 @@ function createFirestoreCancelStore(db: Firestore): CancelStore {
       });
     },
   };
+}
+
+export async function completeLessonAsActor(input: {
+  bookingId: string;
+  actorUid: string;
+  actorRole?: string;
+}): Promise<{ bookingId: string; status: "completed" }> {
+  const db = requireAdminFirestore();
+  return completeLessonForActor(db, input, {
+    timestamp: FieldValue.serverTimestamp(),
+  });
 }
 
 export async function cancelBookingWithRefund(

@@ -110,7 +110,12 @@ async function seedBaseDocs(options: {
 async function seedBooking(
   bookingId: string,
   status: "pending" | "confirmed" | "completed" | "cancelled",
-  extras: { studentId?: string; tutorId?: string } = {},
+  extras: {
+    studentId?: string;
+    tutorId?: string;
+    paymentStatus?: "unpaid" | "awaiting_payment" | "paid";
+    scheduledAt?: Date;
+  } = {},
 ) {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     await setDoc(doc(context.firestore(), "bookings", bookingId), {
@@ -118,12 +123,12 @@ async function seedBooking(
       tutorId: extras.tutorId ?? TUTOR_ID,
       type: "individual",
       status,
-      paymentStatus: "paid",
+      paymentStatus: extras.paymentStatus ?? "paid",
       price: 70,
       studentName: "Nome privado",
       paymentId: "pay_secret",
       notes: "Observação privada",
-      scheduledAt: new Date("2026-09-01T19:00:00Z"),
+      scheduledAt: extras.scheduledAt ?? new Date("2026-09-01T19:00:00Z"),
       createdAt: new Date("2026-08-20T19:00:00Z"),
     });
   });
@@ -378,6 +383,84 @@ describe("firestore.rules", () => {
           updatedAt: new Date(),
         }),
       );
+    });
+
+    describe("lesson completion", () => {
+      const pastSchedule = new Date("2026-08-30T19:00:00Z");
+
+      function completePayload() {
+        return {
+          status: "completed" as const,
+          completedAt: new Date(),
+          updatedAt: new Date(),
+        };
+      }
+
+      it("allows the booking tutor to complete a confirmed paid lesson after the schedule", async () => {
+        await seedBaseDocs({ tutorVerified: true });
+        await seedBooking("booking-done", "confirmed", { scheduledAt: pastSchedule });
+
+        await assertSucceeds(
+          updateDoc(doc(tutorDb(), "bookings", "booking-done"), completePayload()),
+        );
+      });
+
+      it("denies pending → completed", async () => {
+        await seedBaseDocs({ tutorVerified: true });
+        await seedBooking("booking-pending", "pending", { scheduledAt: pastSchedule });
+
+        await assertFails(
+          updateDoc(doc(tutorDb(), "bookings", "booking-pending"), completePayload()),
+        );
+      });
+
+      it("denies cancelled → completed", async () => {
+        await seedBaseDocs({ tutorVerified: true });
+        await seedBooking("booking-cancelled", "cancelled", { scheduledAt: pastSchedule });
+
+        await assertFails(
+          updateDoc(doc(tutorDb(), "bookings", "booking-cancelled"), completePayload()),
+        );
+      });
+
+      it("denies unpaid → completed", async () => {
+        await seedBaseDocs({ tutorVerified: true });
+        await seedBooking("booking-unpaid", "confirmed", {
+          scheduledAt: pastSchedule,
+          paymentStatus: "unpaid",
+        });
+
+        await assertFails(
+          updateDoc(doc(tutorDb(), "bookings", "booking-unpaid"), completePayload()),
+        );
+      });
+
+      it("denies a student completing their own booking", async () => {
+        await seedBaseDocs({ tutorVerified: true });
+        await seedBooking("booking-done", "confirmed", { scheduledAt: pastSchedule });
+
+        await assertFails(
+          updateDoc(doc(studentDb(), "bookings", "booking-done"), completePayload()),
+        );
+      });
+
+      it("denies another tutor completing the lesson", async () => {
+        await seedBaseDocs({ tutorVerified: true });
+        await seedBooking("booking-done", "confirmed", { scheduledAt: pastSchedule });
+
+        await assertFails(
+          updateDoc(doc(tutorBDb(), "bookings", "booking-done"), completePayload()),
+        );
+      });
+
+      it("denies an unauthenticated completion", async () => {
+        await seedBaseDocs({ tutorVerified: true });
+        await seedBooking("booking-done", "confirmed", { scheduledAt: pastSchedule });
+
+        await assertFails(
+          updateDoc(doc(guestDb(), "bookings", "booking-done"), completePayload()),
+        );
+      });
     });
   });
 
