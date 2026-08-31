@@ -14,7 +14,7 @@ function isFirebaseAdminRequest(request) {
 
 /**
  * firebase-admin is allowed only from server/api/ (review rating recompute,
- * account deletion, tutor verification review, booking occupancy).
+ * account deletion, tutor verification review, admin dashboard, booking occupancy).
  * Next.js server bundles under hostinger-next/ and lib/ server modules must not
  * load it in the Express process.
  */
@@ -65,7 +65,7 @@ let guardInstalled = false;
 /**
  * Patch require() so production cannot load Next.js.
  * firebase-admin is allowed only from server/api/ (Hostinger review recompute,
- * occupancy, tutor verification).
+ * occupancy, tutor verification, admin dashboard).
  * Next server modules under lib/ and hostinger-next/server/ are build-time only.
  */
 function installNextRequireGuard() {

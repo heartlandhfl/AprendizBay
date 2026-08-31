@@ -1502,4 +1502,32 @@ describe("firestore.rules", () => {
       );
     });
   });
+
+  describe("adminAuditLogs", () => {
+    it("denies students, tutors and admins from reading or writing audit logs", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await setDoc(doc(context.firestore(), "adminAuditLogs", "log-1"), {
+          actorUid: ADMIN_ID,
+          action: "tutor_review",
+          createdAt: new Date(),
+        });
+      });
+
+      const payload = {
+        actorUid: ADMIN_ID,
+        action: "tutor_review",
+        targetType: "tutor",
+        targetId: TUTOR_ID,
+        createdAt: new Date(),
+      };
+
+      await assertFails(getDoc(doc(studentDb(), "adminAuditLogs", "log-1")));
+      await assertFails(getDoc(doc(tutorDb(), "adminAuditLogs", "log-1")));
+      await assertFails(getDoc(doc(adminDb(), "adminAuditLogs", "log-1")));
+      await assertFails(getDocs(collection(adminDb(), "adminAuditLogs")));
+      await assertFails(setDoc(doc(adminDb(), "adminAuditLogs", "log-2"), payload));
+      await assertFails(setDoc(doc(studentDb(), "adminAuditLogs", "log-2"), payload));
+    });
+  });
 });
