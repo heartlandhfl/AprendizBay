@@ -10,7 +10,8 @@ import {
 } from "@/lib/availability/slots";
 import { subscribeToTutorAvailability } from "@/lib/availability/service";
 import type { AvailabilitySlot } from "@/lib/availability/types";
-import { subscribeToTutorOccupiedBookings } from "@/lib/bookings/service";
+import { OCCUPANCY_POLL_INTERVAL_MS } from "@/lib/bookings/occupancy";
+import { fetchTutorOccupiedStarts } from "@/lib/bookings/service";
 
 interface IndividualSlotPickerProps {
   tutorId: string;
@@ -49,21 +50,47 @@ export default function IndividualSlotPicker({
       },
     );
 
-    const unsubscribeOccupied = subscribeToTutorOccupiedBookings(
-      tutorId,
-      (bookings) => {
-        setOccupiedStarts(bookings.map((booking) => booking.scheduledAt.toDate()));
+    let occupancyRequest = 0;
+    let occupancyLoadedOnce = false;
+
+    async function loadOccupiedStarts() {
+      const requestId = ++occupancyRequest;
+      try {
+        const starts = await fetchTutorOccupiedStarts(tutorId);
+        if (requestId !== occupancyRequest) {
+          return;
+        }
+        setOccupiedStarts(starts);
+        occupancyLoadedOnce = true;
         setOccupiedLoaded(true);
-      },
-      () => {
-        setError("Não foi possível verificar horários já reservados.");
-        setOccupiedLoaded(true);
-      },
+      } catch {
+        if (requestId !== occupancyRequest) {
+          return;
+        }
+        if (!occupancyLoadedOnce) {
+          setError("Não foi possível verificar horários já reservados.");
+          setOccupiedLoaded(true);
+        }
+      }
+    }
+
+    void loadOccupiedStarts();
+    const occupancyPoll = window.setInterval(
+      loadOccupiedStarts,
+      OCCUPANCY_POLL_INTERVAL_MS,
     );
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void loadOccupiedStarts();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
+      occupancyRequest += 1;
       unsubscribeAvailability();
-      unsubscribeOccupied();
+      window.clearInterval(occupancyPoll);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset selection when tutor changes
   }, [tutorId]);
