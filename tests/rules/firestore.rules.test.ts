@@ -382,25 +382,102 @@ describe("firestore.rules", () => {
   });
 
   describe("reviews", () => {
-    it("denies a student review when the booking is not completed", async () => {
-      await seedBaseDocs({ tutorVerified: true });
-      await seedBooking("booking-pending", "pending");
-      await seedBooking("booking-confirmed", "confirmed");
-
-      await assertFails(
-        addDoc(collection(studentDb(), "reviews"), reviewPayload("booking-pending")),
-      );
-      await assertFails(
-        addDoc(collection(studentDb(), "reviews"), reviewPayload("booking-confirmed")),
-      );
-    });
-
-    it("allows a student to review a completed booking", async () => {
+    it("allows a student to review a completed booking with the booking id", async () => {
       await seedBaseDocs({ tutorVerified: true });
       await seedBooking("booking-done", "completed");
 
       await assertSucceeds(
+        setDoc(doc(studentDb(), "reviews", "booking-done"), reviewPayload("booking-done")),
+      );
+    });
+
+    it("denies a second review document for the same booking", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      await seedBooking("booking-done", "completed");
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await setDoc(
+          doc(context.firestore(), "reviews", "booking-done"),
+          reviewPayload("booking-done"),
+        );
+      });
+
+      await assertFails(
         addDoc(collection(studentDb(), "reviews"), reviewPayload("booking-done")),
+      );
+      await assertFails(
+        setDoc(doc(studentDb(), "reviews", "other-id"), reviewPayload("booking-done")),
+      );
+    });
+
+    it("denies a student review when the booking is pending", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      await seedBooking("booking-pending", "pending");
+
+      await assertFails(
+        setDoc(
+          doc(studentDb(), "reviews", "booking-pending"),
+          reviewPayload("booking-pending"),
+        ),
+      );
+    });
+
+    it("denies a student review when the booking is cancelled", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      await seedBooking("booking-cancelled", "cancelled");
+
+      await assertFails(
+        setDoc(
+          doc(studentDb(), "reviews", "booking-cancelled"),
+          reviewPayload("booking-cancelled"),
+        ),
+      );
+    });
+
+    it("denies a review for another student's booking", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      await seedBooking("booking-done", "completed", { studentId: STUDENT_B_ID });
+
+      await assertFails(
+        setDoc(doc(studentDb(), "reviews", "booking-done"), reviewPayload("booking-done")),
+      );
+    });
+
+    it("denies a review for another tutor", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      await seedBooking("booking-done", "completed");
+
+      await assertFails(
+        setDoc(doc(studentDb(), "reviews", "booking-done"), {
+          ...reviewPayload("booking-done"),
+          tutorId: TUTOR_B_ID,
+        }),
+      );
+    });
+
+    it("denies an invalid rating", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      await seedBooking("booking-done", "completed");
+
+      await assertFails(
+        setDoc(doc(studentDb(), "reviews", "booking-done"), {
+          ...reviewPayload("booking-done"),
+          rating: 0,
+        }),
+      );
+      await assertFails(
+        setDoc(doc(studentDb(), "reviews", "booking-done"), {
+          ...reviewPayload("booking-done"),
+          rating: 6,
+        }),
+      );
+    });
+
+    it("denies an unauthenticated review request", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      await seedBooking("booking-done", "completed");
+
+      await assertFails(
+        setDoc(doc(guestDb(), "reviews", "booking-done"), reviewPayload("booking-done")),
       );
     });
   });
