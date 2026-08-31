@@ -1,6 +1,15 @@
 export const MAX_COMMENT_LENGTH: number;
 export const MAX_REVIEW_ID_LENGTH: number;
 export const VALID_RATINGS: readonly number[];
+export const REVIEW_ACTION_LABELS: {
+  eligible: "Avaliar aula";
+  submitted: "Avaliação enviada";
+};
+
+export function studentReviewAction(
+  status: unknown,
+  alreadyReviewed: unknown,
+): { kind: "button" | "status"; label: string } | null;
 
 export type CreateReviewErrorCode =
   | "UNAUTHENTICATED"

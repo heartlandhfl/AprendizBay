@@ -27,6 +27,7 @@ import {
   isLessonUnlocked,
 } from "@/lib/payments/status";
 import { subscribeToStudentReviewBookingIds } from "@/lib/reviews/client";
+import { studentReviewAction } from "@/lib/reviews/create-review";
 
 interface EnrichedBooking extends Booking {
   tutorName: string;
@@ -172,8 +173,10 @@ export default function StudentBookingsList() {
             );
             const showCancel =
               booking.status === "pending" || booking.status === "confirmed";
-            const alreadyReviewed = reviewedBookingIds.has(booking.id);
-            const canReview = booking.status === "completed" && !alreadyReviewed;
+            const reviewAction = studentReviewAction(
+              booking.status,
+              reviewedBookingIds.has(booking.id),
+            );
 
             return (
               <article
@@ -250,7 +253,7 @@ export default function StudentBookingsList() {
                   </div>
                 )}
 
-                {canReview && user && (
+                {reviewAction?.kind === "button" && user && (
                   <button
                     type="button"
                     onClick={() =>
@@ -262,13 +265,13 @@ export default function StudentBookingsList() {
                     }
                     className="mt-4 rounded-2xl bg-secondary-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary-600"
                   >
-                    Avaliar aula
+                    {reviewAction.label}
                   </button>
                 )}
 
-                {booking.status === "completed" && alreadyReviewed && (
+                {reviewAction?.kind === "status" && (
                   <p className="mt-4 text-sm font-medium text-muted-foreground" role="status">
-                    Avaliação enviada
+                    {reviewAction.label}
                   </p>
                 )}
 

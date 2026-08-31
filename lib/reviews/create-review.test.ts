@@ -7,6 +7,7 @@ import {
   ratingsFromReviewDocs,
   reviewDocumentId,
   statusFromCreateReviewError,
+  studentReviewAction,
   validateReviewFields,
 } from "./create-review";
 
@@ -320,6 +321,27 @@ describe("ratingsFromReviewDocs", () => {
 
     expect(ratings).toEqual([5, 4]);
     expect(computeTutorRatingFromRatings(ratings)).toEqual({ rating: 4.5, reviewCount: 2 });
+  });
+});
+
+describe("studentReviewAction", () => {
+  it("shows Avaliar aula when the completed booking has no review", () => {
+    expect(studentReviewAction("completed", false)).toEqual({
+      kind: "button",
+      label: "Avaliar aula",
+    });
+  });
+
+  it("shows Avaliação enviada when the booking was already reviewed", () => {
+    expect(studentReviewAction("completed", true)).toEqual({
+      kind: "status",
+      label: "Avaliação enviada",
+    });
+  });
+
+  it("hides the review action for pending and cancelled bookings", () => {
+    expect(studentReviewAction("pending", false)).toBeNull();
+    expect(studentReviewAction("cancelled", false)).toBeNull();
   });
 });
 
