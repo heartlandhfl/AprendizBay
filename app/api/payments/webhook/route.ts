@@ -1,21 +1,44 @@
 import { NextResponse } from "next/server";
-import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
-import { trackServerEvent } from "@/lib/analytics/server";
-import { confirmBookingWithMeetingUrl, getBookingById } from "@/lib/bookings/server";
 import { captureServerException } from "@/lib/observability/sentry-server";
-import { isAuthorizedAsaasWebhook, parseAsaasWebhook } from "@/lib/payments/asaas";
-import { getSiteOrigin } from "@/lib/seo/site-url";
+import {
+  isAuthorizedAsaasWebhook,
+  isMalformedAsaasWebhookPayload,
+  parseAsaasWebhook,
+} from "@/lib/payments/asaas";
+import { processAsaasPaymentWebhook } from "@/lib/payments/process-webhook";
+import {
+  WEBHOOK_INVALID_MESSAGE,
+  WEBHOOK_UNAUTHORIZED_MESSAGE,
+} from "@/lib/payments/webhook-receipts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function webhookErrorStatus(error: unknown): number {
+  const message = error instanceof Error ? error.message : "";
+  if (message.includes("Firebase Admin")) {
+    return 503;
+  }
+  return 400;
+}
+
 export async function POST(request: Request) {
   try {
     if (!isAuthorizedAsaasWebhook(request.headers)) {
-      return NextResponse.json({ error: "Webhook não autorizado." }, { status: 401 });
+      return NextResponse.json({ error: WEBHOOK_UNAUTHORIZED_MESSAGE }, { status: 401 });
     }
 
-    const payload: unknown = await request.json();
+    let payload: unknown;
+    try {
+      payload = await request.json();
+    } catch {
+      return NextResponse.json({ error: WEBHOOK_INVALID_MESSAGE }, { status: 400 });
+    }
+
+    if (isMalformedAsaasWebhookPayload(payload)) {
+      return NextResponse.json({ error: WEBHOOK_INVALID_MESSAGE }, { status: 400 });
+    }
+
     const event = parseAsaasWebhook(payload);
 
     if (!event.isSuccessfulPayment) {
@@ -26,39 +49,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ received: true, ignored: "missing_external_reference" });
     }
 
-    const booking = await getBookingById(event.bookingId);
-    if (!booking) {
-      return NextResponse.json({ received: true, ignored: "booking_not_found" });
-    }
-
-    if (booking.status === "cancelled") {
-      return NextResponse.json({ received: true, ignored: "cancelled" });
-    }
-
-    await confirmBookingWithMeetingUrl(event.bookingId, {
-      paymentId: event.paymentId,
-      asaasCheckoutId: event.asaasCheckoutId,
-    });
-
-    await trackServerEvent({
-      name: ANALYTICS_EVENTS.paymentCompleted,
-      url: `${getSiteOrigin()}/bookings`,
-      props: {
-        booking_id: event.bookingId,
-        type: booking.type,
-      },
-    });
+    const result = await processAsaasPaymentWebhook(event);
 
     return NextResponse.json({
-      received: true,
-      bookingId: event.bookingId,
-      confirmed: true,
+      received: result.received,
+      message: result.message,
+      ...(result.confirmed ? { confirmed: true } : {}),
+      ...(result.alreadyProcessed ? { alreadyProcessed: true } : {}),
+      ...(result.ignored ? { ignored: result.ignored } : {}),
     });
   } catch (error) {
     captureServerException(error);
     const message =
       error instanceof Error ? error.message : "Não foi possível processar o webhook.";
-    const status = message.includes("Firebase Admin") ? 503 : 400;
-    return NextResponse.json({ error: message }, { status });
+    return NextResponse.json({ error: message }, { status: webhookErrorStatus(error) });
   }
 }

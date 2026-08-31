@@ -19,9 +19,11 @@ export default defineConfig({
           setupFiles: ["./vitest.setup.ts"],
           include: [
             "app/**/*.test.tsx",
+            "app/**/*.test.ts",
             "components/**/*.test.tsx",
             "lib/analytics/**/*.test.ts",
             "lib/observability/**/*.test.ts",
+            "lib/payments/**/*.test.ts",
           ],
           exclude: ["node_modules", "hostinger-next", ".next"],
         },

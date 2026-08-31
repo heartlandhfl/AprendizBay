@@ -41,8 +41,8 @@ rules_version = '2';
 //   conversations/{conversationId}/messages/{messageId}
 //     senderId, text, createdAt
 //
-//   subjects/{subjectId}                // read-only catalog (admin-managed)
-//     name, slug, category, isActive
+//   asaasWebhookReceipts/{receiptId}    // Admin SDK only (Asaas webhook idempotency)
+//     paymentId?, asaasCheckoutId?, bookingId?, event, outcome, createdAt
 //
 // NOTE: These rules are a starting point. Validate with the Firebase Emulator
 // Suite before deploying to production.
@@ -54,7 +54,8 @@ rules_version = '2';
 // MATCH  bookings create             → lib/bookings/service.ts (student reserve)
 // MATCH  bookings student cancel       → unpaid client update; paid via /api/bookings/cancel + refund
 // MATCH  bookings tutor accept payment → lib/bookings/service.ts (paymentStatus, updatedAt)
-// ADMIN  bookings confirm (webhook)    → lib/bookings/server.ts (status, meetingUrl, payment fields + e-mail)
+// ADMIN  bookings confirm (webhook)    → lib/payments/process-webhook.ts
+//        (asaasWebhookReceipts + booking write in one Admin transaction; e-mail after commit)
 // ADMIN  bookings lesson reminder      → lib/notifications (lessonReminderSentAt)
 // MATCH  bookings tutor cancel         → unpaid client-capable; paid via /api/bookings/cancel + refund
 // MATCH  bookings tutor complete       → lib/bookings/service.ts (status → completed)
@@ -389,6 +390,11 @@ service cloud.firestore {
     match /subjects/{subjectId} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    // Asaas webhook receipts — Admin SDK only (lib/payments/process-webhook.ts)
+    match /asaasWebhookReceipts/{receiptId} {
+      allow read, write: if false;
     }
 
     // -------------------------------------------------------------------------

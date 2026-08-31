@@ -5,6 +5,7 @@ import {
   buildCheckoutUrl,
   parseAsaasRefund,
   parseAsaasWebhook,
+  isMalformedAsaasWebhookPayload,
   refundAsaasPayment,
   resolveAsaasPaymentId,
 } from "../lib/payments/asaas";
@@ -62,6 +63,10 @@ assert.equal(checkoutPaid.asaasCheckoutId, "131ca662-56c8-4479-b5b3-fd61a413fce7
 
 const ignored = parseAsaasWebhook({ event: "PAYMENT_CREATED", payment: { id: "pay_1" } });
 assert.equal(ignored.isSuccessfulPayment, false);
+
+assert.equal(isMalformedAsaasWebhookPayload(null), true);
+assert.equal(isMalformedAsaasWebhookPayload(["PAYMENT_CONFIRMED"]), true);
+assert.equal(isMalformedAsaasWebhookPayload({ event: "PAYMENT_CREATED" }), false);
 
 assert.equal(
   buildCheckoutUrl("checkout-1"),
