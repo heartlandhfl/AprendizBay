@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, expect, it } from "vitest";
 import {
   loadTutorOccupiedStarts,
   normalizeTutorId,
@@ -34,14 +33,13 @@ describe("occupiedStartsFromBookingData", () => {
       },
     ]);
 
-    assert.deepEqual(occupied, [
+    expect(occupied).toEqual([
       "2026-09-01T19:00:00.000Z",
       "2026-09-02T14:00:00.000Z",
     ]);
-    assert.equal(
+    expect(
       occupied.some((value) => String(value).includes("student") || String(value).includes("pay_")),
-      false,
-    );
+    ).toBe(false);
   });
 });
 
@@ -53,8 +51,8 @@ describe("occupancyResponse", () => {
       "2026-09-01T19:00:00.000Z",
     ]);
 
-    assert.deepEqual(Object.keys(response), ["occupiedStarts"]);
-    assert.deepEqual(response.occupiedStarts, ["2026-09-01T19:00:00.000Z"]);
+    expect(Object.keys(response)).toEqual(["occupiedStarts"]);
+    expect(response.occupiedStarts).toEqual(["2026-09-01T19:00:00.000Z"]);
   });
 });
 
@@ -66,17 +64,17 @@ describe("parseOccupiedStarts", () => {
       paymentId: "pay_secret",
     });
 
-    assert.equal(starts.length, 1);
-    assert.equal(starts[0]?.toISOString(), "2026-09-01T19:00:00.000Z");
+    expect(starts).toHaveLength(1);
+    expect(starts[0]?.toISOString()).toBe("2026-09-01T19:00:00.000Z");
   });
 });
 
 describe("normalizeTutorId", () => {
   it("rejects empty and path-like identifiers", () => {
-    assert.equal(normalizeTutorId(""), "");
-    assert.equal(normalizeTutorId("  "), "");
-    assert.equal(normalizeTutorId("tutor/../admin"), "");
-    assert.equal(normalizeTutorId("tutor-1"), "tutor-1");
+    expect(normalizeTutorId("")).toBe("");
+    expect(normalizeTutorId("  ")).toBe("");
+    expect(normalizeTutorId("tutor/../admin")).toBe("");
+    expect(normalizeTutorId("tutor-1")).toBe("tutor-1");
   });
 });
 
@@ -85,17 +83,17 @@ describe("loadTutorOccupiedStarts", () => {
     let selectedFields: string[] | undefined;
     const db = {
       collection(name: string) {
-        assert.equal(name, "bookings");
+        expect(name).toBe("bookings");
         return {
           where(field: string, op: string, value: unknown) {
-            assert.equal(field, "tutorId");
-            assert.equal(op, "==");
-            assert.equal(value, "tutor-1");
+            expect(field).toBe("tutorId");
+            expect(op).toBe("==");
+            expect(value).toBe("tutor-1");
             return {
               where(statusField: string, statusOp: string, statuses: unknown) {
-                assert.equal(statusField, "status");
-                assert.equal(statusOp, "in");
-                assert.deepEqual(statuses, ["pending", "confirmed"]);
+                expect(statusField).toBe("status");
+                expect(statusOp).toBe("in");
+                expect(statuses).toEqual(["pending", "confirmed"]);
                 return {
                   select(...fields: string[]) {
                     selectedFields = fields;
@@ -123,7 +121,7 @@ describe("loadTutorOccupiedStarts", () => {
     };
 
     const occupied = await loadTutorOccupiedStarts(db, "tutor-1");
-    assert.deepEqual(selectedFields, ["scheduledAt", "status"]);
-    assert.deepEqual(occupied, ["2026-09-08T19:00:00.000Z"]);
+    expect(selectedFields).toEqual(["scheduledAt", "status"]);
+    expect(occupied).toEqual(["2026-09-08T19:00:00.000Z"]);
   });
 });
