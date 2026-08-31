@@ -77,15 +77,12 @@ export interface BookingRecord {
   scheduledAt: Date;
 }
 
-export async function getBookingById(bookingId: string): Promise<BookingRecord | null> {
-  const snapshot = await requireAdminFirestore().collection("bookings").doc(bookingId).get();
-  if (!snapshot.exists) {
-    return null;
-  }
-
-  const data = snapshot.data() ?? {};
+export function mapBookingRecord(
+  id: string,
+  data: Record<string, unknown>,
+): BookingRecord {
   return {
-    id: snapshot.id,
+    id,
     studentId: String(data.studentId ?? ""),
     tutorId: String(data.tutorId ?? ""),
     hubId: data.hubId ? String(data.hubId) : undefined,
@@ -114,6 +111,15 @@ export async function getBookingById(bookingId: string): Promise<BookingRecord |
   };
 }
 
+export async function getBookingById(bookingId: string): Promise<BookingRecord | null> {
+  const snapshot = await requireAdminFirestore().collection("bookings").doc(bookingId).get();
+  if (!snapshot.exists) {
+    return null;
+  }
+
+  return mapBookingRecord(snapshot.id, (snapshot.data() ?? {}) as Record<string, unknown>);
+}
+
 export async function saveBookingCheckoutId(
   bookingId: string,
   asaasCheckoutId: string,
@@ -140,7 +146,10 @@ export interface ConfirmBookingPaymentInput {
   asaasCheckoutId?: string;
 }
 
-/** For payment webhooks or other server-side confirmation flows. */
+/**
+ * Direct confirmation write. Payment webhooks must use
+ * `processAsaasPaymentWebhook` so receipts stay idempotent.
+ */
 export async function confirmBookingWithMeetingUrl(
   bookingId: string,
   payment?: ConfirmBookingPaymentInput,

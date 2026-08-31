@@ -266,6 +266,10 @@ export async function createAsaasCheckout(
   };
 }
 
+export function isMalformedAsaasWebhookPayload(payload: unknown): boolean {
+  return payload == null || typeof payload !== "object" || Array.isArray(payload);
+}
+
 export function parseAsaasWebhook(payload: unknown): AsaasWebhookMatch {
   const body = isRecord(payload) ? payload : {};
   const payment = isRecord(body.payment) ? body.payment : {};

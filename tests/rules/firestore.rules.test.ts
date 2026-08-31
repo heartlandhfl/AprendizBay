@@ -210,4 +210,20 @@ describe("firestore.rules", () => {
       );
     });
   });
+
+  describe("asaasWebhookReceipts", () => {
+    it("denies clients from reading or writing webhook receipts", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      const receiptRef = doc(studentDb(), "asaasWebhookReceipts", "payment_pay_1");
+
+      await assertFails(
+        setDoc(receiptRef, {
+          paymentId: "pay_1",
+          event: "PAYMENT_CONFIRMED",
+          outcome: "confirmed",
+          createdAt: new Date(),
+        }),
+      );
+    });
+  });
 });
