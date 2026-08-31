@@ -18,10 +18,13 @@ rules_version = '2';
 // NOTE: Validate with the Firebase Emulator Suite before deploying to production.
 //
 // ---------------------------------------------------------------------------
-// App write-path audit (MVP)
+// App write-path audit
 // ---------------------------------------------------------------------------
-// No client or server upload helpers are implemented yet. Rules below are ready
-// for future profile/credential/material uploads but are unused by the app today.
+// MATCH  users/{userId}/avatar.jpg          → lib/storage/service.ts (uploadUserAvatar)
+// MATCH  tutors/{tutorId}/credentials/{file} → lib/storage/service.ts (uploadTutorCredential)
+//        Authenticated reads only (owner tutor or admin). Clients must use getBlob,
+//        never getDownloadURL, so verification documents stay off the public web.
+// ADMIN  users/{uid}/ and tutors/{uid}/ delete → POST /api/account/delete (LGPD)
 // =============================================================================
 
 service firebase.storage {
@@ -118,7 +121,10 @@ service firebase.storage {
     // -------------------------------------------------------------------------
 
     match /tutors/{tutorId}/credentials/{file} {
-      allow read: if isOwner(tutorId) || isAdmin();
+      // Private verification documents: never public. Clients must use authenticated
+      // reads (getBlob), not public download URLs.
+      allow get: if isOwner(tutorId) || isAdmin();
+      allow list: if isOwner(tutorId) || isAdmin();
       allow write: if isOwner(tutorId) && isTutor() && isValidDocumentUpload();
       allow delete: if isOwner(tutorId) || isAdmin();
     }

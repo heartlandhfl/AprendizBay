@@ -64,9 +64,12 @@ export default function TermosPage() {
         <p>
           O professor declara ter qualificação para as matérias que oferece,
           define preços e disponibilidade e pode abrir turmas coletivas. O
-          perfil público só aparece na busca depois de verificação pela
-          plataforma (<span className="font-medium">isVerified</span>).
-          Documentos enviados para credenciamento devem ser autênticos.
+          perfil público só aparece na busca depois de aprovação da
+          verificação pela plataforma (status <span className="font-medium">approved</span>).
+          Perfis pendentes, recusados ou suspensos não aparecem como
+          professores verificados. Documentos enviados para credenciamento
+          devem ser autênticos e ficam visíveis só para o professor e
+          administradores.
         </p>
         <p>
           O professor deve honrar reservas confirmadas, iniciar a sala online

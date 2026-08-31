@@ -13,8 +13,8 @@
     "lint": "next lint",
     "test": "npm run test:unit && npm run test:rules && npm run test:node",
     "test:unit": "vitest run --project unit",
-    "test:rules": "firebase emulators:exec --only firestore --project demo-aprendiz-bay \"vitest run --project rules\"",
-    "test:node": "tsx --test lib/conversations/ids.test.ts lib/legal/cookie-consent.test.ts && node --test server/serve-static-ui.test.js server/api/public-config.test.js && node scripts/test-account-api.js && node scripts/test-reviews-api.js && node scripts/test-bookings-api.js",
+    "test:rules": "firebase emulators:exec --only firestore,storage --project demo-aprendiz-bay \"vitest run --project rules\"",
+    "test:node": "tsx --test lib/conversations/ids.test.ts lib/legal/cookie-consent.test.ts && node --test server/serve-static-ui.test.js server/api/public-config.test.js && node scripts/test-account-api.js && node scripts/test-reviews-api.js && node scripts/test-tutors-api.js && node scripts/test-bookings-api.js",
     "test:watch": "vitest"
   },
   "dependencies": {

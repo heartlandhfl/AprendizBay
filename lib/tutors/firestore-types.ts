@@ -1,4 +1,5 @@
 import type { Modality } from "@/lib/mock-tutors";
+import type { VerificationStatus } from "@/lib/tutors/verification";
 
 export interface FirestoreTutorDoc {
   userId: string;
@@ -15,6 +16,10 @@ export interface FirestoreTutorDoc {
   modality: Modality;
   lessonTypes?: Array<"individual" | "coletivo">;
   isVerified: boolean;
+  verificationStatus?: VerificationStatus;
+  reviewedAt?: unknown;
+  reviewedBy?: string;
+  verificationReason?: string;
   isOnline: boolean;
   hoursTaught?: number;
   studentsServed?: number;
@@ -23,6 +28,25 @@ export interface FirestoreTutorDoc {
   avatarUrl?: string;
   avatarColor?: string;
   credentialFileName?: string;
+}
+
+export interface AdminTutorApplication {
+  id: string;
+  name: string;
+  subject: string;
+  city: string;
+  state: string;
+  bio: string;
+  individualPrice: number;
+  collectivePrice: number;
+  modality: Modality;
+  avatarUrl: string;
+  credentialFileName?: string;
+  verificationStatus: VerificationStatus;
+  isVerified: boolean;
+  verificationReason?: string;
+  reviewedAt?: unknown;
+  reviewedBy?: string;
 }
 
 export interface FirestoreCollectiveHubDoc {
