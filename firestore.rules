@@ -27,9 +27,9 @@ rules_version = '2';
 //   bookings/{bookingId}
 //     studentId, tutorId, hubId?, type: "individual" | "coletivo"
 //     status: "pending" | "confirmed" | "cancelled" | "completed"
-//     paymentStatus?: "unpaid" | "awaiting_payment" | "paid" | "failed"
-//     paymentId?, asaasCheckoutId?
-//     refundId?, refundStatus?, refundAmount?
+//     paymentStatus?: "unpaid" | "awaiting_payment" | "paid" | "failed" | "expired"
+//     paymentId?, asaasCheckoutId?, asaasCheckoutExpiresAt?, checkoutLockUntil?
+//     refundId?, refundStatus?, refundAmount?, refundLockUntil?
 //     scheduledAt, price, platformFee?, tutorAmount?, meetingUrl?, createdAt, updatedAt
 //     lessonReminderSentAt?             // admin-only, set after the 1h reminder email
 //
@@ -52,10 +52,14 @@ rules_version = '2';
 // ---------------------------------------------------------------------------
 // App write-path audit (MVP — fix app/admin flows; do not loosen rules here)
 // ---------------------------------------------------------------------------
-// MATCH  users/{uid} create          → lib/auth/service.ts (signup)
+// MATCH  users/{uid} create          → lib/auth/service.ts (signup; role student|tutor only)
+// MATCH  users/{uid} update          → lib/storage/service.ts (photoUrl, updatedAt)
 // MATCH  bookings create             → lib/bookings/service.ts (student reserve)
 // MATCH  bookings student cancel       → unpaid client update; paid via /api/bookings/cancel + refund
+//        (role from uid vs studentId/tutorId; browser actor field is ignored)
 // MATCH  bookings tutor accept payment → lib/bookings/service.ts (paymentStatus, updatedAt)
+// ADMIN  bookings checkout (Asaas)     → lib/payments/create-checkout.ts
+//        (asaasCheckoutId, asaasCheckoutExpiresAt, checkoutLockUntil, fee split)
 // ADMIN  bookings confirm (webhook)    → lib/payments/process-webhook.ts
 //        (asaasWebhookReceipts + booking write in one Admin transaction; e-mail after commit)
 // ADMIN  bookings lesson reminder      → lib/notifications (lessonReminderSentAt)
@@ -64,7 +68,8 @@ rules_version = '2';
 // MATCH  collectiveHubs create         → lib/hubs/service.ts (tutor dashboard)
 // MATCH  collectiveHubs student join   → lib/hubs/service.ts (confirmedStudentIds + updatedAt)
 // MATCH  tutors/{tutorId}/availability  → lib/availability/service.ts (tutor dashboard)
-// READ   bookings pending/confirmed     → lib/bookings/service.ts (slot picker occupancy)
+// READ   bookings (own records only)    → students: studentId == uid; tutors: tutorId == uid; admin: all
+// ADMIN  bookings occupancy             → GET /api/bookings/occupancy (slot picker; ISO start times only)
 // MATCH  conversations create        → lib/conversations/service.ts (student starts thread)
 // MATCH  conversations update        → lib/conversations/service.ts (lastMessage preview)
 // MATCH  conversations/messages create → lib/conversations/service.ts (either participant)
@@ -78,8 +83,8 @@ rules_version = '2';
 //        Hostinger Express: server/api/account.js
 //        Vercel / next start: app/api/account/delete + lib/account/server.ts
 // ADMIN  seed data                     → scripts/seed.ts
-// MATCH  tutors/{tutorId} create     → lib/tutors/service.ts (onboarding)
-// MATCH  tutors/{tutorId} update     → lib/tutors/service.ts (avatar/credential metadata only)
+// MATCH  tutors/{tutorId} create     → lib/tutors/service.ts (onboarding; isVerified false, pending)
+// MATCH  tutors/{tutorId} update     → lib/tutors/service.ts (avatarUrl, credentialFileName)
 // ADMIN  tutors verification review  → POST /api/tutors/review (admin-only; Hostinger + Next)
 // MATCH  tutors verification resubmit → POST /api/tutors/resubmit (tutor-only, changes_requested|rejected → pending)
 // MATCH  Storage credentials         → lib/storage/service.ts (tutors/{id}/credentials/*)
@@ -209,22 +214,76 @@ service cloud.firestore {
           .hasOnly(["lastMessage", "lastMessageAt", "updatedAt"]);
     }
 
+    function validUserCreate(userId) {
+      let data = request.resource.data;
+
+      return isOwner(userId)
+        && data.keys().hasAll(["role", "displayName", "email", "createdAt"])
+        && data.keys().hasOnly([
+          "role", "displayName", "email", "photoUrl", "createdAt", "updatedAt"
+        ])
+        && data.role in ["student", "tutor"]
+        && data.email == request.auth.token.email;
+    }
+
+    function validUserSelfUpdate(userId) {
+      return isOwner(userId)
+        && unchanged("role")
+        && unchanged("email")
+        && unchanged("createdAt")
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(["displayName", "photoUrl", "updatedAt"]);
+    }
+
+    function validTutorCreate(tutorId) {
+      let data = request.resource.data;
+
+      return isTutor()
+        && isOwner(tutorId)
+        && data.userId == request.auth.uid
+        && data.isVerified == false
+        && data.keys().hasAll([
+          "userId", "name", "subject", "individualPrice", "collectivePrice", "createdAt"
+        ])
+        && data.keys().hasOnly([
+          "userId", "name", "subject", "city", "state", "bio", "about", "methodology",
+          "headline", "individualPrice", "collectivePrice", "modality", "lessonTypes",
+          "isVerified", "verificationStatus", "isOnline", "rating", "reviewCount",
+          "avatarUrl", "avatarColor", "credentialFileName", "createdAt", "updatedAt"
+        ])
+        && (!("verificationStatus" in data) || data.verificationStatus == "pending")
+        && !("reviewedAt" in data)
+        && !("reviewedBy" in data)
+        && (!("rating" in data) || data.rating == 0)
+        && (!("reviewCount" in data) || data.reviewCount == 0);
+    }
+
+    function validTutorSelfUpdate(tutorId) {
+      return isTutor()
+        && tutorOwnedByAuth(tutorId)
+        && unchanged("userId")
+        && unchanged("rating")
+        && unchanged("reviewCount")
+        && verificationFieldsLocked()
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly([
+            "name", "subject", "city", "state", "bio", "about", "methodology", "headline",
+            "individualPrice", "collectivePrice", "modality", "lessonTypes", "isOnline",
+            "avatarUrl", "avatarColor", "credentialFileName", "updatedAt"
+          ]);
+    }
+
     // -------------------------------------------------------------------------
     // users
     // -------------------------------------------------------------------------
 
     match /users/{userId} {
-      allow read: if isAuthenticated();
+      allow get: if isAuthenticated();
+      allow list: if isOwner(userId) || isAdmin();
 
-      allow create: if isOwner(userId)
-        && request.resource.data.keys().hasAll(["role", "displayName", "email", "createdAt"])
-        && request.resource.data.role in ["student", "tutor"]
-        && request.resource.data.email == request.auth.token.email;
+      allow create: if validUserCreate(userId);
 
-      allow update: if isOwner(userId)
-        && unchanged("role")
-        && unchanged("email")
-        || isAdmin();
+      allow update: if isAdmin() || validUserSelfUpdate(userId);
 
       allow delete: if isAdmin();
     }
@@ -236,24 +295,11 @@ service cloud.firestore {
     match /tutors/{tutorId} {
       allow read: if true;
 
-      allow create: if isTutor()
-        && isOwner(tutorId)
-        && request.resource.data.userId == request.auth.uid
-        && request.resource.data.isVerified == false
-        && (!("verificationStatus" in request.resource.data)
-          || request.resource.data.verificationStatus == "pending")
-        && !("reviewedAt" in request.resource.data)
-        && !("reviewedBy" in request.resource.data)
-        && request.resource.data.keys().hasAll([
-          "userId", "name", "subject", "individualPrice", "collectivePrice", "createdAt"
-        ]);
+      allow create: if validTutorCreate(tutorId);
 
-      allow update: if tutorOwnedByAuth(tutorId)
-        && unchanged("userId")
-        && unchanged("rating")
-        && unchanged("reviewCount")
-        && verificationFieldsLocked()
-        || isAdmin();
+      // Admin-only: isVerified, verificationStatus, reviewedAt, reviewedBy,
+      // verificationReason, rating, reviewCount, hoursTaught, studentsServed.
+      allow update: if isAdmin() || validTutorSelfUpdate(tutorId);
 
       allow delete: if isAdmin();
 
@@ -296,12 +342,12 @@ service cloud.firestore {
     // -------------------------------------------------------------------------
 
     match /bookings/{bookingId} {
+      // Own records only. Occupancy for the public slot picker is served by
+      // GET /api/bookings/occupancy (Admin SDK) and never exposes booking docs.
       allow read: if isAuthenticated()
         && (resource.data.studentId == request.auth.uid
           || resource.data.tutorId == request.auth.uid
-          || isAdmin()
-          || (isStudent()
-            && resource.data.status in ["pending", "confirmed"]));
+          || isAdmin());
 
       allow create: if isStudent()
         && request.resource.data.studentId == request.auth.uid

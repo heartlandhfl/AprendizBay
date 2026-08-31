@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import BookingPaymentSummary from "@/components/bookings/BookingPaymentSummary";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -19,6 +19,9 @@ interface PayBookingFormProps {
   price: number;
   platformFee?: number;
   tutorAmount?: number;
+  headline?: string;
+  description?: string;
+  actionLabel?: string;
 }
 
 export default function PayBookingForm({
@@ -26,6 +29,9 @@ export default function PayBookingForm({
   price,
   platformFee,
   tutorAmount,
+  headline,
+  description,
+  actionLabel = "Pagar com Pix ou cartão",
 }: PayBookingFormProps) {
   const { user, userDoc } = useAuth();
   const [cpf, setCpf] = useState("");
@@ -36,9 +42,13 @@ export default function PayBookingForm({
   const [province, setProvince] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const submittingRef = useRef(false);
 
   async function handlePay(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submittingRef.current) {
+      return;
+    }
     setError(null);
 
     if (!user) {
@@ -56,6 +66,7 @@ export default function PayBookingForm({
       return;
     }
 
+    submittingRef.current = true;
     setSubmitting(true);
 
     try {
@@ -93,6 +104,7 @@ export default function PayBookingForm({
           ? payError.message
           : "Não foi possível abrir o pagamento.",
       );
+      submittingRef.current = false;
       setSubmitting(false);
     }
   }
@@ -101,11 +113,11 @@ export default function PayBookingForm({
     <form onSubmit={handlePay} className="mt-4 space-y-3 rounded-2xl bg-amber-50/70 p-4 ring-1 ring-amber-200">
       <div>
         <p className="text-sm font-semibold text-amber-950">
-          O professor confirmou. Pague {formatBookingPrice(price)} para liberar a aula.
+          {headline ?? `O professor confirmou. Pague ${formatBookingPrice(price)} para liberar a aula.`}
         </p>
         <p className="mt-1 text-xs text-amber-900/80">
-          Confira quanto vai para o professor e quanto é a taxa da plataforma antes de pagar.
-          O Asaas exige CPF e dados de cobrança do aluno para Pix ou cartão de crédito.
+          {description ??
+            "Confira quanto vai para o professor e quanto é a taxa da plataforma antes de pagar. O Asaas exige CPF e dados de cobrança do aluno para Pix ou cartão de crédito."}
         </p>
       </div>
 
@@ -206,6 +218,7 @@ export default function PayBookingForm({
       <button
         type="submit"
         disabled={submitting}
+        aria-busy={submitting}
         className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-60"
       >
         {submitting ? (
@@ -214,7 +227,7 @@ export default function PayBookingForm({
             Abrindo pagamento...
           </>
         ) : (
-          "Pagar com Pix ou cartão"
+          actionLabel
         )}
       </button>
     </form>

@@ -18,7 +18,7 @@ import type {
   CreateBookingInput,
   PaymentStatus,
 } from "@/lib/bookings/types";
-import type { CancelActor } from "@/lib/bookings/cancellation";
+import { parseOccupiedStarts } from "@/lib/bookings/occupancy";
 import { requestNotification } from "@/lib/notifications/client";
 import { loadPlatformFeePercent, splitBookingPrice } from "@/lib/payments/fees";
 
@@ -96,7 +96,7 @@ export async function updateBookingStatus(
   }
 }
 
-async function cancelBookingViaApi(bookingId: string, actor: CancelActor): Promise<void> {
+async function cancelBookingViaApi(bookingId: string): Promise<void> {
   await requireFirebaseApp();
   const user = auth.currentUser;
   if (!user) {
@@ -110,7 +110,7 @@ async function cancelBookingViaApi(bookingId: string, actor: CancelActor): Promi
       "Content-Type": "application/json",
       Authorization: `Bearer ${idToken}`,
     },
-    body: JSON.stringify({ bookingId, actor }),
+    body: JSON.stringify({ bookingId }),
   });
 
   const payload = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -120,7 +120,7 @@ async function cancelBookingViaApi(bookingId: string, actor: CancelActor): Promi
 }
 
 export async function cancelBookingAsStudent(bookingId: string): Promise<void> {
-  await cancelBookingViaApi(bookingId, "student");
+  await cancelBookingViaApi(bookingId);
 }
 
 export async function confirmBookingAsTutor(bookingId: string): Promise<void> {
@@ -132,7 +132,7 @@ export async function confirmBookingAsTutor(bookingId: string): Promise<void> {
 }
 
 export async function cancelBookingAsTutor(bookingId: string): Promise<void> {
-  await cancelBookingViaApi(bookingId, "tutor");
+  await cancelBookingViaApi(bookingId);
 }
 
 export async function markBookingCompleted(bookingId: string): Promise<void> {
@@ -147,32 +147,21 @@ export function hasScheduledTimePassed(scheduledAt: Timestamp, now: Date = new D
   return scheduledAt.toMillis() <= now.getTime();
 }
 
-export function subscribeToTutorOccupiedBookings(
-  tutorId: string,
-  onChange: (bookings: Booking[]) => void,
-  onError?: (error: Error) => void,
-): Unsubscribe {
-  return whenFirebaseReady(() => {
-    const bookingsQuery = query(
-      collection(db, "bookings"),
-      where("tutorId", "==", tutorId),
-      where("status", "in", ["pending", "confirmed"]),
-    );
+export async function fetchTutorOccupiedStarts(tutorId: string): Promise<Date[]> {
+  const response = await fetch(
+    `/api/bookings/occupancy?tutorId=${encodeURIComponent(tutorId)}`,
+  );
+  const payload = (await response.json().catch(() => null)) as
+    | { occupiedStarts?: unknown; error?: string }
+    | null;
 
-    return onSnapshot(
-      bookingsQuery,
-      (snapshot) => {
-        const bookings = snapshot.docs
-          .map((docSnap) =>
-            mapBookingDoc(docSnap.id, docSnap.data() as Record<string, unknown>),
-          )
-          .sort((a, b) => a.scheduledAt.toMillis() - b.scheduledAt.toMillis());
-
-        onChange(bookings);
-      },
-      (error) => onError?.(error),
+  if (!response.ok) {
+    throw new Error(
+      payload?.error || "Não foi possível verificar horários já reservados.",
     );
-  });
+  }
+
+  return parseOccupiedStarts(payload);
 }
 
 export function subscribeToTutorPendingBookings(

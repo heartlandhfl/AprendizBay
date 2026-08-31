@@ -8,11 +8,7 @@ import JoinLessonButton from "@/components/bookings/JoinLessonButton";
 import { useAuth } from "@/lib/auth/AuthContext";
 import type { Booking } from "@/lib/bookings/types";
 import { BOOKING_TYPE_LABELS } from "@/lib/bookings/types";
-import {
-  decideCancellation,
-  getCancellationCopy,
-  toScheduledDate,
-} from "@/lib/bookings/cancellation";
+import { describeCancellation } from "@/lib/bookings/cancellation";
 import {
   cancelBookingAsTutor,
   fetchUserDisplayName,
@@ -22,6 +18,7 @@ import {
   markBookingCompleted,
   subscribeToTutorConfirmedBookings,
 } from "@/lib/bookings/service";
+import { isLessonUnlocked } from "@/lib/payments/status";
 
 interface EnrichedBooking extends Booking {
   studentName: string;
@@ -127,14 +124,9 @@ export default function TutorConfirmedBookings() {
       <div className="space-y-4">
         {bookings.map((booking) => {
           const canComplete = hasScheduledTimePassed(booking.scheduledAt, now);
-          const cancellation = decideCancellation({
-            status: booking.status,
-            paymentStatus: booking.paymentStatus,
-            scheduledAt: toScheduledDate(booking.scheduledAt),
-            actor: "tutor",
-          });
-          const cancellationCopy = getCancellationCopy(
-            cancellation,
+          const { decision: cancellation, copy: cancellationCopy } = describeCancellation(
+            booking,
+            "tutor",
             formatBookingPrice(booking.price),
           );
 
@@ -177,9 +169,9 @@ export default function TutorConfirmedBookings() {
                 </p>
               )}
 
-              {booking.meetingUrl && (
+              {isLessonUnlocked(booking) && (
                 <div className="mt-4">
-                  <JoinLessonButton meetingUrl={booking.meetingUrl} />
+                  <JoinLessonButton meetingUrl={booking.meetingUrl!} />
                 </div>
               )}
 

@@ -8,21 +8,17 @@
  */
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
+import { toScheduledDate } from "@/lib/bookings/cancellation";
 import {
-  decideCancellation,
-  lateStudentCancellationError,
-  toScheduledDate,
-  type CancelActor,
-} from "@/lib/bookings/cancellation";
+  executeCancelBooking,
+  type CancelBookingInput as ExecuteCancelInput,
+  type CancelStore,
+  type CancelTransaction,
+} from "@/lib/bookings/cancel-booking";
 import { generateMeetingUrl } from "@/lib/bookings/meeting";
 import { notifyConfirmedBooking, safeNotify } from "@/lib/notifications/server";
 import type { Booking, BookingStatus, BookingType, PaymentStatus } from "@/lib/bookings/types";
 import type { BookingFeeSplit } from "@/lib/payments/fees";
-import {
-  findAsaasPaymentIdByExternalReference,
-  refundAsaasPayment,
-  resolveAsaasPaymentId,
-} from "@/lib/payments/asaas";
 
 let adminApp: App | undefined;
 
@@ -70,11 +66,22 @@ export interface BookingRecord {
   paymentStatus?: PaymentStatus;
   paymentId?: string;
   asaasCheckoutId?: string;
+  asaasCheckoutExpiresAt?: Date;
+  checkoutLockUntil?: Date;
   refundId?: string;
   refundStatus?: string;
   refundAmount?: number;
+  refundLockUntil?: Date;
   meetingUrl?: string;
   scheduledAt: Date;
+}
+
+function optionalDate(value: unknown): Date | undefined {
+  if (value == null) {
+    return undefined;
+  }
+  const date = toScheduledDate(value);
+  return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
 export function mapBookingRecord(
@@ -100,12 +107,15 @@ export function mapBookingRecord(
     paymentStatus: (data.paymentStatus as PaymentStatus | undefined) ?? "unpaid",
     paymentId: data.paymentId ? String(data.paymentId) : undefined,
     asaasCheckoutId: data.asaasCheckoutId ? String(data.asaasCheckoutId) : undefined,
+    asaasCheckoutExpiresAt: optionalDate(data.asaasCheckoutExpiresAt),
+    checkoutLockUntil: optionalDate(data.checkoutLockUntil),
     refundId: data.refundId ? String(data.refundId) : undefined,
     refundStatus: data.refundStatus ? String(data.refundStatus) : undefined,
     refundAmount:
       typeof data.refundAmount === "number" && Number.isFinite(data.refundAmount)
         ? data.refundAmount
         : undefined,
+    refundLockUntil: optionalDate(data.refundLockUntil),
     meetingUrl: data.meetingUrl ? String(data.meetingUrl) : undefined,
     scheduledAt: toScheduledDate(data.scheduledAt),
   };
@@ -176,81 +186,62 @@ export async function confirmBookingWithMeetingUrl(
 export interface CancelBookingInput {
   bookingId: string;
   actorUid: string;
-  actor: CancelActor;
+  /** Ignored. The authenticated uid is matched to studentId/tutorId on the server. */
+  actor?: string;
 }
 
-export async function cancelBookingWithRefund(input: CancelBookingInput): Promise<{
+function createFirestoreCancelStore(db: Firestore): CancelStore {
+  return {
+    async runAtomic<T>(work: (tx: CancelTransaction) => Promise<T>): Promise<T> {
+      return db.runTransaction(async (transaction) => {
+        const pendingWrites: Array<() => void> = [];
+        const tx: CancelTransaction = {
+          async getBooking(bookingId) {
+            const snap = await transaction.get(db.collection("bookings").doc(bookingId));
+            if (!snap.exists) {
+              return null;
+            }
+            return mapBookingRecord(snap.id, (snap.data() ?? {}) as Record<string, unknown>);
+          },
+          updateBooking(bookingId, updates) {
+            const ref = db.collection("bookings").doc(bookingId);
+            const payload: Record<string, unknown> = {
+              ...updates,
+              updatedAt: FieldValue.serverTimestamp(),
+            };
+            if (payload.refundLockUntil === null) {
+              payload.refundLockUntil = FieldValue.delete();
+            }
+            if (payload.refundStatus === null) {
+              payload.refundStatus = FieldValue.delete();
+            }
+            pendingWrites.push(() => transaction.update(ref, payload));
+          },
+        };
+        const result = await work(tx);
+        for (const write of pendingWrites) {
+          write();
+        }
+        return result;
+      });
+    },
+  };
+}
+
+export async function cancelBookingWithRefund(
+  input: CancelBookingInput,
+): Promise<{
   bookingId: string;
   refunded: boolean;
   refundId?: string;
+  refundStatus?: string;
+  refundAmount?: number;
 }> {
-  const booking = await getBookingById(input.bookingId);
-  if (!booking) {
-    throw new Error("Reserva não encontrada.");
-  }
-
-  if (input.actor === "student" && booking.studentId !== input.actorUid) {
-    throw new Error("Você só pode cancelar as suas próprias reservas.");
-  }
-
-  if (input.actor === "tutor" && booking.tutorId !== input.actorUid) {
-    throw new Error("Você só pode cancelar as reservas do seu painel.");
-  }
-
-  const decision = decideCancellation({
-    status: booking.status,
-    paymentStatus: booking.paymentStatus,
-    scheduledAt: booking.scheduledAt,
-    actor: input.actor,
+  const cancelInput: ExecuteCancelInput = {
+    bookingId: input.bookingId,
+    actorUid: input.actorUid,
+  };
+  return executeCancelBooking(cancelInput, {
+    store: createFirestoreCancelStore(requireAdminFirestore()),
   });
-
-  if (!decision.canCancel) {
-    if (decision.reason === "late_student") {
-      throw new Error(lateStudentCancellationError());
-    }
-    if (decision.reason === "already_cancelled") {
-      throw new Error("Esta reserva já está cancelada.");
-    }
-    throw new Error("Esta reserva não pode ser cancelada.");
-  }
-
-  const updates: Record<string, unknown> = {
-    status: "cancelled",
-    updatedAt: FieldValue.serverTimestamp(),
-  };
-
-  let refunded = Boolean(booking.refundId);
-  let refundId = booking.refundId;
-
-  if (decision.willRefund && !booking.refundId) {
-    const paymentId =
-      resolveAsaasPaymentId(booking) ??
-      (await findAsaasPaymentIdByExternalReference(booking.id));
-    if (!paymentId) {
-      throw new Error(
-        "Não foi possível estornar: o identificador do pagamento no Asaas está ausente.",
-      );
-    }
-
-    const refund = await refundAsaasPayment({
-      paymentId,
-      description: "Cancelamento da aula no Aprendiz Bay",
-      value: booking.price,
-    });
-
-    updates.refundId = refund.refundId ?? refund.paymentId;
-    updates.refundStatus = refund.status ?? "REFUNDED";
-    updates.refundAmount = refund.refundAmount ?? booking.price;
-    updates.paymentId = paymentId;
-    refunded = true;
-    refundId = refund.refundId ?? refund.paymentId;
-  }
-
-  await requireAdminFirestore().collection("bookings").doc(booking.id).update(updates);
-
-  return {
-    bookingId: booking.id,
-    refunded,
-    refundId,
-  };
 }
