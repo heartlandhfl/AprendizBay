@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import BookingPaymentSummary from "@/components/bookings/BookingPaymentSummary";
 import BookingStatusBadge from "@/components/bookings/BookingStatusBadge";
@@ -17,6 +18,7 @@ import {
   formatBookingPrice,
   subscribeToTutorPendingBookings,
 } from "@/lib/bookings/service";
+import { lessonPath } from "@/lib/lessons/paths";
 import {
   getPaymentLifecycle,
   getTutorPaymentCopy,
@@ -191,6 +193,12 @@ export default function TutorDashboardBookings() {
               )}
 
               <div className="mt-4 flex flex-wrap gap-2">
+                <Link
+                  href={lessonPath(booking.id)}
+                  className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                >
+                  Abrir aula
+                </Link>
                 {!paymentRequested && (
                   <button
                     type="button"

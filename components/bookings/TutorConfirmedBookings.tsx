@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import BookingStatusBadge from "@/components/bookings/BookingStatusBadge";
 import CancelBookingDialog from "@/components/bookings/CancelBookingDialog";
-import JoinLessonButton from "@/components/bookings/JoinLessonButton";
 import { useAuth } from "@/lib/auth/AuthContext";
 import type { Booking } from "@/lib/bookings/types";
 import { BOOKING_TYPE_LABELS } from "@/lib/bookings/types";
@@ -21,7 +21,7 @@ import {
   markBookingCompleted,
   subscribeToTutorConfirmedBookings,
 } from "@/lib/bookings/service";
-import { isLessonUnlocked } from "@/lib/payments/status";
+import { lessonPath } from "@/lib/lessons/paths";
 
 interface EnrichedBooking extends Booking {
   studentName: string;
@@ -175,11 +175,12 @@ export default function TutorConfirmedBookings() {
                 </p>
               )}
 
-              {isLessonUnlocked(booking) && (
-                <div className="mt-4">
-                  <JoinLessonButton meetingUrl={booking.meetingUrl!} />
-                </div>
-              )}
+              <Link
+                href={lessonPath(booking.id)}
+                className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-primary-200 px-4 py-2.5 text-sm font-semibold text-primary-800 transition-colors hover:bg-primary-50 sm:w-auto"
+              >
+                Abrir aula
+              </Link>
 
               {cancellation.canCancel && (
                 <button
