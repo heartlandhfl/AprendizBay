@@ -1,11 +1,17 @@
 User-Agent: *
 Allow: /
 Disallow: /admin
+Disallow: /admin/
 Disallow: /api/
+Disallow: /aulas
+Disallow: /aulas/
 Disallow: /bookings
+Disallow: /bookings/
+Disallow: /configuracoes
 Disallow: /mensagens
+Disallow: /mensagens/
 Disallow: /tutor/dashboard
 Disallow: /tutor/onboarding
 Disallow: /tutor/settings
 
-Sitemap: http://localhost:3000/sitemap.xml
+Sitemap: https://www.aprendizbay.com.br/sitemap.xml
