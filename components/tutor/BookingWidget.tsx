@@ -206,6 +206,7 @@ export default function BookingWidget({ tutor }: BookingWidgetProps) {
               selectedHubId={selectedHubId}
               onSelectHub={setSelectedHubId}
               onHubsChange={setHubs}
+              initialHubs={tutor.collectiveHubs}
             />
           </div>
         ) : null}

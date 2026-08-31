@@ -98,41 +98,44 @@ export function subscribeToTutorReviews(
   onChange: (reviews: PublicTutorReview[]) => void,
   onError?: (error: Error) => void,
 ): Unsubscribe {
-  return whenFirebaseReady(() => {
-    const reviewsQuery = query(collection(db, "reviews"), where("tutorId", "==", tutorId));
+  return whenFirebaseReady(
+    () => {
+      const reviewsQuery = query(collection(db, "reviews"), where("tutorId", "==", tutorId));
 
-    return onSnapshot(
-      reviewsQuery,
-      (snapshot) => {
-        const reviews = snapshot.docs
-          .map((docSnap) => {
-            const data = docSnap.data();
-            const rating = data.rating;
-            const comment = typeof data.comment === "string" ? data.comment.trim() : "";
+      return onSnapshot(
+        reviewsQuery,
+        (snapshot) => {
+          const reviews = snapshot.docs
+            .map((docSnap) => {
+              const data = docSnap.data();
+              const rating = data.rating;
+              const comment = typeof data.comment === "string" ? data.comment.trim() : "";
 
-            if (typeof rating !== "number" || !Number.isFinite(rating) || rating < 1 || rating > 5) {
-              return null;
-            }
+              if (typeof rating !== "number" || !Number.isFinite(rating) || rating < 1 || rating > 5) {
+                return null;
+              }
 
-            return {
-              id: docSnap.id,
-              rating,
-              comment,
-              createdAt: toReviewDate(data.createdAt),
-            } satisfies PublicTutorReview;
-          })
-          .filter((review): review is PublicTutorReview => review !== null)
-          .sort((left, right) => {
-            const leftTime = left.createdAt?.getTime() ?? 0;
-            const rightTime = right.createdAt?.getTime() ?? 0;
-            return rightTime - leftTime;
-          });
+              return {
+                id: docSnap.id,
+                rating,
+                comment,
+                createdAt: toReviewDate(data.createdAt),
+              } satisfies PublicTutorReview;
+            })
+            .filter((review): review is PublicTutorReview => review !== null)
+            .sort((left, right) => {
+              const leftTime = left.createdAt?.getTime() ?? 0;
+              const rightTime = right.createdAt?.getTime() ?? 0;
+              return rightTime - leftTime;
+            });
 
-        onChange(reviews);
-      },
-      (error) => onError?.(error),
-    );
-  });
+          onChange(reviews);
+        },
+        (error) => onError?.(error),
+      );
+    },
+    () => onChange([]),
+  );
 }
 
 export function subscribeToStudentReviewBookingIds(

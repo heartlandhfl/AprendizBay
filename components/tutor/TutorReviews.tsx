@@ -89,7 +89,9 @@ export default function TutorReviews({
 
       {!loading && !error && reviews.length === 0 ? (
         <p className="mt-6 rounded-2xl bg-muted/40 px-4 py-8 text-center text-sm text-muted-foreground">
-          Este professor ainda não recebeu avaliações.
+          {initialReviewCount > 0
+            ? "As avaliações individuais não estão disponíveis no momento."
+            : "Este professor ainda não recebeu avaliações."}
         </p>
       ) : null}
 

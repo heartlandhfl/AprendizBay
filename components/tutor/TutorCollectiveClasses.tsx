@@ -23,7 +23,11 @@ export default function TutorCollectiveClasses({ tutor }: TutorCollectiveClasses
         Veja as turmas abertas deste professor e entre quando houver vaga.
       </p>
       <div className="mt-5">
-        <CollectiveHubList tutorId={tutor.id} showJoinButtons />
+        <CollectiveHubList
+          tutorId={tutor.id}
+          showJoinButtons
+          initialHubs={tutor.collectiveHubs}
+        />
       </div>
     </section>
   );

@@ -5,6 +5,8 @@ import { Loader2 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import HubSlotCard from "@/components/hubs/HubSlotCard";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { ensureFirebaseApp } from "@/lib/firebase/client";
+import type { CollectiveHub } from "@/lib/tutor-profiles";
 import type { CollectiveHubLive } from "@/lib/hubs/types";
 import { joinCollectiveHub, subscribeToTutorCollectiveHubs } from "@/lib/hubs/service";
 
@@ -15,6 +17,16 @@ interface CollectiveHubListProps {
   onHubsChange?: (hubs: CollectiveHubLive[]) => void;
   selectable?: boolean;
   showJoinButtons?: boolean;
+  initialHubs?: CollectiveHub[];
+}
+
+function toLiveHubs(tutorId: string, hubs: CollectiveHub[]): CollectiveHubLive[] {
+  return hubs.map((hub) => ({
+    ...hub,
+    tutorId,
+    confirmedStudentIds: [],
+    status: "open",
+  }));
 }
 
 export default function CollectiveHubList({
@@ -24,14 +36,21 @@ export default function CollectiveHubList({
   onHubsChange,
   selectable = false,
   showJoinButtons = false,
+  initialHubs = [],
 }: CollectiveHubListProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, userDoc } = useAuth();
-  const [hubs, setHubs] = useState<CollectiveHubLive[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [hubs, setHubs] = useState<CollectiveHubLive[]>(() => toLiveHubs(tutorId, initialHubs));
+  const [loading, setLoading] = useState(initialHubs.length === 0);
   const [joiningHubId, setJoiningHubId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialHubs.length > 0) {
+      onHubsChange?.(toLiveHubs(tutorId, initialHubs));
+    }
+  }, [initialHubs, onHubsChange, tutorId]);
 
   useEffect(() => {
     const unsubscribe = subscribeToTutorCollectiveHubs(
@@ -46,6 +65,12 @@ export default function CollectiveHubList({
         setLoading(false);
       },
     );
+
+    void ensureFirebaseApp().then((app) => {
+      if (!app) {
+        setLoading(false);
+      }
+    });
 
     return unsubscribe;
   }, [onHubsChange, tutorId]);
