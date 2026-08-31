@@ -41,6 +41,15 @@ function normalizePath(urlPath) {
   return pathname || "/";
 }
 
+function mensagensThreadRedirect(urlPath) {
+  const match = urlPath.match(/^\/mensagens\/([^/]+)$/);
+  if (!match) {
+    return null;
+  }
+
+  return `/mensagens?conversa=${encodeURIComponent(match[1])}`;
+}
+
 function turmasDetailRedirect(urlPath) {
   const match = urlPath.match(/^\/turmas\/([^/]+)$/);
   if (!match) {

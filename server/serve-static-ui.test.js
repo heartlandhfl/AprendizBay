@@ -15,6 +15,14 @@ describe("mensagensThreadRedirect", () => {
     );
   });
 
+  it("ignores the conversation list and nested paths", () => {
+    assert.equal(mensagensThreadRedirect("/mensagens"), null);
+    assert.equal(mensagensThreadRedirect("/mensagens/a/b"), null);
+    assert.equal(mensagensThreadRedirect("/tutor/1"), null);
+  });
+});
+
+describe("turmasDetailRedirect", () => {
   it("rewrites a collective class path to the Hostinger query fallback", () => {
     assert.equal(turmasDetailRedirect("/turmas/hub-m1"), "/turmas?id=hub-m1");
   });
