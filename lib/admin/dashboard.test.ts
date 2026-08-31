@@ -71,7 +71,8 @@ function createMemoryDb(collections: Record<string, MemoryDoc[]>) {
             docs: rows.map((row) => ({
               id: row.id,
               data: () => {
-                const { id: _id, ...data } = row;
+                const data = { ...row };
+                delete data.id;
                 return data;
               },
             })),
