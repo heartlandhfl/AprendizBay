@@ -55,6 +55,9 @@ rules_version = '2';
 //   asaasWebhookReceipts/{receiptId}    // Admin SDK only (Asaas webhook idempotency)
 //     paymentId?, asaasCheckoutId?, bookingId?, event, outcome, createdAt
 //
+//   adminAuditLogs/{logId}              // Admin SDK only (privileged admin actions)
+//     actorUid, action, targetType?, targetId?, metadata, createdAt
+//
 // NOTE: These rules are a starting point. Validate with the Firebase Emulator
 // Suite before deploying to production.
 //
@@ -100,6 +103,10 @@ rules_version = '2';
 // ADMIN  seed data                     → scripts/seed.ts
 // MATCH  tutors/{tutorId} create     → lib/tutors/service.ts (onboarding; isVerified false, pending)
 // MATCH  tutors/{tutorId} update     → lib/tutors/service.ts (avatarUrl, credentialFileName)
+// ADMIN  operations dashboard        → GET /api/admin/dashboard (admin-only; Hostinger + Next)
+//        Counts and payment totals stay on the server. Browser never lists
+//        users/bookings for the dashboard.
+// ADMIN  adminAuditLogs              → written after tutor review (Admin SDK only)
 // ADMIN  tutors verification review  → POST /api/tutors/review (admin-only; Hostinger + Next)
 // MATCH  tutors verification resubmit → POST /api/tutors/resubmit (tutor-only, changes_requested|rejected → pending)
 // MATCH  Storage credentials         → lib/storage/service.ts (tutors/{id}/credentials/*)
@@ -571,6 +578,11 @@ service cloud.firestore {
 
     // Asaas webhook receipts — Admin SDK only (lib/payments/process-webhook.ts)
     match /asaasWebhookReceipts/{receiptId} {
+      allow read, write: if false;
+    }
+
+    // Admin action audit trail — Admin SDK only (lib/admin/audit.js)
+    match /adminAuditLogs/{logId} {
       allow read, write: if false;
     }
 

@@ -44,7 +44,7 @@ export default function Navbar() {
   const displayName = userDoc?.displayName || user?.displayName || "Usuário";
   const dashboardHref =
     userDoc?.role === "admin"
-      ? "/admin/tutors"
+      ? "/admin"
       : userDoc?.role === "tutor"
         ? "/tutor/dashboard"
         : "/bookings";
@@ -138,7 +138,7 @@ export default function Navbar() {
                     role="menuitem"
                   >
                     <LayoutDashboard className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                    {userDoc?.role === "admin" ? "Verificação" : "Meu painel"}
+                    {userDoc?.role === "admin" ? "Painel admin" : "Meu painel"}
                     {userDoc?.role === "tutor" && pendingBookingCount > 0 && (
                       <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-secondary-500 px-1.5 text-[10px] font-bold text-white">
                         {pendingBookingCount > 9 ? "9+" : pendingBookingCount}

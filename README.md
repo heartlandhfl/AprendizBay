@@ -72,7 +72,7 @@ Não há fluxo de cadastro para `role: "admin"`. O primeiro administrador deve s
 3. Edite o campo `role` e altere de `student` ou `tutor` para **`admin`**.
 4. Salve o documento.
 
-Somente usuários com `users/{uid}.role == "admin"` podem acessar `/admin/tutors`. A revisão operacional (`approve`, `reject`, `request_changes`, `suspend`) grava `verificationStatus` e mantém `isVerified` sincronizado (`true` só quando o status é `approved`). O caminho ao vivo é `POST /api/tutors/review` (`server/api/tutors.js` no Hostinger e `app/api/tutors/review` no Next). Professores reenviam com `POST /api/tutors/resubmit` após recusa ou pedido de ajustes. Tutores nunca podem alterar o próprio status.
+Somente usuários com `users/{uid}.role == "admin"` podem acessar `/admin` (painel operacional) e `/admin/tutors` (verificação). O painel lê totais reais via `GET /api/admin/dashboard` (`server/api/admin.js` no Hostinger e `app/api/admin/dashboard` no Next) — o navegador não lista `users` nem `bookings` para montar as métricas. Se uma métrica ainda não puder ser calculada com segurança, a interface mostra **Indisponível**. A revisão operacional (`approve`, `reject`, `request_changes`, `suspend`) grava `verificationStatus`, mantém `isVerified` sincronizado (`true` só quando o status é `approved`) e registra a ação em `adminAuditLogs`. O caminho ao vivo é `POST /api/tutors/review` (`server/api/tutors.js` no Hostinger e `app/api/tutors/review` no Next). Professores reenviam com `POST /api/tutors/resubmit` após recusa ou pedido de ajustes. Tutores nunca podem alterar o próprio status.
 
 
 ### 1. Firebase (Firestore + Storage rules)

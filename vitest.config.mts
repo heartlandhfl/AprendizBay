@@ -30,6 +30,7 @@ export default defineConfig({
             "lib/hubs/**/*.test.ts",
             "lib/lessons/**/*.test.ts",
             "lib/reviews/**/*.test.ts",
+            "lib/admin/**/*.test.ts",
           ],
           exclude: ["node_modules", "hostinger-next", ".next"],
         },

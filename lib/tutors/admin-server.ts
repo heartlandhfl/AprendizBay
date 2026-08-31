@@ -6,6 +6,7 @@
  * or server/api/ — Express uses server/api/tutors.js.
  */
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
+import { writeAdminAuditLogSafe } from "@/lib/admin/audit";
 import { getAdminApp } from "@/lib/firebase/admin";
 import {
   applyAdminVerificationReview,
@@ -19,10 +20,27 @@ export async function reviewTutorVerification(
   reason?: string,
 ) {
   const db = getFirestore(getAdminApp());
-  return applyAdminVerificationReview(
+  const result = await applyAdminVerificationReview(
     { db, FieldValue },
     { tutorId, adminUid, action, reason },
   );
+
+  await writeAdminAuditLogSafe(
+    { db, FieldValue },
+    {
+      actorUid: adminUid,
+      action: "tutor_review",
+      targetType: "tutor",
+      targetId: tutorId,
+      metadata: {
+        reviewAction: action,
+        status: result.status,
+        previousStatus: result.previousStatus,
+      },
+    },
+  );
+
+  return result;
 }
 
 export async function resubmitTutorVerification(tutorId: string) {

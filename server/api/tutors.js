@@ -6,6 +6,8 @@ const {
   applyAdminVerificationReview,
   applyTutorVerificationResubmit,
 } = require("../../lib/tutors/verification");
+const { writeAdminAuditLogSafe } = require("../../lib/admin/audit");
+const { assertAdminUser } = require("../../lib/admin/authorize");
 const {
   getAdminFirestore,
   readBearerToken,
@@ -23,11 +25,7 @@ const { captureException } = require("./sentry");
 async function requireAdminUid(idToken) {
   const { uid } = await verifyIdToken(idToken);
   const snapshot = await getAdminFirestore().collection("users").doc(uid).get();
-  if (!snapshot.exists || snapshot.data()?.role !== "admin") {
-    const error = new Error("Acesso restrito a administradores.");
-    error.code = "FORBIDDEN";
-    throw error;
-  }
+  assertAdminUser(snapshot.exists ? snapshot.data() : null);
   return uid;
 }
 
@@ -85,9 +83,25 @@ tutorsRouter.post("/review", async (req, res) => {
     const reason = typeof req.body?.reason === "string" ? req.body.reason : undefined;
     const { FieldValue } = require("firebase-admin/firestore");
 
+    const db = getAdminFirestore();
     const result = await applyAdminVerificationReview(
-      { db: getAdminFirestore(), FieldValue },
+      { db, FieldValue },
       { tutorId, adminUid, action, reason },
+    );
+
+    await writeAdminAuditLogSafe(
+      { db, FieldValue },
+      {
+        actorUid: adminUid,
+        action: "tutor_review",
+        targetType: "tutor",
+        targetId: tutorId,
+        metadata: {
+          reviewAction: action,
+          status: result.status,
+          previousStatus: result.previousStatus,
+        },
+      },
     );
 
     res.json({ ok: true, ...result });
