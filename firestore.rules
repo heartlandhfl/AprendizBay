@@ -26,7 +26,7 @@ rules_version = '2';
 //     studentId, tutorId, hubId?, type: "individual" | "coletivo"
 //     status: "pending" | "confirmed" | "cancelled" | "completed"
 //     paymentStatus?: "unpaid" | "awaiting_payment" | "paid" | "failed"
-//     paymentId?, asaasCheckoutId?
+//     paymentId?, asaasCheckoutId?, asaasCheckoutExpiresAt?, checkoutLockUntil?
 //     refundId?, refundStatus?, refundAmount?
 //     scheduledAt, price, platformFee?, tutorAmount?, meetingUrl?, createdAt, updatedAt
 //     lessonReminderSentAt?             // admin-only, set after the 1h reminder email
@@ -54,6 +54,8 @@ rules_version = '2';
 // MATCH  bookings create             → lib/bookings/service.ts (student reserve)
 // MATCH  bookings student cancel       → unpaid client update; paid via /api/bookings/cancel + refund
 // MATCH  bookings tutor accept payment → lib/bookings/service.ts (paymentStatus, updatedAt)
+// ADMIN  bookings checkout (Asaas)     → lib/payments/create-checkout.ts
+//        (asaasCheckoutId, asaasCheckoutExpiresAt, checkoutLockUntil, fee split)
 // ADMIN  bookings confirm (webhook)    → lib/payments/process-webhook.ts
 //        (asaasWebhookReceipts + booking write in one Admin transaction; e-mail after commit)
 // ADMIN  bookings lesson reminder      → lib/notifications (lessonReminderSentAt)

@@ -70,11 +70,21 @@ export interface BookingRecord {
   paymentStatus?: PaymentStatus;
   paymentId?: string;
   asaasCheckoutId?: string;
+  asaasCheckoutExpiresAt?: Date;
+  checkoutLockUntil?: Date;
   refundId?: string;
   refundStatus?: string;
   refundAmount?: number;
   meetingUrl?: string;
   scheduledAt: Date;
+}
+
+function optionalDate(value: unknown): Date | undefined {
+  if (value == null) {
+    return undefined;
+  }
+  const date = toScheduledDate(value);
+  return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
 export function mapBookingRecord(
@@ -100,6 +110,8 @@ export function mapBookingRecord(
     paymentStatus: (data.paymentStatus as PaymentStatus | undefined) ?? "unpaid",
     paymentId: data.paymentId ? String(data.paymentId) : undefined,
     asaasCheckoutId: data.asaasCheckoutId ? String(data.asaasCheckoutId) : undefined,
+    asaasCheckoutExpiresAt: optionalDate(data.asaasCheckoutExpiresAt),
+    checkoutLockUntil: optionalDate(data.checkoutLockUntil),
     refundId: data.refundId ? String(data.refundId) : undefined,
     refundStatus: data.refundStatus ? String(data.refundStatus) : undefined,
     refundAmount:

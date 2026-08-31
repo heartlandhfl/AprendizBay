@@ -3,6 +3,7 @@ import { formatCpf, formatPostalCode, isValidCpf, isValidPhone, isValidPostalCod
 import {
   buildAsaasRefundUrl,
   buildCheckoutUrl,
+  parseAsaasCheckout,
   parseAsaasRefund,
   parseAsaasWebhook,
   isMalformedAsaasWebhookPayload,
@@ -67,6 +68,18 @@ assert.equal(ignored.isSuccessfulPayment, false);
 assert.equal(isMalformedAsaasWebhookPayload(null), true);
 assert.equal(isMalformedAsaasWebhookPayload(["PAYMENT_CONFIRMED"]), true);
 assert.equal(isMalformedAsaasWebhookPayload({ event: "PAYMENT_CREATED" }), false);
+
+const parsedCheckout = parseAsaasCheckout({
+  id: "checkout-abc",
+  status: "ACTIVE",
+  link: "https://sandbox.asaas.com/checkoutSession/show/checkout-abc",
+});
+assert.equal(parsedCheckout.id, "checkout-abc");
+assert.equal(parsedCheckout.status, "ACTIVE");
+assert.equal(
+  parsedCheckout.checkoutUrl,
+  "https://sandbox.asaas.com/checkoutSession/show/checkout-abc",
+);
 
 assert.equal(
   buildCheckoutUrl("checkout-1"),
