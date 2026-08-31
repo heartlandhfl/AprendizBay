@@ -339,7 +339,7 @@ export default function TutorOnboardingWizard() {
             currentFileName={credentialFileName}
             persistToFirestore={false}
             onUploaded={setCredentialFileName}
-            description="Envie RG, CNH ou diploma. O arquivo fica visível apenas para você e administradores. Depois do envio, seu perfil fica em análise e não aparece na busca até a aprovação. Máximo de 10 MB (imagem ou PDF)."
+            description="Envie RG, CNH ou diploma. O arquivo fica visível apenas para você e administradores. Depois do envio, seu perfil fica em análise e não aparece na busca até a aprovação. Máximo de 10 MB (PDF, JPG ou PNG)."
           />
         )}
 

@@ -1,29 +1,32 @@
 rules_version = '2';
 
 // =============================================================================
-// Aprendiz Bay — Preliminary Firebase Storage Security Rules
+// Aprendiz Bay — Firebase Storage Security Rules
 // =============================================================================
 //
-// Proposed path structure:
+// Path structure:
 //
-//   users/{userId}/avatar.jpg              Profile photo (students & tutors)
-//   users/{userId}/cover.jpg               Optional cover image
+//   users/{userId}/avatar.jpg              Profile photo (public read — marketplace)
+//   users/{userId}/cover.jpg               Optional cover image (public read)
 //
-//   tutors/{tutorId}/credentials/{file}      Verification docs (private)
-//   tutors/{tutorId}/portfolio/{file}          Public teaching portfolio media
+//   tutors/{tutorId}/credentials/{file}    Tutor-uploaded verification docs (private)
+//   tutors/{tutorId}/verification/{file}   Administrative verification records (admin only)
+//   tutors/{tutorId}/portfolio/{file}      Public teaching portfolio media
 //
-//   hubs/{hubId}/materials/{file}            Shared materials for collective sessions
-//   bookings/{bookingId}/materials/{file}    Lesson files (student + tutor only)
+//   hubs/{hubId}/materials/{file}          Shared materials for collective sessions
+//   bookings/{bookingId}/materials/{file}  Lesson files (student + tutor only)
 //
-// NOTE: Validate with the Firebase Emulator Suite before deploying to production.
+// Profile photos are publicly readable because the marketplace, tutor cards,
+// and public profiles render photoUrl / avatarUrl via getDownloadURL in <img>.
+// Verification documents must never be public. Clients use authenticated getBlob.
 //
 // ---------------------------------------------------------------------------
 // App write-path audit
 // ---------------------------------------------------------------------------
-// MATCH  users/{userId}/avatar.jpg          → lib/storage/service.ts (uploadUserAvatar)
+// MATCH  users/{userId}/avatar.jpg           → lib/storage/service.ts (uploadUserAvatar)
 // MATCH  tutors/{tutorId}/credentials/{file} → lib/storage/service.ts (uploadTutorCredential)
-//        Authenticated reads only (owner tutor or admin). Clients must use getBlob,
-//        never getDownloadURL, so verification documents stay off the public web.
+//        Owner tutor may create/replace their own credential (onboarding + resubmit).
+//        Administrative copies live under verification/ and are admin-only.
 // ADMIN  users/{uid}/ and tutors/{uid}/ delete → POST /api/account/delete (LGPD)
 // =============================================================================
 
@@ -52,28 +55,53 @@ service firebase.storage {
         && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "tutor";
     }
 
-    function isImage() {
-      return request.resource.contentType.matches('image/.*');
+    // Raster images only — never image/svg+xml or other scriptable types.
+    function isSafeRasterImage() {
+      return request.resource.contentType == 'image/jpeg'
+        || request.resource.contentType == 'image/png'
+        || request.resource.contentType == 'image/webp'
+        || request.resource.contentType == 'image/gif';
     }
 
     function isPdf() {
       return request.resource.contentType == 'application/pdf';
     }
 
+    function isCredentialContentType() {
+      return isPdf()
+        || request.resource.contentType == 'image/jpeg'
+        || request.resource.contentType == 'image/png';
+    }
+
+    function isCredentialFileName(fileName) {
+      return fileName.matches('^[A-Za-z0-9._-]+\\.(pdf|jpg|jpeg|png)$');
+    }
+
+    function credentialTypeMatchesName(fileName) {
+      return (fileName.matches('.*\\.pdf$') && isPdf())
+        || (fileName.matches('.*\\.(jpg|jpeg)$') && request.resource.contentType == 'image/jpeg')
+        || (fileName.matches('.*\\.png$') && request.resource.contentType == 'image/png');
+    }
+
     function isValidImageUpload() {
-      return isImage()
+      return isSafeRasterImage()
+        && request.resource.size > 0
         && request.resource.size < 5 * 1024 * 1024; // 5 MB
     }
 
-    function isValidDocumentUpload() {
-      return (isImage() || isPdf())
+    function isValidCredentialUpload(fileName) {
+      return isCredentialContentType()
+        && isCredentialFileName(fileName)
+        && credentialTypeMatchesName(fileName)
+        && request.resource.size > 0
         && request.resource.size < 10 * 1024 * 1024; // 10 MB
     }
 
     function isValidLessonMaterial() {
-      return request.resource.size < 25 * 1024 * 1024 // 25 MB
-        && (request.resource.contentType.matches('image/.*')
-          || request.resource.contentType == 'application/pdf'
+      return request.resource.size > 0
+        && request.resource.size < 25 * 1024 * 1024 // 25 MB
+        && (isSafeRasterImage()
+          || isPdf()
           || request.resource.contentType == 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
           || request.resource.contentType == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     }
@@ -107,31 +135,45 @@ service firebase.storage {
     }
 
     // -------------------------------------------------------------------------
-    // User profile media
+    // User profile media (public read required by marketplace cards/profiles)
     // -------------------------------------------------------------------------
 
     match /users/{userId}/{fileName} {
       allow read: if isProfileMediaFile(fileName);
-      allow write: if isOwner(userId) && isValidImageUpload() && isProfileMediaFile(fileName);
+      allow create, update: if isOwner(userId) && isValidImageUpload() && isProfileMediaFile(fileName);
       allow delete: if (isOwner(userId) || isAdmin()) && isProfileMediaFile(fileName);
     }
 
     // -------------------------------------------------------------------------
-    // Tutor verification & portfolio
+    // Tutor-uploaded verification documents (never public)
     // -------------------------------------------------------------------------
 
     match /tutors/{tutorId}/credentials/{file} {
-      // Private verification documents: never public. Clients must use authenticated
-      // reads (getBlob), not public download URLs.
       allow get: if isOwner(tutorId) || isAdmin();
       allow list: if isOwner(tutorId) || isAdmin();
-      allow write: if isOwner(tutorId) && isTutor() && isValidDocumentUpload();
+      // Owner may replace their own file (onboarding + resubmit after reject/changes).
+      // isOwner(tutorId) prevents writing into another tutor's folder.
+      allow create, update: if isOwner(tutorId) && isTutor() && isValidCredentialUpload(file);
       allow delete: if isOwner(tutorId) || isAdmin();
     }
 
+    // -------------------------------------------------------------------------
+    // Administrative verification records (tutors cannot create, replace, or delete)
+    // -------------------------------------------------------------------------
+
+    match /tutors/{tutorId}/verification/{file} {
+      allow get, list: if isAdmin();
+      allow create, update: if isAdmin() && isValidCredentialUpload(file);
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // Tutor portfolio
+    // -------------------------------------------------------------------------
+
     match /tutors/{tutorId}/portfolio/{file} {
       allow read: if true;
-      allow write: if isOwner(tutorId) && isTutor() && isValidImageUpload();
+      allow create, update: if isOwner(tutorId) && isTutor() && isValidImageUpload();
       allow delete: if isOwner(tutorId) || isAdmin();
     }
 

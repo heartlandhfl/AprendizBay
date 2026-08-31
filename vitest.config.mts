@@ -24,6 +24,7 @@ export default defineConfig({
             "lib/analytics/**/*.test.ts",
             "lib/observability/**/*.test.ts",
             "lib/payments/**/*.test.ts",
+            "lib/storage/**/*.test.ts",
             "lib/tutors/**/*.test.ts",
             "lib/bookings/**/*.test.ts",
           ],

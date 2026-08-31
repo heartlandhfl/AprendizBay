@@ -22,7 +22,7 @@ export default function CredentialUpload({
   currentFileName,
   onUploaded,
   label = "Documento de verificação",
-  description = "Envie RG, CNH ou diploma para verificação. Visível apenas para você e administradores. Máximo de 10 MB (imagem ou PDF).",
+  description = "Envie RG, CNH ou diploma para verificação. Visível apenas para você e administradores. Máximo de 10 MB (PDF, JPG ou PNG).",
   persistToFirestore = true,
 }: CredentialUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
