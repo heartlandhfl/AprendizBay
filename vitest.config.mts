@@ -24,6 +24,7 @@ export default defineConfig({
             "lib/analytics/**/*.test.ts",
             "lib/observability/**/*.test.ts",
             "lib/payments/**/*.test.ts",
+            "lib/storage/**/*.test.ts",
             "lib/tutors/**/*.test.ts",
             "lib/bookings/**/*.test.ts",
           ],
@@ -35,6 +36,7 @@ export default defineConfig({
         test: {
           name: "rules",
           environment: "node",
+          fileParallelism: false,
           include: ["tests/rules/**/*.test.ts"],
           exclude: ["node_modules", "hostinger-next", ".next"],
         },

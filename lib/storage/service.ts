@@ -6,12 +6,30 @@ import {
   type UploadMetadata,
 } from "firebase/storage";
 import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
-import { db, requireFirebaseApp, storage } from "@/lib/firebase/client";
+import { auth, db, requireFirebaseApp, storage } from "@/lib/firebase/client";
 import { tutorCredentialPath, userAvatarPath } from "@/lib/storage/paths";
-import { sanitizeCredentialFileName } from "@/lib/storage/validation";
+import {
+  sanitizeCredentialFileName,
+  validateDocumentFile,
+  validateImageFile,
+} from "@/lib/storage/validation";
+
+function assertOwnUpload(userId: string): void {
+  const uid = auth.currentUser?.uid;
+  if (!uid || uid !== userId) {
+    throw new Error("Você só pode enviar arquivos para a sua própria conta.");
+  }
+}
 
 export async function uploadUserAvatar(userId: string, file: File): Promise<string> {
   await requireFirebaseApp();
+  assertOwnUpload(userId);
+
+  const validationError = validateImageFile(file);
+  if (validationError) {
+    throw new Error(validationError);
+  }
+
   const path = userAvatarPath(userId);
   const metadata: UploadMetadata = { contentType: file.type };
   const storageRef = ref(storage, path);
@@ -32,6 +50,13 @@ export async function uploadTutorCredential(
   file: File,
 ): Promise<{ fileName: string }> {
   await requireFirebaseApp();
+  assertOwnUpload(tutorId);
+
+  const validationError = validateDocumentFile(file);
+  if (validationError) {
+    throw new Error(validationError);
+  }
+
   const fileName = sanitizeCredentialFileName(file);
   const path = tutorCredentialPath(tutorId, fileName);
   const metadata: UploadMetadata = { contentType: file.type };
