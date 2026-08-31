@@ -9,6 +9,7 @@ import {
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -25,6 +26,8 @@ const STUDENT_B_ID = "student-2";
 const TUTOR_ID = "tutor-1";
 const TUTOR_B_ID = "tutor-2";
 const ADMIN_ID = "admin-1";
+const NEW_STUDENT_ID = "student-new";
+const NEW_TUTOR_ID = "tutor-new";
 
 let testEnv: RulesTestEnvironment;
 
@@ -139,6 +142,18 @@ function adminDb() {
   return testEnv.authenticatedContext(ADMIN_ID, { email: "admin@test.com" }).firestore();
 }
 
+function newStudentDb() {
+  return testEnv.authenticatedContext(NEW_STUDENT_ID, { email: "nova@test.com" }).firestore();
+}
+
+function newTutorDb() {
+  return testEnv.authenticatedContext(NEW_TUTOR_ID, { email: "pedro@test.com" }).firestore();
+}
+
+function guestDb() {
+  return testEnv.unauthenticatedContext().firestore();
+}
+
 function occupancyQuery(db: ReturnType<typeof studentDb>, tutorId: string) {
   return query(
     collection(db, "bookings"),
@@ -170,6 +185,37 @@ function reviewPayload(bookingId: string) {
     rating: 5,
     comment: "Aula excelente.",
     createdAt: new Date(),
+  };
+}
+
+function userSignupPayload(role: "student" | "tutor", email: string, extras: Record<string, unknown> = {}) {
+  return {
+    role,
+    displayName: "Novo usuário",
+    email,
+    createdAt: new Date(),
+    ...extras,
+  };
+}
+
+function tutorOnboardingPayload(tutorId: string, extras: Record<string, unknown> = {}) {
+  return {
+    userId: tutorId,
+    name: "Pedro Santos",
+    subject: "Inglês",
+    city: "São Paulo",
+    state: "SP",
+    bio: "Professor de inglês com foco em conversação.",
+    individualPrice: 70,
+    collectivePrice: 25,
+    modality: "online",
+    isVerified: false,
+    isOnline: false,
+    rating: 0,
+    reviewCount: 0,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...extras,
   };
 }
 
@@ -345,7 +391,198 @@ describe("firestore.rules", () => {
     });
   });
 
-  describe("tutors.isVerified", () => {
+  describe("users", () => {
+    it("allows a student to create their own account", async () => {
+      await assertSucceeds(
+        setDoc(
+          doc(newStudentDb(), "users", NEW_STUDENT_ID),
+          userSignupPayload("student", "nova@test.com", { photoUrl: "https://example.com/a.jpg" }),
+        ),
+      );
+    });
+
+    it("allows a tutor to create their own account", async () => {
+      await assertSucceeds(
+        setDoc(
+          doc(newTutorDb(), "users", NEW_TUTOR_ID),
+          userSignupPayload("tutor", "pedro@test.com"),
+        ),
+      );
+    });
+
+    it("denies creating an admin account", async () => {
+      await assertFails(
+        setDoc(doc(newStudentDb(), "users", NEW_STUDENT_ID), {
+          ...userSignupPayload("student", "nova@test.com"),
+          role: "admin",
+        }),
+      );
+    });
+
+    it("denies creating a user document for another uid", async () => {
+      await assertFails(
+        setDoc(
+          doc(newStudentDb(), "users", STUDENT_ID),
+          userSignupPayload("student", "nova@test.com"),
+        ),
+      );
+    });
+
+    it("denies creating a user document with a different email than the auth token", async () => {
+      await assertFails(
+        setDoc(
+          doc(newStudentDb(), "users", NEW_STUDENT_ID),
+          userSignupPayload("student", "outra@test.com"),
+        ),
+      );
+    });
+
+    it("denies creating a user document with extra security fields", async () => {
+      await assertFails(
+        setDoc(doc(newStudentDb(), "users", NEW_STUDENT_ID), {
+          ...userSignupPayload("student", "nova@test.com"),
+          isAdmin: true,
+          permissions: ["all"],
+        }),
+      );
+    });
+
+    it("allows the owner to update displayName and photoUrl", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertSucceeds(
+        updateDoc(doc(studentDb(), "users", STUDENT_ID), {
+          displayName: "Ana Souza Atualizada",
+          photoUrl: "https://example.com/ana.jpg",
+          updatedAt: new Date(),
+        }),
+      );
+    });
+
+    it("denies the owner changing their role or becoming admin", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertFails(updateDoc(doc(studentDb(), "users", STUDENT_ID), { role: "tutor" }));
+      await assertFails(updateDoc(doc(studentDb(), "users", STUDENT_ID), { role: "admin" }));
+    });
+
+    it("denies the owner changing their email", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertFails(
+        updateDoc(doc(studentDb(), "users", STUDENT_ID), { email: "hack@test.com" }),
+      );
+    });
+
+    it("denies a student updating another user's profile", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertFails(
+        updateDoc(doc(studentDb(), "users", STUDENT_B_ID), { displayName: "Nome invadido" }),
+      );
+      await assertFails(
+        updateDoc(doc(studentDb(), "users", TUTOR_ID), { displayName: "Nome invadido" }),
+      );
+    });
+
+    it("denies listing every user document", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertFails(getDocs(collection(studentDb(), "users")));
+      await assertFails(getDocs(collection(tutorDb(), "users")));
+    });
+
+    it("allows an authenticated user to read a counterpart profile by id", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertSucceeds(getDoc(doc(studentDb(), "users", STUDENT_ID)));
+      await assertSucceeds(getDoc(doc(tutorDb(), "users", STUDENT_ID)));
+    });
+
+    it("denies unauthenticated reads of user documents", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertFails(getDoc(doc(guestDb(), "users", STUDENT_ID)));
+    });
+
+    it("allows an admin to change a user's role and to list users", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertSucceeds(updateDoc(doc(adminDb(), "users", STUDENT_ID), { role: "tutor" }));
+      await assertSucceeds(getDocs(collection(adminDb(), "users")));
+    });
+
+    it("denies a student deleting their user document", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertFails(deleteDoc(doc(studentDb(), "users", STUDENT_ID)));
+    });
+
+    it("allows an admin to delete a user document", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertSucceeds(deleteDoc(doc(adminDb(), "users", STUDENT_B_ID)));
+    });
+  });
+
+  describe("tutors", () => {
+    async function seedNewTutorUser() {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await setDoc(doc(context.firestore(), "users", NEW_TUTOR_ID), {
+          role: "tutor",
+          displayName: "Pedro Santos",
+          email: "pedro@test.com",
+          createdAt: new Date(),
+        });
+      });
+    }
+
+    it("allows a tutor to create their onboarding profile unverified", async () => {
+      await seedNewTutorUser();
+
+      await assertSucceeds(
+        setDoc(doc(newTutorDb(), "tutors", NEW_TUTOR_ID), tutorOnboardingPayload(NEW_TUTOR_ID)),
+      );
+    });
+
+    it("denies a student creating a tutor profile", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertFails(
+        setDoc(doc(studentDb(), "tutors", STUDENT_ID), tutorOnboardingPayload(STUDENT_ID)),
+      );
+    });
+
+    it("denies creating a verified tutor profile", async () => {
+      await seedNewTutorUser();
+
+      await assertFails(
+        setDoc(
+          doc(newTutorDb(), "tutors", NEW_TUTOR_ID),
+          tutorOnboardingPayload(NEW_TUTOR_ID, { isVerified: true }),
+        ),
+      );
+    });
+
+    it("denies creating a tutor profile with a non-zero rating", async () => {
+      await seedNewTutorUser();
+
+      await assertFails(
+        setDoc(
+          doc(newTutorDb(), "tutors", NEW_TUTOR_ID),
+          tutorOnboardingPayload(NEW_TUTOR_ID, { rating: 5, reviewCount: 10 }),
+        ),
+      );
+    });
+
+    it("denies creating a tutor profile for another uid", async () => {
+      await seedNewTutorUser();
+
+      await assertFails(
+        setDoc(doc(newTutorDb(), "tutors", TUTOR_ID), tutorOnboardingPayload(TUTOR_ID)),
+      );
+    });
+
     it("denies a tutor changing their own isVerified flag", async () => {
       await seedBaseDocs({ tutorVerified: false });
 
@@ -360,16 +597,72 @@ describe("firestore.rules", () => {
       await assertSucceeds(
         updateDoc(doc(tutorDb(), "tutors", TUTOR_ID), {
           bio: "Professora de inglês com foco em conversação.",
+          individualPrice: 80,
+          isOnline: true,
+          updatedAt: new Date(),
         }),
       );
     });
 
-    it("allows an admin to verify a tutor", async () => {
+    it("denies a tutor changing userId, rating, or reviewCount", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertFails(
+        updateDoc(doc(tutorDb(), "tutors", TUTOR_ID), { userId: STUDENT_ID }),
+      );
+      await assertFails(updateDoc(doc(tutorDb(), "tutors", TUTOR_ID), { rating: 5 }));
+      await assertFails(updateDoc(doc(tutorDb(), "tutors", TUTOR_ID), { reviewCount: 99 }));
+    });
+
+    it("denies a tutor changing hoursTaught, studentsServed, or administrative status", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertFails(updateDoc(doc(tutorDb(), "tutors", TUTOR_ID), { hoursTaught: 9999 }));
+      await assertFails(updateDoc(doc(tutorDb(), "tutors", TUTOR_ID), { studentsServed: 9999 }));
+      await assertFails(updateDoc(doc(tutorDb(), "tutors", TUTOR_ID), { isSuspended: true }));
+      await assertFails(
+        updateDoc(doc(tutorDb(), "tutors", TUTOR_ID), { moderationStatus: "rejected" }),
+      );
+      await assertFails(updateDoc(doc(tutorDb(), "tutors", TUTOR_ID), { status: "suspended" }));
+    });
+
+    it("denies a tutor updating another tutor's profile", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertFails(
+        updateDoc(doc(tutorDb(), "tutors", TUTOR_B_ID), { bio: "Perfil invadido" }),
+      );
+    });
+
+    it("allows an admin to approve, reject, and suspend a tutor", async () => {
       await seedBaseDocs({ tutorVerified: false });
 
       await assertSucceeds(
         updateDoc(doc(adminDb(), "tutors", TUTOR_ID), { isVerified: true }),
       );
+      await assertSucceeds(
+        updateDoc(doc(adminDb(), "tutors", TUTOR_ID), { isVerified: false }),
+      );
+      await assertSucceeds(
+        updateDoc(doc(adminDb(), "tutors", TUTOR_ID), {
+          isSuspended: true,
+          moderationStatus: "suspended",
+        }),
+      );
+    });
+
+    it("allows an admin to update rating and reviewCount", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertSucceeds(
+        updateDoc(doc(adminDb(), "tutors", TUTOR_ID), { rating: 4.8, reviewCount: 11 }),
+      );
+    });
+
+    it("denies a tutor deleting their profile", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertFails(deleteDoc(doc(tutorDb(), "tutors", TUTOR_ID)));
     });
   });
 
