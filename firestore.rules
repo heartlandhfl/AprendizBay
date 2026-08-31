@@ -65,7 +65,8 @@ rules_version = '2';
 // MATCH  collectiveHubs create         → lib/hubs/service.ts (tutor dashboard)
 // MATCH  collectiveHubs student join   → lib/hubs/service.ts (confirmedStudentIds + updatedAt)
 // MATCH  tutors/{tutorId}/availability  → lib/availability/service.ts (tutor dashboard)
-// READ   bookings pending/confirmed     → lib/bookings/service.ts (slot picker occupancy)
+// READ   bookings (own records only)    → students: studentId == uid; tutors: tutorId == uid; admin: all
+// ADMIN  bookings occupancy             → GET /api/bookings/occupancy (slot picker; ISO start times only)
 // MATCH  conversations create        → lib/conversations/service.ts (student starts thread)
 // MATCH  conversations update        → lib/conversations/service.ts (lastMessage preview)
 // MATCH  conversations/messages create → lib/conversations/service.ts (either participant)
@@ -277,12 +278,12 @@ service cloud.firestore {
     // -------------------------------------------------------------------------
 
     match /bookings/{bookingId} {
+      // Own records only. Occupancy for the public slot picker is served by
+      // GET /api/bookings/occupancy (Admin SDK) and never exposes booking docs.
       allow read: if isAuthenticated()
         && (resource.data.studentId == request.auth.uid
           || resource.data.tutorId == request.auth.uid
-          || isAdmin()
-          || (isStudent()
-            && resource.data.status in ["pending", "confirmed"]));
+          || isAdmin());
 
       allow create: if isStudent()
         && request.resource.data.studentId == request.auth.uid

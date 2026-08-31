@@ -2,6 +2,7 @@
 
 const { Router } = require("express");
 const { accountRouter } = require("./account");
+const { bookingsRouter } = require("./bookings");
 const { healthRouter } = require("./health");
 const { publicConfigRouter } = require("./public-config");
 const { reviewsRouter } = require("./reviews");
@@ -19,6 +20,7 @@ const { notificationsRouter } = require("./notifications");
 const apiRouter = Router();
 
 apiRouter.use("/account", accountRouter);
+apiRouter.use("/bookings", bookingsRouter);
 apiRouter.use("/health", healthRouter);
 apiRouter.use("/public-config", publicConfigRouter);
 apiRouter.use("/reviews", reviewsRouter);

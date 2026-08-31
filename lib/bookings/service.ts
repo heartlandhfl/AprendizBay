@@ -18,6 +18,7 @@ import type {
   CreateBookingInput,
   PaymentStatus,
 } from "@/lib/bookings/types";
+import { parseOccupiedStarts } from "@/lib/bookings/occupancy";
 import { requestNotification } from "@/lib/notifications/client";
 import { loadPlatformFeePercent, splitBookingPrice } from "@/lib/payments/fees";
 
@@ -146,32 +147,21 @@ export function hasScheduledTimePassed(scheduledAt: Timestamp, now: Date = new D
   return scheduledAt.toMillis() <= now.getTime();
 }
 
-export function subscribeToTutorOccupiedBookings(
-  tutorId: string,
-  onChange: (bookings: Booking[]) => void,
-  onError?: (error: Error) => void,
-): Unsubscribe {
-  return whenFirebaseReady(() => {
-    const bookingsQuery = query(
-      collection(db, "bookings"),
-      where("tutorId", "==", tutorId),
-      where("status", "in", ["pending", "confirmed"]),
-    );
+export async function fetchTutorOccupiedStarts(tutorId: string): Promise<Date[]> {
+  const response = await fetch(
+    `/api/bookings/occupancy?tutorId=${encodeURIComponent(tutorId)}`,
+  );
+  const payload = (await response.json().catch(() => null)) as
+    | { occupiedStarts?: unknown; error?: string }
+    | null;
 
-    return onSnapshot(
-      bookingsQuery,
-      (snapshot) => {
-        const bookings = snapshot.docs
-          .map((docSnap) =>
-            mapBookingDoc(docSnap.id, docSnap.data() as Record<string, unknown>),
-          )
-          .sort((a, b) => a.scheduledAt.toMillis() - b.scheduledAt.toMillis());
-
-        onChange(bookings);
-      },
-      (error) => onError?.(error),
+  if (!response.ok) {
+    throw new Error(
+      payload?.error || "Não foi possível verificar horários já reservados.",
     );
-  });
+  }
+
+  return parseOccupiedStarts(payload);
 }
 
 export function subscribeToTutorPendingBookings(
