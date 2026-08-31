@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import BookingStatusBadge from "@/components/bookings/BookingStatusBadge";
 import CancelBookingDialog from "@/components/bookings/CancelBookingDialog";
-import JoinLessonButton from "@/components/bookings/JoinLessonButton";
 import PayBookingForm from "@/components/bookings/PayBookingForm";
 import PaymentStatusBadge from "@/components/bookings/PaymentStatusBadge";
 import ReviewModal from "@/components/reviews/ReviewModal";
@@ -24,9 +24,9 @@ import {
   canStartCheckout,
   getPaymentLifecycle,
   getStudentPaymentCopy,
-  isLessonUnlocked,
 } from "@/lib/payments/status";
 import { studentCompletedLessonCopy } from "@/lib/bookings/complete-lesson";
+import { lessonPath } from "@/lib/lessons/paths";
 import { subscribeToStudentReviewBookingIds } from "@/lib/reviews/client";
 import { studentReviewAction } from "@/lib/reviews/create-review";
 
@@ -255,11 +255,12 @@ export default function StudentBookingsList() {
                   />
                 )}
 
-                {isLessonUnlocked(booking) && (
-                  <div className="mt-4">
-                    <JoinLessonButton meetingUrl={booking.meetingUrl!} />
-                  </div>
-                )}
+                <Link
+                  href={lessonPath(booking.id)}
+                  className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 sm:w-auto"
+                >
+                  Abrir aula
+                </Link>
 
                 {completedCopy && (
                   <p className="mt-4 text-sm font-medium text-foreground" role="status">

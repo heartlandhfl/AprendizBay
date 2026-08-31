@@ -3,6 +3,7 @@ import {
   arrayUnion,
   collection,
   doc,
+  getDoc,
   onSnapshot,
   query,
   serverTimestamp,
@@ -50,6 +51,16 @@ export async function createCollectiveHub(
   });
 
   return docRef.id;
+}
+
+export async function fetchHub(hubId: string): Promise<CollectiveHubLive | null> {
+  await requireFirebaseApp();
+  const snapshot = await getDoc(doc(db, "collectiveHubs", hubId));
+  if (!snapshot.exists()) {
+    return null;
+  }
+
+  return mapHubDoc(snapshot.id, snapshot.data() as FirestoreCollectiveHubDoc);
 }
 
 export async function joinCollectiveHub(hubId: string, studentId: string): Promise<void> {
