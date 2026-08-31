@@ -111,7 +111,7 @@ if (!dev) {
       uiMode = "error";
       app.get("*", (req, res) => {
         if (req.path.startsWith("/api")) {
-          res.status(404).json({ error: "not found" });
+          res.status(404).json({ error: "não encontrado" });
           return;
         }
         res.status(500).type("html").send(MISSING_BUILD_HTML);

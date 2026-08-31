@@ -6,6 +6,8 @@ const express = require("express");
 
 const DIST_DIR = "hostinger-next";
 const NEXT_STATIC_CACHE_CONTROL = "public, max-age=31536000, immutable";
+const NOT_FOUND_TEXT = "Página não encontrada";
+const NOT_FOUND_JSON = { error: "não encontrado" };
 
 function resolveAppDir() {
   const candidates = [path.resolve(__dirname, ".."), process.cwd()];
@@ -149,7 +151,7 @@ function attachStaticUi(app, appDir) {
     const file = path.join(appOut, `${filename}.body`);
     streamFile(res, file, { contentType }, () => {
       if (!res.headersSent) {
-        res.status(404).type("text").send("Not found");
+        res.status(404).type("text").send(NOT_FOUND_TEXT);
       }
     });
   }
@@ -178,7 +180,7 @@ function attachStaticUi(app, appDir) {
 
   app.get("*", (req, res) => {
     if (req.path.startsWith("/api")) {
-      res.status(404).json({ error: "not found" });
+      res.status(404).json(NOT_FOUND_JSON);
       return;
     }
 
@@ -193,7 +195,7 @@ function attachStaticUi(app, appDir) {
     const contentType = wantsRsc ? "text/x-component" : "html";
 
     if (!pageFile) {
-      res.status(404).type("text").send("Not found");
+      res.status(404).type("text").send(NOT_FOUND_TEXT);
       return;
     }
 
@@ -204,7 +206,7 @@ function attachStaticUi(app, appDir) {
       );
       streamFile(res, notFound, { status: 404, contentType }, () => {
         if (!res.headersSent) {
-          res.status(404).type("text").send("Not found");
+          res.status(404).type("text").send(NOT_FOUND_TEXT);
         }
       });
     });
@@ -215,5 +217,7 @@ module.exports = {
   attachStaticUi,
   resolveAppDir,
   DIST_DIR,
+  NOT_FOUND_TEXT,
+  NOT_FOUND_JSON,
   mensagensThreadRedirect,
 };

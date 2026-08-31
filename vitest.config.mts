@@ -18,6 +18,7 @@ export default defineConfig({
           environment: "jsdom",
           setupFiles: ["./vitest.setup.ts"],
           include: [
+            "app/**/*.test.tsx",
             "components/**/*.test.tsx",
             "lib/analytics/**/*.test.ts",
             "lib/observability/**/*.test.ts",
