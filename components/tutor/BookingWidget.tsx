@@ -13,7 +13,11 @@ import type { TutorProfile } from "@/lib/tutor-profiles";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { trackEvent } from "@/lib/analytics/client";
 import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
-import { createBooking, formatBookingPrice } from "@/lib/bookings/service";
+import {
+  CREATE_BOOKING_ERRORS,
+  createBooking,
+  formatBookingPrice,
+} from "@/lib/bookings/service";
 import { HUB_JOIN_ERRORS, type HubJoinErrorCode } from "@/lib/hubs/join";
 import { resolveCollectiveClassScheduledAt } from "@/lib/hubs/schedule";
 import { joinCollectiveClassAndBook } from "@/lib/hubs/service";
@@ -120,8 +124,17 @@ export default function BookingWidget({ tutor }: BookingWidgetProps) {
         bookingError && typeof bookingError === "object" && "code" in bookingError
           ? String((bookingError as { code?: string }).code)
           : "";
-      if (code in HUB_JOIN_ERRORS) {
+      const message =
+        bookingError instanceof Error ? bookingError.message : "";
+      if (code === "SLOT_TAKEN" || message === CREATE_BOOKING_ERRORS.SLOT_TAKEN) {
+        setError(CREATE_BOOKING_ERRORS.SLOT_TAKEN);
+      } else if (code in HUB_JOIN_ERRORS) {
         setError(HUB_JOIN_ERRORS[code as HubJoinErrorCode]);
+      } else if (
+        message &&
+        (Object.values(CREATE_BOOKING_ERRORS) as string[]).includes(message)
+      ) {
+        setError(message);
       } else {
         setError(
           "Não foi possível criar a reserva. Verifique se o professor está verificado e se ainda há vagas.",

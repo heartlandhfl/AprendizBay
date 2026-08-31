@@ -257,6 +257,24 @@ describe("BookingWidget", () => {
     });
   });
 
+  it("shows a Portuguese message when the individual slot was just taken", async () => {
+    mockCreateBooking.mockRejectedValue(
+      Object.assign(new Error("Esse horário acabou de ser reservado por outro aluno. Escolha outro horário."), {
+        code: "SLOT_TAKEN",
+      }),
+    );
+    const user = userEvent.setup();
+    render(<BookingWidget tutor={tutor} />);
+
+    await user.click(screen.getByRole("button", { name: "Individual" }));
+    await user.click(screen.getByRole("button", { name: "Escolher horário" }));
+    await user.click(screen.getByRole("button", { name: "Agendar aula" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Esse horário acabou de ser reservado por outro aluno. Escolha outro horário.",
+    );
+  });
+
   it("hides the collective option when the tutor only offers individual lessons", () => {
     render(
       <BookingWidget

@@ -39,6 +39,7 @@ rules_version = '2';
 //     paymentId?, asaasCheckoutId?, asaasCheckoutExpiresAt?, checkoutLockUntil?
 //     refundId?, refundStatus?, refundAmount?, refundLockUntil?
 //     scheduledAt, price, platformFee?, tutorAmount?, meetingUrl?, createdAt, updatedAt
+//     slotKey?                      // individual uniqueness key tutorId_scheduledAtISO
 //     completedAt?                      // set when the tutor/admin marks the lesson completed
 //     lessonReminderSentAt?             // admin-only, set after the 1h reminder email
 //
@@ -55,6 +56,11 @@ rules_version = '2';
 //   asaasWebhookReceipts/{receiptId}    // Admin SDK only (Asaas webhook idempotency)
 //     paymentId?, asaasCheckoutId?, bookingId?, event, outcome, createdAt
 //
+//   lessonSlots/{slotId}                // Admin SDK only (individual uniqueness lock)
+//     slotId === tutorId + "_" + scheduledAt (UTC ISO)
+//     tutorId, scheduledAt, scheduledAtIso, bookingId, studentId
+//     status: held, type: individual, updatedAt
+//
 // NOTE: These rules are a starting point. Validate with the Firebase Emulator
 // Suite before deploying to production.
 //
@@ -63,7 +69,13 @@ rules_version = '2';
 // ---------------------------------------------------------------------------
 // MATCH  users/{uid} create          → lib/auth/service.ts (signup; role student|tutor only)
 // MATCH  users/{uid} update          → lib/storage/service.ts (photoUrl, updatedAt)
-// MATCH  bookings create             → lib/bookings/service.ts (student reserve)
+// ADMIN  bookings create (individual)  → POST /api/bookings
+//        Hostinger Express: server/api/bookings.js
+//        Vercel / next start: app/api/bookings + lib/bookings/server.ts
+//        Transaction: occupancy query (pending|confirmed) + lessonSlots/{tutorId}_{scheduledAtISO}
+//        immediately before commit. Cancelled releases the slot; completed stays historical.
+// MATCH  bookings create             → still student-only pending create (rules unchanged)
+//        App path for individual lessons is the Admin API above, not client addDoc.
 // MATCH  bookings student cancel       → unpaid client update; paid via /api/bookings/cancel + refund
 //        (role from uid vs studentId/tutorId; browser actor field is ignored)
 // MATCH  bookings tutor accept payment → lib/bookings/service.ts (paymentStatus, updatedAt)
@@ -571,6 +583,12 @@ service cloud.firestore {
 
     // Asaas webhook receipts — Admin SDK only (lib/payments/process-webhook.ts)
     match /asaasWebhookReceipts/{receiptId} {
+      allow read, write: if false;
+    }
+
+    // Individual lesson uniqueness lock — Admin SDK only
+    // (lib/bookings/create-booking.js). Clients cannot read or write.
+    match /lessonSlots/{slotId} {
       allow read, write: if false;
     }
 

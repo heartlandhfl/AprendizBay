@@ -62,6 +62,18 @@ async function withHttpRoute() {
   const { server, port } = await listen(app);
 
   try {
+    const unauthenticatedCreate = await postJson(port, "/api/bookings", {
+      tutorId: "tutor-1",
+      type: "individual",
+      scheduledAt: "2026-09-08T19:00:00.000Z",
+      price: 70,
+    });
+    assert.equal(unauthenticatedCreate.status, 401);
+    assert.match(
+      String(unauthenticatedCreate.payload?.error || ""),
+      /Token|autenticação|login/i,
+    );
+
     const unauthenticatedComplete = await postJson(port, "/api/bookings/complete", {
       bookingId: "booking-1",
     });

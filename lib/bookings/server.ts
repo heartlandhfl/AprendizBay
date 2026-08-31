@@ -18,6 +18,7 @@ import {
 import {
   completeLessonForActor,
 } from "@/lib/bookings/complete-lesson";
+import { createIndividualBookingForStudent } from "@/lib/bookings/create-booking";
 import { generateMeetingUrl } from "@/lib/bookings/meeting";
 import { notifyConfirmedBooking, safeNotify } from "@/lib/notifications/server";
 import type { Booking, BookingStatus, BookingType, PaymentStatus } from "@/lib/bookings/types";
@@ -240,6 +241,22 @@ export async function completeLessonAsActor(input: {
 }): Promise<{ bookingId: string; status: "completed" }> {
   const db = requireAdminFirestore();
   return completeLessonForActor(db, input, {
+    timestamp: FieldValue.serverTimestamp(),
+  });
+}
+
+export async function createIndividualBookingAsStudent(input: {
+  actorUid: string;
+  actorRole?: string;
+  tutorId?: unknown;
+  type?: unknown;
+  scheduledAt?: unknown;
+  price?: unknown;
+  platformFee?: unknown;
+  tutorAmount?: unknown;
+}): Promise<{ bookingId: string; slotKey: string }> {
+  const db = requireAdminFirestore();
+  return createIndividualBookingForStudent(db, input, {
     timestamp: FieldValue.serverTimestamp(),
   });
 }
