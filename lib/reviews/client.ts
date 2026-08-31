@@ -7,7 +7,7 @@ import {
 } from "firebase/firestore";
 import { auth, db, requireFirebaseApp, whenFirebaseReady } from "@/lib/firebase/client";
 import { requestNotification } from "@/lib/notifications/client";
-import type { CreateReviewInput } from "@/lib/reviews/types";
+import type { CreateReviewInput, PublicTutorReview } from "@/lib/reviews/types";
 
 /**
  * Hostinger production has no Next.js Server Actions. Call the Express route
@@ -78,6 +78,64 @@ export async function recomputeTutorRating(tutorId: string): Promise<void> {
   if (!response.ok) {
     throw new Error(payload?.error || "Não foi possível atualizar a nota do professor.");
   }
+}
+
+function toReviewDate(value: unknown): Date | null {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value;
+  }
+
+  if (value && typeof value === "object" && "toDate" in value && typeof value.toDate === "function") {
+    const date = value.toDate();
+    return date instanceof Date && !Number.isNaN(date.getTime()) ? date : null;
+  }
+
+  return null;
+}
+
+export function subscribeToTutorReviews(
+  tutorId: string,
+  onChange: (reviews: PublicTutorReview[]) => void,
+  onError?: (error: Error) => void,
+): Unsubscribe {
+  return whenFirebaseReady(
+    () => {
+      const reviewsQuery = query(collection(db, "reviews"), where("tutorId", "==", tutorId));
+
+      return onSnapshot(
+        reviewsQuery,
+        (snapshot) => {
+          const reviews = snapshot.docs
+            .map((docSnap) => {
+              const data = docSnap.data();
+              const rating = data.rating;
+              const comment = typeof data.comment === "string" ? data.comment.trim() : "";
+
+              if (typeof rating !== "number" || !Number.isFinite(rating) || rating < 1 || rating > 5) {
+                return null;
+              }
+
+              return {
+                id: docSnap.id,
+                rating,
+                comment,
+                createdAt: toReviewDate(data.createdAt),
+              } satisfies PublicTutorReview;
+            })
+            .filter((review): review is PublicTutorReview => review !== null)
+            .sort((left, right) => {
+              const leftTime = left.createdAt?.getTime() ?? 0;
+              const rightTime = right.createdAt?.getTime() ?? 0;
+              return rightTime - leftTime;
+            });
+
+          onChange(reviews);
+        },
+        (error) => onError?.(error),
+      );
+    },
+    () => onChange([]),
+  );
 }
 
 export function subscribeToStudentReviewBookingIds(

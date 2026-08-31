@@ -4,6 +4,7 @@ import { useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Loader2, MessageCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { conversationErrorMessage } from "@/lib/conversations/errors";
 import { getOrCreateConversation } from "@/lib/conversations/service";
 
 interface SendMessageButtonProps {
@@ -46,15 +47,15 @@ export default function SendMessageButton({
         tutorName,
       });
       router.push(`/mensagens/${conversationId}`);
-    } catch {
-      setError("Não foi possível iniciar a conversa.");
+    } catch (startError) {
+      setError(conversationErrorMessage(startError, "Não foi possível iniciar a conversa."));
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <div className="rounded-2xl bg-surface p-4 shadow-soft ring-1 ring-border/50">
+    <div id="mensagem" className="scroll-mt-24 rounded-2xl bg-surface p-4 shadow-soft ring-1 ring-border/50">
       <button
         type="button"
         onClick={handleSendMessage}

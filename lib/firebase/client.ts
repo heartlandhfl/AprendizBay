@@ -94,16 +94,29 @@ export async function requireFirebaseApp(): Promise<FirebaseApp> {
   return app;
 }
 
-export function whenFirebaseReady(start: () => () => void): () => void {
+export function whenFirebaseReady(
+  start: () => () => void,
+  onUnavailable?: () => void,
+): () => void {
   let inner = () => {};
   let cancelled = false;
 
-  void ensureFirebaseApp().then((app) => {
-    if (cancelled || !app) {
-      return;
-    }
-    inner = start();
-  });
+  void ensureFirebaseApp()
+    .then((app) => {
+      if (cancelled) {
+        return;
+      }
+      if (!app) {
+        onUnavailable?.();
+        return;
+      }
+      inner = start();
+    })
+    .catch(() => {
+      if (!cancelled) {
+        onUnavailable?.();
+      }
+    });
 
   return () => {
     cancelled = true;

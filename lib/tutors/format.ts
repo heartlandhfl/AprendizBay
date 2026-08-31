@@ -21,3 +21,29 @@ export function modalityLabel(modality: Modality): string {
       return modality;
   }
 }
+
+export function formatTutorRating(value: number): string {
+  return value.toLocaleString("pt-BR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  });
+}
+
+export function formatReviewCountLabel(count: number): string {
+  return count === 1 ? "1 avaliação" : `${count.toLocaleString("pt-BR")} avaliações`;
+}
+
+export function formatLocation(city?: string, state?: string): string | undefined {
+  const cityName = city?.trim();
+  const stateName = state?.trim();
+
+  if (cityName && stateName) {
+    return `${cityName}, ${stateName}`;
+  }
+
+  return cityName || stateName || undefined;
+}
+
+export function formatCount(value: number): string {
+  return value.toLocaleString("pt-BR");
+}

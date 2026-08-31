@@ -11,6 +11,15 @@ export interface FirestoreTutorDoc {
   about?: string;
   methodology?: string;
   headline?: string;
+  experience?: string;
+  qualifications?: string | string[];
+  subjects?: string[];
+  levels?: string[];
+  languages?: string[];
+  specialties?: string[];
+  responseTime?: string;
+  firstLessonPrice?: number;
+  offersFreeTrial?: boolean;
   individualPrice: number;
   collectivePrice: number;
   modality: Modality;

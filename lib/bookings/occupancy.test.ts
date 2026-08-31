@@ -5,6 +5,8 @@ import {
   occupancyResponse,
   occupiedStartsFromBookingData,
   parseOccupiedStarts,
+  scheduledAtToIso,
+  slotOverlapsOccupiedStarts,
 } from "./occupancy";
 
 describe("occupiedStartsFromBookingData", () => {
@@ -66,6 +68,34 @@ describe("parseOccupiedStarts", () => {
 
     expect(starts).toHaveLength(1);
     expect(starts[0]?.toISOString()).toBe("2026-09-01T19:00:00.000Z");
+  });
+});
+
+describe("scheduledAtToIso", () => {
+  it("normalizes Date and Timestamp-like values to UTC ISO", () => {
+    expect(scheduledAtToIso(new Date("2026-09-01T19:00:00.000Z"))).toBe(
+      "2026-09-01T19:00:00.000Z",
+    );
+    expect(scheduledAtToIso({ toMillis: () => Date.parse("2026-09-01T19:00:00.000Z") })).toBe(
+      "2026-09-01T19:00:00.000Z",
+    );
+    expect(scheduledAtToIso("not-a-date")).toBe("");
+  });
+});
+
+describe("slotOverlapsOccupiedStarts", () => {
+  it("treats a 60-minute pending lesson as occupying the same start", () => {
+    expect(
+      slotOverlapsOccupiedStarts(new Date("2026-09-01T19:00:00.000Z"), [
+        "2026-09-01T19:00:00.000Z",
+      ]),
+    ).toBe(true);
+  });
+
+  it("does not treat a cancelled or completed start as occupied when omitted", () => {
+    expect(
+      slotOverlapsOccupiedStarts(new Date("2026-09-01T19:00:00.000Z"), []),
+    ).toBe(false);
   });
 });
 

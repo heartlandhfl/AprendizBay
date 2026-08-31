@@ -101,14 +101,16 @@ export function subscribeToTutorAvailability(
   onChange: (availability: TutorAvailability) => void,
   onError?: (error: Error) => void,
 ): Unsubscribe {
-  return whenFirebaseReady(() =>
-    onSnapshot(
-      availabilityRef(tutorId),
-      (snapshot) => {
-        onChange(mapAvailabilityDoc(snapshot.data() as FirestoreAvailabilityDoc | undefined));
-      },
-      (error) => onError?.(error),
-    ),
+  return whenFirebaseReady(
+    () =>
+      onSnapshot(
+        availabilityRef(tutorId),
+        (snapshot) => {
+          onChange(mapAvailabilityDoc(snapshot.data() as FirestoreAvailabilityDoc | undefined));
+        },
+        (error) => onError?.(error),
+      ),
+    () => onChange({ slots: [] }),
   );
 }
 

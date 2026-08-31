@@ -4,18 +4,13 @@ import { useEffect, useState } from "react";
 import { doc, onSnapshot } from "firebase/firestore";
 import { Star } from "lucide-react";
 import { db, whenFirebaseReady } from "@/lib/firebase/client";
+import { formatReviewCountLabel, formatTutorRating } from "@/lib/tutors/format";
+import { hasPublicRating } from "@/lib/tutors/profile-display";
 
 interface TutorRatingStatsProps {
   tutorId: string;
   initialRating: number;
   initialReviewCount: number;
-}
-
-function formatRating(value: number): string {
-  return value.toLocaleString("pt-BR", {
-    minimumFractionDigits: 1,
-    maximumFractionDigits: 1,
-  });
 }
 
 export default function TutorRatingStats({
@@ -34,11 +29,23 @@ export default function TutorRatingStats({
         }
 
         const data = snapshot.data();
-        setRating((data.rating as number) ?? initialRating);
-        setReviewCount((data.reviewCount as number) ?? initialReviewCount);
+        const nextRating = data.rating;
+        const nextCount = data.reviewCount;
+
+        if (typeof nextRating === "number" && Number.isFinite(nextRating)) {
+          setRating(nextRating);
+        }
+
+        if (typeof nextCount === "number" && Number.isFinite(nextCount) && nextCount >= 0) {
+          setReviewCount(Math.floor(nextCount));
+        }
       }),
     );
-  }, [initialRating, initialReviewCount, tutorId]);
+  }, [tutorId]);
+
+  if (!hasPublicRating({ rating, reviewCount })) {
+    return <span className="text-sm text-muted-foreground">Ainda sem avaliações</span>;
+  }
 
   return (
     <span className="inline-flex items-center gap-1">
@@ -46,8 +53,8 @@ export default function TutorRatingStats({
         className="h-4 w-4 fill-secondary-400 text-secondary-400"
         aria-hidden="true"
       />
-      <span className="font-semibold text-foreground">{formatRating(rating)}</span>
-      ({reviewCount} avaliação{reviewCount !== 1 ? "ões" : ""})
+      <span className="font-semibold text-foreground">{formatTutorRating(rating)}</span>
+      <span>({formatReviewCountLabel(reviewCount)})</span>
     </span>
   );
 }

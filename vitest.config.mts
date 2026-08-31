@@ -31,6 +31,8 @@ export default defineConfig({
             "lib/lessons/**/*.test.ts",
             "lib/reviews/**/*.test.ts",
             "lib/admin/**/*.test.ts",
+            "lib/conversations/moderation.test.ts",
+            "lib/conversations/rate-limit.test.ts",
           ],
           exclude: ["node_modules", "hostinger-next", ".next"],
         },

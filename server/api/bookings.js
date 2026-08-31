@@ -7,6 +7,10 @@ const {
   statusFromCompleteLessonError,
 } = require("../../lib/bookings/complete-lesson");
 const {
+  createIndividualBookingForStudent,
+  statusFromCreateBookingError,
+} = require("../../lib/bookings/create-booking");
+const {
   loadTutorOccupiedStarts,
   normalizeTutorId,
   occupancyResponse,
@@ -16,6 +20,39 @@ const { captureException } = require("./sentry");
 
 const bookingsRouter = Router();
 bookingsRouter.use(express.json({ limit: "16kb" }));
+
+bookingsRouter.post("/", async (req, res) => {
+  try {
+    const { uid } = await verifyIdToken(readBearerToken(req));
+    const db = getAdminFirestore();
+    const { FieldValue } = require("firebase-admin/firestore");
+    const result = await createIndividualBookingForStudent(
+      db,
+      {
+        actorUid: uid,
+        tutorId: req.body?.tutorId,
+        type: req.body?.type,
+        scheduledAt: req.body?.scheduledAt,
+        price: req.body?.price,
+        platformFee: req.body?.platformFee,
+        tutorAmount: req.body?.tutorAmount,
+      },
+      { timestamp: FieldValue.serverTimestamp() },
+    );
+    res.json({ ok: true, ...result });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Não foi possível criar a reserva.";
+    const status = statusFromCreateBookingError(error);
+    if (status >= 500) {
+      captureException(error);
+    }
+    res.status(status).json({
+      error: message,
+      code: error && typeof error === "object" ? error.code : undefined,
+    });
+  }
+});
 
 bookingsRouter.post("/complete", async (req, res) => {
   try {

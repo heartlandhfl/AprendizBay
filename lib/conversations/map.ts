@@ -23,6 +23,7 @@ export function mapConversationDoc(
     tutorName: asOptionalString(data.tutorName),
     lastMessage: asOptionalString(data.lastMessage),
     lastMessageAt: data.lastMessageAt as Conversation["lastMessageAt"],
+    lastSenderId: asOptionalString(data.lastSenderId),
     createdAt: data.createdAt as Conversation["createdAt"],
     updatedAt: data.updatedAt as Conversation["updatedAt"],
   };

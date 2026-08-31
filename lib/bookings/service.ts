@@ -1,13 +1,12 @@
 import {
-  addDoc,
   collection,
   doc,
   getDoc,
   onSnapshot,
   query,
   serverTimestamp,
-  Timestamp,
   updateDoc,
+  type Timestamp,
   where,
   type Unsubscribe,
 } from "firebase/firestore";
@@ -19,6 +18,7 @@ import type {
   PaymentStatus,
 } from "@/lib/bookings/types";
 import { normalizeBookingId } from "@/lib/bookings/complete-lesson";
+import { CREATE_BOOKING_ERRORS } from "@/lib/bookings/create-booking";
 import { parseOccupiedStarts } from "@/lib/bookings/occupancy";
 import type { Modality } from "@/lib/mock-tutors";
 import { requestNotification } from "@/lib/notifications/client";
@@ -60,29 +60,61 @@ export async function createBooking(
   studentId: string,
   input: CreateBookingInput,
 ): Promise<string> {
+  if (input.type === "coletivo") {
+    const error = new Error(CREATE_BOOKING_ERRORS.COLLECTIVE_PATH) as Error & {
+      code: string;
+    };
+    error.code = "COLLECTIVE_PATH";
+    throw error;
+  }
+
   await requireFirebaseApp();
+  const user = auth.currentUser;
+  if (!user || user.uid !== studentId) {
+    throw new Error(CREATE_BOOKING_ERRORS.UNAUTHENTICATED);
+  }
+
   const feeSplit =
     typeof input.platformFee === "number" && typeof input.tutorAmount === "number"
       ? { platformFee: input.platformFee, tutorAmount: input.tutorAmount }
       : splitBookingPrice(input.price, await loadPlatformFeePercent());
-  const bookingData = {
-    studentId,
-    tutorId: input.tutorId,
-    type: input.type,
-    status: "pending" as const,
-    paymentStatus: "unpaid" as const,
-    price: input.price,
-    platformFee: feeSplit.platformFee,
-    tutorAmount: feeSplit.tutorAmount,
-    scheduledAt: Timestamp.fromDate(input.scheduledAt),
-    createdAt: serverTimestamp(),
-    ...(input.hubId ? { hubId: input.hubId } : {}),
-  };
 
-  const docRef = await addDoc(collection(db, "bookings"), bookingData);
-  void requestNotification({ type: "pending_booking", bookingId: docRef.id });
-  return docRef.id;
+  const idToken = await user.getIdToken();
+  const response = await fetch("/api/bookings", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({
+      tutorId: input.tutorId,
+      type: input.type,
+      price: input.price,
+      platformFee: feeSplit.platformFee,
+      tutorAmount: feeSplit.tutorAmount,
+      scheduledAt: input.scheduledAt.toISOString(),
+    }),
+  });
+
+  const payload = (await response.json().catch(() => null)) as {
+    bookingId?: string;
+    error?: string;
+    code?: string;
+  } | null;
+
+  if (!response.ok || !payload?.bookingId) {
+    const error = new Error(
+      payload?.error || "Não foi possível criar a reserva.",
+    ) as Error & { code?: string };
+    error.code = payload?.code;
+    throw error;
+  }
+
+  void requestNotification({ type: "pending_booking", bookingId: payload.bookingId });
+  return payload.bookingId;
 }
+
+export { CREATE_BOOKING_ERRORS };
 
 export async function updateBookingStatus(
   bookingId: string,
