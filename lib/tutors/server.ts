@@ -24,7 +24,7 @@ import {
   mapFirestoreTutorDoc,
   mapFirestoreTutorProfile,
 } from "@/lib/tutors/map";
-import { isMarketplaceVisible } from "@/lib/tutors/verification";
+import { isEligibleForSearch } from "@/lib/tutors/search";
 
 let adminApp: App | undefined;
 
@@ -75,7 +75,7 @@ export async function fetchVerifiedTutorsServer(): Promise<Tutor[]> {
     return snapshot.docs
       .map((docSnap) => {
         const data = docSnap.data() as FirestoreTutorDoc;
-        if (!isMarketplaceVisible(data)) {
+        if (!isEligibleForSearch(data)) {
           return null;
         }
         return mapFirestoreTutorDoc(docSnap.id, data);
@@ -104,6 +104,11 @@ export async function fetchTutorProfile(id: string): Promise<TutorProfile | unde
       return undefined;
     }
 
+    const tutorData = tutorSnap.data() as FirestoreTutorDoc;
+    if (!isEligibleForSearch(tutorData)) {
+      return undefined;
+    }
+
     const hubsSnap = await db
       .collection("collectiveHubs")
       .where("tutorId", "==", id)
@@ -119,7 +124,7 @@ export async function fetchTutorProfile(id: string): Promise<TutorProfile | unde
 
     return mapFirestoreTutorProfile(
       tutorSnap.id,
-      tutorSnap.data() as FirestoreTutorDoc,
+      tutorData,
       collectiveHubs,
     );
   } catch (error) {
@@ -140,8 +145,10 @@ export async function fetchAllTutorIds(): Promise<string[]> {
       return getMockTutorsForFallback().map((tutor) => tutor.id);
     }
 
-    const snapshot = await db.collection("tutors").select().get();
-    return snapshot.docs.map((docSnap) => docSnap.id);
+    const snapshot = await db.collection("tutors").where("isVerified", "==", true).get();
+    return snapshot.docs
+      .filter((docSnap) => isEligibleForSearch(docSnap.data() as FirestoreTutorDoc))
+      .map((docSnap) => docSnap.id);
   } catch (error) {
     console.error("[Aprendiz Bay] Erro ao listar IDs de tutores:", error);
     return getMockTutorsForFallback().map((tutor) => tutor.id);

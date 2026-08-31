@@ -79,6 +79,7 @@ export async function createTutorProfile(
     isOnline: false,
     rating: 0,
     reviewCount: 0,
+    hasAvailability: false,
     ...(input.avatarUrl ? { avatarUrl: input.avatarUrl } : {}),
     ...(input.credentialFileName ? { credentialFileName: input.credentialFileName } : {}),
     createdAt: serverTimestamp(),
@@ -110,4 +111,15 @@ export async function updateTutorProfile(
   }
 
   await updateDoc(doc(db, "tutors", tutorId), updates);
+}
+
+export async function setTutorHasAvailability(
+  tutorId: string,
+  hasAvailability: boolean,
+): Promise<void> {
+  await requireFirebaseApp();
+  await updateDoc(doc(db, "tutors", tutorId), {
+    hasAvailability,
+    updatedAt: serverTimestamp(),
+  });
 }

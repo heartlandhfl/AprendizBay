@@ -28,6 +28,9 @@ export interface FirestoreTutorDoc {
   avatarUrl?: string;
   avatarColor?: string;
   credentialFileName?: string;
+  educationLevels?: string[];
+  yearsOfExperience?: number;
+  hasAvailability?: boolean;
 }
 
 export interface AdminTutorApplication {

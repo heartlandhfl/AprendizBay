@@ -16,6 +16,9 @@ rules_version = '2';
 //     verificationStatus: pending | approved | rejected | changes_requested | suspended
 //     reviewedAt, reviewedBy, verificationReason, credentialFileName
 //     hoursTaught, studentsServed, rating, reviewCount, createdAt, updatedAt
+//     educationLevels[]?, yearsOfExperience?, hasAvailability?
+//     Public search lists only isVerified tutors. credentialFileName, reviewedBy,
+//     reviewedAt and verificationReason stay off public mapped cards.
 //
 //   tutors/{tutorId}/availability/{docId}  // weekly schedule (docId usually "weekly")
 //     slots[]: { weekday: 0-6, startTime: "HH:mm", endTime: "HH:mm" }, updatedAt
@@ -314,7 +317,8 @@ service cloud.firestore {
           "userId", "name", "subject", "city", "state", "bio", "about", "methodology",
           "headline", "individualPrice", "collectivePrice", "modality", "lessonTypes",
           "isVerified", "verificationStatus", "isOnline", "rating", "reviewCount",
-          "avatarUrl", "avatarColor", "credentialFileName", "createdAt", "updatedAt"
+          "avatarUrl", "avatarColor", "credentialFileName", "educationLevels",
+          "yearsOfExperience", "hasAvailability", "createdAt", "updatedAt"
         ])
         && (!("verificationStatus" in data) || data.verificationStatus == "pending")
         && !("reviewedAt" in data)
@@ -334,7 +338,8 @@ service cloud.firestore {
           .hasOnly([
             "name", "subject", "city", "state", "bio", "about", "methodology", "headline",
             "individualPrice", "collectivePrice", "modality", "lessonTypes", "isOnline",
-            "avatarUrl", "avatarColor", "credentialFileName", "updatedAt"
+            "avatarUrl", "avatarColor", "credentialFileName", "educationLevels",
+            "yearsOfExperience", "hasAvailability", "updatedAt"
           ]);
     }
 
@@ -358,7 +363,14 @@ service cloud.firestore {
     // -------------------------------------------------------------------------
 
     match /tutors/{tutorId} {
-      allow read: if true;
+      // Marketplace listing is public for verified tutors only. Owners and admins
+      // can still read pending/rejected/suspended profiles. Private fields
+      // (credentialFileName, review meta) are omitted from public mappers.
+      allow get: if resource.data.isVerified == true
+        || (isAuthenticated() && resource.data.userId == request.auth.uid)
+        || isAdmin();
+
+      allow list: if isAdmin() || resource.data.isVerified == true;
 
       allow create: if validTutorCreate(tutorId);
 

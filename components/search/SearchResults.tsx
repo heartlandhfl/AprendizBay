@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, Users } from "lucide-react";
 import CollectiveClassCard from "@/components/hubs/CollectiveClassCard";
@@ -18,7 +19,13 @@ import {
   type FilterModality,
   type Tutor,
 } from "@/lib/mock-tutors";
+import { SEARCH_CITIES } from "@/lib/tutors/constants";
 import { fetchVerifiedTutors } from "@/lib/tutors/client";
+import {
+  ALL_CITIES_LABEL,
+  applyTutorSearchFilters,
+  searchEmptyState,
+} from "@/lib/tutors/search";
 
 function subjectFromQuery(query: string): string {
   const normalized = query.trim().toLowerCase();
@@ -37,6 +44,20 @@ function modalityFromQuery(value?: string): FilterModality {
     return value;
   }
   return DEFAULT_FILTERS.modality;
+}
+
+function cityFromQuery(value?: string): string {
+  if (!value) {
+    return DEFAULT_FILTERS.city;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (!normalized || normalized === ALL_CITIES_LABEL.toLowerCase()) {
+    return DEFAULT_FILTERS.city;
+  }
+
+  const match = SEARCH_CITIES.find((city) => city.toLowerCase() === normalized);
+  return match ?? value.trim();
 }
 
 function enrichHub(hub: CollectiveHubLive, tutors: Tutor[]): CollectiveHubLive {
@@ -71,60 +92,22 @@ function hubMatchesFilters(hub: CollectiveHubLive, filters: SearchFilterState): 
   return hub.status === "open" && hub.confirmedStudents < hub.maxStudents;
 }
 
-function applyClientFilters(tutors: Tutor[], filters: SearchFilterState) {
-  const priceRange = PRICE_RANGES[filters.priceRangeIndex];
-
-  return tutors
-    .filter((tutor) => {
-      if (
-        filters.subject !== "Todas as matérias" &&
-        tutor.subject !== filters.subject
-      ) {
-        return false;
-      }
-
-      const priceToCheck =
-        filters.lessonType === "coletivo"
-          ? tutor.collectivePrice
-          : tutor.individualPrice;
-
-      if (priceToCheck < priceRange.min || priceToCheck > priceRange.max) {
-        return false;
-      }
-
-      if (
-        filters.modality !== "todos" &&
-        tutor.modality !== filters.modality &&
-        tutor.modality !== "ambos"
-      ) {
-        return false;
-      }
-
-      if (filters.lessonType !== "todos") {
-        const lessonType = filters.lessonType;
-        if (!tutor.lessonTypes.includes(lessonType)) {
-          return false;
-        }
-      }
-
-      return true;
-    })
-    .sort((a, b) => b.rating - a.rating);
-}
-
 interface SearchResultsProps {
   initialQuery?: string;
   initialModality?: string;
+  initialCity?: string;
 }
 
 export default function SearchResults({
   initialQuery = "",
   initialModality,
+  initialCity,
 }: SearchResultsProps) {
   const [filters, setFilters] = useState<SearchFilterState>({
     ...DEFAULT_FILTERS,
     subject: subjectFromQuery(initialQuery),
     modality: modalityFromQuery(initialModality),
+    city: cityFromQuery(initialCity),
   });
   const [tutors, setTutors] = useState<Tutor[]>([]);
   const [hubs, setHubs] = useState<CollectiveHubLive[]>([]);
@@ -140,7 +123,7 @@ export default function SearchResults({
         const [fetchedTutors, fetchedHubs] = await Promise.all([
           fetchVerifiedTutors({
             subject: filters.subject,
-            modality: filters.modality,
+            city: filters.city,
           }),
           fetchOpenCollectiveHubs(),
         ]);
@@ -167,19 +150,20 @@ export default function SearchResults({
     return () => {
       cancelled = true;
     };
-  }, [filters.subject, filters.modality]);
+  }, [filters.subject, filters.city]);
 
   useEffect(() => {
     trackEvent(ANALYTICS_EVENTS.search, {
       subject: filters.subject,
+      city: filters.city,
       modality: filters.modality,
       lesson_type: filters.lessonType,
       source: "results",
     });
-  }, [filters.lessonType, filters.modality, filters.subject]);
+  }, [filters.city, filters.lessonType, filters.modality, filters.subject]);
 
   const tutorResults = useMemo(
-    () => applyClientFilters(tutors, filters),
+    () => applyTutorSearchFilters(tutors, filters),
     [filters, tutors],
   );
 
@@ -188,12 +172,23 @@ export default function SearchResults({
       return [];
     }
 
-    return hubs.filter((hub) => hubMatchesFilters(hub, filters));
-  }, [filters, hubs]);
+    const tutorsForHubs = applyTutorSearchFilters(tutors, {
+      ...filters,
+      lessonType: filters.lessonType === "coletivo" ? "coletivo" : "todos",
+      priceRangeIndex: DEFAULT_FILTERS.priceRangeIndex,
+      modality: DEFAULT_FILTERS.modality,
+    });
+    const eligibleTutorIds = new Set(tutorsForHubs.map((tutor) => tutor.id));
+
+    return hubs.filter(
+      (hub) => eligibleTutorIds.has(hub.tutorId) && hubMatchesFilters(hub, filters),
+    );
+  }, [filters, hubs, tutors]);
 
   const showTutors = filters.lessonType !== "coletivo";
   const visibleTutors = showTutors ? tutorResults : [];
   const resultCount = visibleTutors.length + classResults.length;
+  const emptyCopy = searchEmptyState(filters);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -237,7 +232,7 @@ export default function SearchResults({
             </p>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary-50 px-3 py-1 text-xs font-semibold text-secondary-700 ring-1 ring-secondary-200">
               <Users className="h-3.5 w-3.5" aria-hidden="true" />
-              Aulas coletivas na busca
+              Aula individual e aula coletiva
             </span>
           </div>
 
@@ -250,7 +245,7 @@ export default function SearchResults({
             <div className="space-y-8">
               {classResults.length > 0 ? (
                 <div>
-                  <h2 className="mb-4 text-lg font-bold text-foreground">Turmas coletivas</h2>
+                  <h2 className="mb-4 text-lg font-bold text-foreground">Aulas coletivas</h2>
                   <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-2">
                     {classResults.map((hub) => (
                       <CollectiveClassCard key={hub.id} hub={hub} />
@@ -262,7 +257,9 @@ export default function SearchResults({
               {visibleTutors.length > 0 ? (
                 <div>
                   {classResults.length > 0 ? (
-                    <h2 className="mb-4 text-lg font-bold text-foreground">Professores</h2>
+                    <h2 className="mb-4 text-lg font-bold text-foreground">
+                      Aulas individuais e professores
+                    </h2>
                   ) : null}
                   <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-2">
                     {visibleTutors.map((tutor) => (
@@ -274,19 +271,23 @@ export default function SearchResults({
             </div>
           ) : (
             <div className="rounded-2xl bg-muted/60 px-6 py-16 text-center">
-              <p className="text-lg font-semibold text-foreground">
-                Nenhum professor ou turma encontrada
-              </p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Tente ajustar os filtros para ver mais resultados.
-              </p>
-              <button
-                type="button"
-                onClick={() => setFilters(DEFAULT_FILTERS)}
-                className="mt-6 rounded-2xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700"
-              >
-                Limpar filtros
-              </button>
+              <h2 className="text-lg font-semibold text-foreground">{emptyCopy.title}</h2>
+              <p className="mt-2 text-sm text-muted-foreground">{emptyCopy.description}</p>
+              <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => setFilters(DEFAULT_FILTERS)}
+                  className="rounded-2xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700"
+                >
+                  Limpar filtros
+                </button>
+                <Link
+                  href="/professores"
+                  className="rounded-2xl border border-border px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+                >
+                  Ver páginas por disciplina e cidade
+                </Link>
+              </div>
             </div>
           )}
         </section>

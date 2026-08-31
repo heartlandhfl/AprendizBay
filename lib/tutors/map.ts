@@ -13,8 +13,15 @@ import {
 
 const DEFAULT_LESSON_TYPES: Array<"individual" | "coletivo"> = ["individual", "coletivo"];
 
+const PRIVATE_TUTOR_FIELDS = [
+  "credentialFileName",
+  "reviewedBy",
+  "reviewedAt",
+  "verificationReason",
+] as const;
+
 export function mapFirestoreTutorDoc(id: string, data: FirestoreTutorDoc): Tutor {
-  return {
+  const tutor: Tutor = {
     id,
     name: data.name,
     subject: data.subject,
@@ -32,7 +39,29 @@ export function mapFirestoreTutorDoc(id: string, data: FirestoreTutorDoc): Tutor
       data.avatarUrl ??
       `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(data.name)}&backgroundColor=d1fae5`,
     avatarColor: data.avatarColor ?? "bg-emerald-100",
+    isVerified: isMarketplaceVisible(data),
   };
+
+  if (typeof data.hoursTaught === "number") {
+    tutor.hoursTaught = data.hoursTaught;
+  }
+  if (typeof data.yearsOfExperience === "number") {
+    tutor.yearsOfExperience = data.yearsOfExperience;
+  }
+  if (Array.isArray(data.educationLevels) && data.educationLevels.length > 0) {
+    tutor.educationLevels = data.educationLevels.filter(
+      (level): level is string => typeof level === "string" && level.trim().length > 0,
+    );
+  }
+  if (typeof data.hasAvailability === "boolean") {
+    tutor.hasAvailability = data.hasAvailability;
+  }
+
+  for (const field of PRIVATE_TUTOR_FIELDS) {
+    delete (tutor as Record<string, unknown>)[field];
+  }
+
+  return tutor;
 }
 
 export function mapFirestoreCollectiveHubDoc(

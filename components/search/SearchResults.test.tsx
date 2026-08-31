@@ -40,12 +40,13 @@ describe("SearchResults", () => {
     render(<SearchResults initialQuery="Inglês" initialModality="online" />);
 
     await waitFor(() => {
-      expect(mockTrackEvent).toHaveBeenCalledWith("search", {
-        subject: "Inglês",
-        modality: "online",
-        lesson_type: "todos",
-        source: "results",
-      });
+    expect(mockTrackEvent).toHaveBeenCalledWith("search", {
+      subject: "Inglês",
+      city: "Todas as cidades",
+      modality: "online",
+      lesson_type: "todos",
+      source: "results",
+    });
     });
     expect(
       await screen.findByRole("heading", { name: "Resultados da Busca" }),
@@ -96,7 +97,7 @@ describe("SearchResults", () => {
 
     render(<SearchResults initialQuery="Inglês" />);
 
-    expect(await screen.findByRole("heading", { name: "Turmas coletivas" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Aulas coletivas" })).toBeInTheDocument();
     expect(screen.getByText("Inglês para Viagem — Primeiros Passos")).toBeInTheDocument();
     expect(screen.getByText("Vagas disponíveis: 2 de 6")).toBeInTheDocument();
     expect(screen.getByText(/Economia de 60% versus individual/)).toBeInTheDocument();
@@ -104,5 +105,49 @@ describe("SearchResults", () => {
       "href",
       "/turmas/hub-m1",
     );
+  });
+
+  it("hides unapproved tutors even if they were returned by the client", async () => {
+    mockFetchVerifiedTutors.mockResolvedValue([
+      {
+        id: "pending",
+        name: "Tutor Pendente",
+        subject: "Inglês",
+        city: "São Paulo",
+        state: "SP",
+        rating: 5,
+        reviewCount: 1,
+        bio: "Ainda em análise.",
+        individualPrice: 50,
+        collectivePrice: 20,
+        modality: "online",
+        lessonTypes: ["individual", "coletivo"],
+        isOnline: true,
+        avatarUrl: "https://example.com/a.png",
+        avatarColor: "bg-emerald-100",
+        isVerified: false,
+      },
+    ]);
+
+    render(<SearchResults initialQuery="Inglês" />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Nenhum professor de Inglês com esses filtros" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Tutor Pendente")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Ver páginas por disciplina e cidade" }),
+    ).toHaveAttribute("href", "/professores");
+  });
+
+  it("asks Firestore for the selected city instead of downloading every tutor", async () => {
+    render(<SearchResults initialQuery="Inglês" initialCity="São Paulo" />);
+
+    await waitFor(() => {
+      expect(mockFetchVerifiedTutors).toHaveBeenCalledWith({
+        subject: "Inglês",
+        city: "São Paulo",
+      });
+    });
   });
 });
