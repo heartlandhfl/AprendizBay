@@ -121,7 +121,8 @@ service firebase.storage {
     // -------------------------------------------------------------------------
 
     match /tutors/{tutorId}/credentials/{file} {
-      // Private verification documents: never public, never download-token based.
+      // Private verification documents: never public. Clients must use authenticated
+      // reads (getBlob), not public download URLs.
       allow get: if isOwner(tutorId) || isAdmin();
       allow list: if isOwner(tutorId) || isAdmin();
       allow write: if isOwner(tutorId) && isTutor() && isValidDocumentUpload();
