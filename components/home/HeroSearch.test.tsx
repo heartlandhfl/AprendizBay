@@ -37,4 +37,21 @@ describe("HeroSearch", () => {
     });
     expect(mockPush).toHaveBeenCalledWith("/search?q=Ingl%C3%AAs&modality=presencial");
   });
+
+  it("uses non-numeric marketing copy instead of invented tutor counts", async () => {
+    const user = userEvent.setup();
+    render(<HeroSearch />);
+
+    expect(
+      screen.getByText("Encontre professores para aprender do seu jeito"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/milhares/i)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Presencial" }));
+
+    expect(
+      screen.getByText("Encontre tutores perto de você para aulas presenciais"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/milhares/i)).not.toBeInTheDocument();
+  });
 });

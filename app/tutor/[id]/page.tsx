@@ -49,6 +49,11 @@ export async function generateMetadata({ params }: TutorPageProps): Promise<Meta
       locale: "pt_BR",
       type: "profile",
     },
+    twitter: {
+      card: "summary",
+      title: `${tutor.name} — ${tutor.subject} | Aprendiz Bay`,
+      description,
+    },
   };
 }
 

@@ -111,7 +111,7 @@ export default function HeroSearch() {
 
       <p className="mt-4 text-center text-sm text-muted-foreground">
         {modality === "online"
-          ? "Milhares de professores disponíveis para aulas por videoconferência"
+          ? "Encontre professores para aprender do seu jeito"
           : "Encontre tutores perto de você para aulas presenciais"}
       </p>
     </div>
