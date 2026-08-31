@@ -390,4 +390,75 @@ describe("createBookingCheckout", () => {
     expect(kinds).toContain("created");
     expect(createCheckout.mock.calls.length).toBe(1);
   });
+
+  it("rejects payment before the tutor has requested it", async () => {
+    const { result, createCheckout } = await runCheckout(
+      payableBooking({ paymentStatus: "unpaid" }),
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      status: 409,
+      error: CHECKOUT_ERRORS.awaitingTutor,
+    });
+    expect(createCheckout).not.toHaveBeenCalled();
+  });
+
+  it("creates a new checkout after a failed payment when the previous session is dead", async () => {
+    const createCheckout = vi.fn(async () => createdCheckout({ id: "checkout-retry" }));
+    const { result, store } = await runCheckout(
+      payableBooking({
+        paymentStatus: "failed",
+        asaasCheckoutId: "checkout-old",
+      }),
+      {
+        createCheckout,
+        inspectCheckout: vi.fn(async () =>
+          createdCheckout({ id: "checkout-old", status: "EXPIRED" }),
+        ),
+      },
+    );
+
+    expect(result).toMatchObject({ ok: true, reused: false, checkoutId: "checkout-retry" });
+    expect(createCheckout).toHaveBeenCalledTimes(1);
+    expect(store.bookings.get("booking-123")?.paymentStatus).toBe("awaiting_payment");
+    expect(store.bookings.get("booking-123")?.asaasCheckoutId).toBe("checkout-retry");
+  });
+
+  it("creates a new checkout after an expired or abandoned session", async () => {
+    const createCheckout = vi.fn(async () => createdCheckout({ id: "checkout-new" }));
+    const { result, store } = await runCheckout(
+      payableBooking({
+        paymentStatus: "expired",
+        asaasCheckoutId: "checkout-old",
+      }),
+      {
+        createCheckout,
+        inspectCheckout: vi.fn(async () =>
+          createdCheckout({ id: "checkout-old", status: "CANCELED" }),
+        ),
+      },
+    );
+
+    expect(result).toMatchObject({ ok: true, reused: false, checkoutId: "checkout-new" });
+    expect(store.bookings.get("booking-123")?.paymentStatus).toBe("awaiting_payment");
+  });
+
+  it("reuses a still-open checkout after a failed card attempt", async () => {
+    const createCheckout = vi.fn(async () => createdCheckout());
+    const { result, store } = await runCheckout(
+      payableBooking({
+        paymentStatus: "failed",
+        asaasCheckoutId: "checkout-abc",
+      }),
+      {
+        createCheckout,
+        inspectCheckout: vi.fn(async () => createdCheckout({ status: "ACTIVE" })),
+      },
+    );
+
+    expect(result).toMatchObject({ ok: true, reused: true, checkoutId: "checkout-abc" });
+    expect(createCheckout).not.toHaveBeenCalled();
+    expect(store.bookings.get("booking-123")?.paymentStatus).toBe("awaiting_payment");
+  });
 });

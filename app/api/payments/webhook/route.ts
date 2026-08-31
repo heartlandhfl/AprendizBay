@@ -41,7 +41,7 @@ export async function POST(request: Request) {
 
     const event = parseAsaasWebhook(payload);
 
-    if (!event.isSuccessfulPayment) {
+    if (event.outcome === "ignored") {
       return NextResponse.json({ received: true, ignored: event.event || "unknown" });
     }
 
@@ -57,6 +57,8 @@ export async function POST(request: Request) {
       ...(result.confirmed ? { confirmed: true } : {}),
       ...(result.alreadyProcessed ? { alreadyProcessed: true } : {}),
       ...(result.ignored ? { ignored: result.ignored } : {}),
+      ...(result.kind === "failed" ? { failed: true } : {}),
+      ...(result.kind === "expired" ? { expired: true } : {}),
     });
   } catch (error) {
     captureServerException(error);

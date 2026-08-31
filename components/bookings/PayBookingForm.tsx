@@ -19,6 +19,9 @@ interface PayBookingFormProps {
   price: number;
   platformFee?: number;
   tutorAmount?: number;
+  headline?: string;
+  description?: string;
+  actionLabel?: string;
 }
 
 export default function PayBookingForm({
@@ -26,6 +29,9 @@ export default function PayBookingForm({
   price,
   platformFee,
   tutorAmount,
+  headline,
+  description,
+  actionLabel = "Pagar com Pix ou cartão",
 }: PayBookingFormProps) {
   const { user, userDoc } = useAuth();
   const [cpf, setCpf] = useState("");
@@ -107,11 +113,11 @@ export default function PayBookingForm({
     <form onSubmit={handlePay} className="mt-4 space-y-3 rounded-2xl bg-amber-50/70 p-4 ring-1 ring-amber-200">
       <div>
         <p className="text-sm font-semibold text-amber-950">
-          O professor confirmou. Pague {formatBookingPrice(price)} para liberar a aula.
+          {headline ?? `O professor confirmou. Pague ${formatBookingPrice(price)} para liberar a aula.`}
         </p>
         <p className="mt-1 text-xs text-amber-900/80">
-          Confira quanto vai para o professor e quanto é a taxa da plataforma antes de pagar.
-          O Asaas exige CPF e dados de cobrança do aluno para Pix ou cartão de crédito.
+          {description ??
+            "Confira quanto vai para o professor e quanto é a taxa da plataforma antes de pagar. O Asaas exige CPF e dados de cobrança do aluno para Pix ou cartão de crédito."}
         </p>
       </div>
 
@@ -221,7 +227,7 @@ export default function PayBookingForm({
             Abrindo pagamento...
           </>
         ) : (
-          "Pagar com Pix ou cartão"
+          actionLabel
         )}
       </button>
     </form>

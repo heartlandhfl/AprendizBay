@@ -18,6 +18,7 @@ import {
   type AsaasCustomerData,
 } from "@/lib/payments/asaas";
 import { getPlatformFeePercent, splitBookingPrice } from "@/lib/payments/fees";
+import { canStartCheckout } from "@/lib/payments/status";
 
 export const CHECKOUT_LOCK_MS = 45_000;
 
@@ -101,7 +102,7 @@ function validatePayableBooking(
   if (booking.status !== "pending") {
     return fail(409, CHECKOUT_ERRORS.notPending);
   }
-  if (booking.paymentStatus !== "awaiting_payment") {
+  if (!canStartCheckout(booking)) {
     return fail(409, CHECKOUT_ERRORS.awaitingTutor);
   }
   if (!Number.isFinite(booking.price) || booking.price <= 0) {
@@ -161,7 +162,7 @@ async function inspectExistingCheckout(
     return "create";
   }
 
-  if (checkoutStillOpen(booking, now)) {
+  if (checkoutStillOpen(booking, now) && booking.paymentStatus !== "expired") {
     return {
       ok: true,
       checkoutId,
@@ -206,6 +207,9 @@ export function createMemoryCheckoutStore(
             continue;
           }
           const next: BookingRecord = { ...current };
+          if (typeof updates.paymentStatus === "string") {
+            next.paymentStatus = updates.paymentStatus as BookingRecord["paymentStatus"];
+          }
           if (typeof updates.asaasCheckoutId === "string") {
             next.asaasCheckoutId = updates.asaasCheckoutId;
           }
@@ -307,6 +311,7 @@ async function claimCreateSlot(
     if (
       existingId &&
       existingId !== ignoreCheckoutId &&
+      booking.paymentStatus !== "expired" &&
       checkoutStillOpen(booking, now)
     ) {
       return { kind: "reuse", booking };
@@ -318,6 +323,21 @@ async function claimCreateSlot(
       checkoutLockUntil: new Date(now.getTime() + CHECKOUT_LOCK_MS),
     });
     return { kind: "create", booking };
+  });
+}
+
+async function restoreAwaitingPayment(
+  store: CheckoutStore,
+  bookingId: string,
+): Promise<void> {
+  await store.runAtomic(async (tx) => {
+    const booking = await tx.getBooking(bookingId);
+    if (!booking) {
+      return;
+    }
+    if (booking.paymentStatus === "failed" || booking.paymentStatus === "expired") {
+      tx.updateBooking(booking.id, { paymentStatus: "awaiting_payment" });
+    }
   });
 }
 
@@ -357,6 +377,7 @@ async function saveCreatedCheckout(
       existingId &&
       existingId !== checkout.id &&
       existingId !== replacedCheckoutId &&
+      booking.paymentStatus !== "expired" &&
       checkoutStillOpen(booking, now)
     ) {
       tx.updateBooking(booking.id, { checkoutLockUntil: null });
@@ -372,6 +393,7 @@ async function saveCreatedCheckout(
       asaasCheckoutId: checkout.id,
       asaasCheckoutExpiresAt: expiresAt,
       checkoutLockUntil: null,
+      paymentStatus: "awaiting_payment",
       platformFee: feeSplit.platformFee,
       tutorAmount: feeSplit.tutorAmount,
     });
@@ -430,6 +452,9 @@ export async function createBookingCheckout(
 
   const existing = await inspectExistingCheckout(booking, now, inspectCheckout);
   if (existing !== "create") {
+    if (existing.ok) {
+      await restoreAwaitingPayment(store, booking.id);
+    }
     return existing;
   }
 
@@ -453,6 +478,9 @@ export async function createBookingCheckout(
     if (claim.kind === "reuse" && claim.booking?.asaasCheckoutId) {
       const reused = await inspectExistingCheckout(claim.booking, now, inspectCheckout);
       if (reused !== "create") {
+        if (reused.ok) {
+          await restoreAwaitingPayment(store, claim.booking.id);
+        }
         return reused;
       }
       ignoreCheckoutId = claim.booking.asaasCheckoutId.trim();

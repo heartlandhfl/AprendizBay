@@ -4,6 +4,8 @@ import {
   WEBHOOK_BOOKING_NOT_FOUND_MESSAGE,
   WEBHOOK_CANCELLED_MESSAGE,
   WEBHOOK_CONFIRMED_MESSAGE,
+  WEBHOOK_EXPIRED_MESSAGE,
+  WEBHOOK_FAILED_MESSAGE,
   WEBHOOK_INVALID_MESSAGE,
   WEBHOOK_UNAUTHORIZED_MESSAGE,
 } from "@/lib/payments/webhook-receipts";
@@ -186,6 +188,71 @@ describe("POST /api/payments/webhook", () => {
 
     expect(response.status).toBe(400);
     expect(payload.error).toBe(WEBHOOK_INVALID_MESSAGE);
+    expect(mockProcessAsaasPaymentWebhook).not.toHaveBeenCalled();
+  });
+
+  it("processes a failed payment instead of ignoring it", async () => {
+    mockProcessAsaasPaymentWebhook.mockResolvedValue({
+      kind: "failed",
+      httpStatus: 200,
+      received: true,
+      message: WEBHOOK_FAILED_MESSAGE,
+    });
+
+    const response = await POST(
+      jsonRequest({
+        event: "PAYMENT_CREDIT_CARD_CAPTURE_REFUSED",
+        payment: {
+          id: "pay_refused",
+          externalReference: "booking-123",
+          checkoutSession: "checkout-abc",
+        },
+      }),
+    );
+    const payload = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(200);
+    expect(payload.failed).toBe(true);
+    expect(payload.message).toBe(WEBHOOK_FAILED_MESSAGE);
+    expect(mockProcessAsaasPaymentWebhook).toHaveBeenCalledTimes(1);
+    expect(mockProcessAsaasPaymentWebhook.mock.calls[0]?.[0]).toMatchObject({
+      outcome: "failed",
+      bookingId: "booking-123",
+    });
+  });
+
+  it("processes an expired checkout instead of ignoring it", async () => {
+    mockProcessAsaasPaymentWebhook.mockResolvedValue({
+      kind: "expired",
+      httpStatus: 200,
+      received: true,
+      message: WEBHOOK_EXPIRED_MESSAGE,
+    });
+
+    const response = await POST(
+      jsonRequest({
+        event: "CHECKOUT_EXPIRED",
+        checkout: {
+          id: "checkout-abc",
+          status: "EXPIRED",
+          externalReference: "booking-123",
+        },
+      }),
+    );
+    const payload = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(200);
+    expect(payload.expired).toBe(true);
+    expect(payload.message).toBe(WEBHOOK_EXPIRED_MESSAGE);
+    expect(mockProcessAsaasPaymentWebhook).toHaveBeenCalledTimes(1);
+  });
+
+  it("still ignores informational Asaas events", async () => {
+    const response = await POST(jsonRequest({ event: "PAYMENT_CREATED", payment: { id: "pay_1" } }));
+    const payload = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(200);
+    expect(payload.ignored).toBe("PAYMENT_CREATED");
     expect(mockProcessAsaasPaymentWebhook).not.toHaveBeenCalled();
   });
 });

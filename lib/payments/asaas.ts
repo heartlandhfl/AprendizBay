@@ -11,6 +11,21 @@ export const SUCCESSFUL_PAYMENT_EVENTS = new Set([
   "CHECKOUT_PAID",
 ]);
 
+export const FAILED_PAYMENT_EVENTS = new Set([
+  "PAYMENT_CREDIT_CARD_CAPTURE_REFUSED",
+  "PAYMENT_REPROVED_BY_RISK_ANALYSIS",
+]);
+
+export const EXPIRED_CHECKOUT_EVENTS = new Set([
+  "CHECKOUT_EXPIRED",
+  "CHECKOUT_CANCELED",
+  "CHECKOUT_CANCELLED",
+  "PAYMENT_DELETED",
+  "PAYMENT_OVERDUE",
+]);
+
+export type AsaasWebhookOutcome = "successful" | "failed" | "expired" | "ignored";
+
 export interface AsaasCustomerData {
   name: string;
   cpfCnpj: string;
@@ -43,6 +58,7 @@ export interface AsaasCheckoutResult {
 export interface AsaasWebhookMatch {
   event: string;
   isSuccessfulPayment: boolean;
+  outcome?: AsaasWebhookOutcome;
   bookingId?: string;
   paymentId?: string;
   asaasCheckoutId?: string;
@@ -188,7 +204,7 @@ export const ASAAS_CHECKOUT_MINUTES_TO_EXPIRE = 1440;
 
 export const REUSABLE_ASAAS_CHECKOUT_STATUSES = new Set(["ACTIVE"]);
 export const PAID_ASAAS_CHECKOUT_STATUSES = new Set(["PAID"]);
-export const DEAD_ASAAS_CHECKOUT_STATUSES = new Set(["EXPIRED", "CANCELED"]);
+export const DEAD_ASAAS_CHECKOUT_STATUSES = new Set(["EXPIRED", "CANCELED", "CANCELLED"]);
 
 export function parseAsaasCheckout(payload: unknown): AsaasCheckoutResult {
   if (!isRecord(payload)) {
@@ -303,19 +319,56 @@ export function isMalformedAsaasWebhookPayload(payload: unknown): boolean {
   return payload == null || typeof payload !== "object" || Array.isArray(payload);
 }
 
+export function resolveAsaasWebhookOutcome(input: {
+  event: string;
+  paymentStatus?: string;
+  checkoutStatus?: string;
+}): AsaasWebhookOutcome {
+  const event = input.event.trim().toUpperCase();
+  const paymentStatus = input.paymentStatus?.trim().toUpperCase();
+  const checkoutStatus = input.checkoutStatus?.trim().toUpperCase();
+
+  if (
+    SUCCESSFUL_PAYMENT_EVENTS.has(event) ||
+    paymentStatus === "CONFIRMED" ||
+    paymentStatus === "RECEIVED" ||
+    paymentStatus === "RECEIVED_IN_CASH" ||
+    checkoutStatus === "PAID"
+  ) {
+    return "successful";
+  }
+
+  if (
+    EXPIRED_CHECKOUT_EVENTS.has(event) ||
+    checkoutStatus === "EXPIRED" ||
+    checkoutStatus === "CANCELED" ||
+    checkoutStatus === "CANCELLED"
+  ) {
+    return "expired";
+  }
+
+  if (FAILED_PAYMENT_EVENTS.has(event)) {
+    return "failed";
+  }
+
+  return "ignored";
+}
+
 export function parseAsaasWebhook(payload: unknown): AsaasWebhookMatch {
   const body = isRecord(payload) ? payload : {};
   const payment = isRecord(body.payment) ? body.payment : {};
   const checkout = isRecord(body.checkout) ? body.checkout : {};
   const event = readString(body.event) ?? "";
+  const outcome = resolveAsaasWebhookOutcome({
+    event,
+    paymentStatus: readString(payment.status),
+    checkoutStatus: readString(checkout.status),
+  });
 
   return {
     event,
-    isSuccessfulPayment:
-      SUCCESSFUL_PAYMENT_EVENTS.has(event) ||
-      readString(payment.status) === "CONFIRMED" ||
-      readString(payment.status) === "RECEIVED" ||
-      readString(checkout.status) === "PAID",
+    outcome,
+    isSuccessfulPayment: outcome === "successful",
     bookingId:
       readString(payment.externalReference) ??
       readString(checkout.externalReference) ??
