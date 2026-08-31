@@ -12,11 +12,7 @@ import ReviewModal from "@/components/reviews/ReviewModal";
 import { useAuth } from "@/lib/auth/AuthContext";
 import type { Booking, PaymentStatus } from "@/lib/bookings/types";
 import { BOOKING_TYPE_LABELS } from "@/lib/bookings/types";
-import {
-  decideCancellation,
-  getCancellationCopy,
-  toScheduledDate,
-} from "@/lib/bookings/cancellation";
+import { describeCancellation } from "@/lib/bookings/cancellation";
 import {
   cancelBookingAsStudent,
   fetchTutorName,
@@ -169,14 +165,9 @@ export default function StudentBookingsList() {
             const lifecycle = getPaymentLifecycle(booking);
             const paymentCopy = getStudentPaymentCopy(lifecycle);
             const canPay = canStartCheckout(booking);
-            const cancellation = decideCancellation({
-              status: booking.status,
-              paymentStatus,
-              scheduledAt: toScheduledDate(booking.scheduledAt),
-              actor: "student",
-            });
-            const cancellationCopy = getCancellationCopy(
-              cancellation,
+            const { decision: cancellation, copy: cancellationCopy } = describeCancellation(
+              booking,
+              "student",
               formatBookingPrice(booking.price),
             );
             const showCancel =
