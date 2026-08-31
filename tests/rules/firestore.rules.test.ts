@@ -1223,4 +1223,24 @@ describe("firestore.rules", () => {
       );
     });
   });
+
+  describe("lessonSlots", () => {
+    it("denies clients from reading or writing individual slot locks", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      const slotRef = doc(
+        studentDb(),
+        "lessonSlots",
+        "tutor-1_2026-09-08T19:00:00.000Z",
+      );
+
+      await assertFails(
+        setDoc(slotRef, {
+          tutorId: TUTOR_ID,
+          bookingId: "booking-1",
+          status: "held",
+        }),
+      );
+      await assertFails(getDoc(slotRef));
+    });
+  });
 });
