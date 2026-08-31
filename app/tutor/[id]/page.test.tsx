@@ -10,7 +10,7 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/lib/tutors/server", () => ({
   fetchTutorProfile: vi.fn(),
-  fetchIndexableTutorIdsForSeo: vi.fn(),
+  fetchAllTutorIds: vi.fn(),
 }));
 
 vi.mock("@/components/observability/ProfileViewTracker", () => ({
@@ -30,26 +30,27 @@ vi.mock("@/components/tutor/BookingWidget", () => ({ default: () => null }));
 vi.mock("@/components/conversations/SendMessageButton", () => ({ default: () => null }));
 
 import TutorPage, { generateMetadata, generateStaticParams } from "@/app/tutor/[id]/page";
-import { fetchIndexableTutorIdsForSeo, fetchTutorProfile } from "@/lib/tutors/server";
+import { okTutorList } from "@/lib/tutors/catalog";
+import { fetchAllTutorIds, fetchTutorProfile } from "@/lib/tutors/server";
 
 const fetchTutorProfileMock = vi.mocked(fetchTutorProfile);
-const fetchIndexableTutorIdsForSeoMock = vi.mocked(fetchIndexableTutorIdsForSeo);
+const fetchAllTutorIdsMock = vi.mocked(fetchAllTutorIds);
 
 describe("/tutor/[id]", () => {
   beforeEach(() => {
     fetchTutorProfileMock.mockReset();
-    fetchIndexableTutorIdsForSeoMock.mockReset();
+    fetchAllTutorIdsMock.mockReset();
   });
 
   it("prerenders only indexable tutor ids", async () => {
-    fetchIndexableTutorIdsForSeoMock.mockResolvedValue(["real-tutor"]);
+    fetchAllTutorIdsMock.mockResolvedValue(okTutorList(["real-tutor"]));
 
     await expect(generateStaticParams()).resolves.toEqual([{ id: "real-tutor" }]);
   });
 
   it("builds Portuguese metadata and a canonical URL for a real tutor", async () => {
     const tutor = getTutorProfile("1")!;
-    fetchTutorProfileMock.mockResolvedValue(tutor);
+    fetchTutorProfileMock.mockResolvedValue({ state: "ok", tutor });
 
     const metadata = await generateMetadata({ params: { id: "1" } });
 
@@ -60,7 +61,7 @@ describe("/tutor/[id]", () => {
   });
 
   it("does not index a missing tutor", async () => {
-    fetchTutorProfileMock.mockResolvedValue(undefined);
+    fetchTutorProfileMock.mockResolvedValue({ state: "not_found" });
 
     const metadata = await generateMetadata({ params: { id: "missing" } });
 
@@ -70,7 +71,7 @@ describe("/tutor/[id]", () => {
 
   it("renders JSON-LD only for the loaded tutor", async () => {
     const tutor = getTutorProfile("1")!;
-    fetchTutorProfileMock.mockResolvedValue(tutor);
+    fetchTutorProfileMock.mockResolvedValue({ state: "ok", tutor });
 
     const { container } = render(await TutorPage({ params: { id: "1" } }));
 
@@ -84,7 +85,7 @@ describe("/tutor/[id]", () => {
 
   it("omits rating structured data when the tutor has no reviews", async () => {
     const tutor = { ...getTutorProfile("1")!, rating: 0, reviewCount: 0 };
-    fetchTutorProfileMock.mockResolvedValue(tutor);
+    fetchTutorProfileMock.mockResolvedValue({ state: "ok", tutor });
 
     const { container } = render(await TutorPage({ params: { id: "1" } }));
     const jsonLd = container.querySelector('script[type="application/ld+json"]');
@@ -94,7 +95,7 @@ describe("/tutor/[id]", () => {
   });
 
   it("returns 404 when the tutor does not exist", async () => {
-    fetchTutorProfileMock.mockResolvedValue(undefined);
+    fetchTutorProfileMock.mockResolvedValue({ state: "not_found" });
 
     await expect(TutorPage({ params: { id: "missing" } })).rejects.toThrow("NEXT_NOT_FOUND");
   });

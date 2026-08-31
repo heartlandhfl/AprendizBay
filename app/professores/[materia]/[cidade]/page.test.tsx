@@ -10,27 +10,21 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/lib/tutors/server", () => ({
   fetchVerifiedTutorsServer: vi.fn(),
-  fetchIndexableTutorsForSeo: vi.fn(),
 }));
 
 import SubjectCityPage, {
   generateMetadata,
   generateStaticParams,
 } from "@/app/professores/[materia]/[cidade]/page";
-import {
-  fetchIndexableTutorsForSeo,
-  fetchVerifiedTutorsServer,
-} from "@/lib/tutors/server";
+import { okTutorList } from "@/lib/tutors/catalog";
+import { fetchVerifiedTutorsServer } from "@/lib/tutors/server";
 
 const fetchVerifiedTutorsServerMock = vi.mocked(fetchVerifiedTutorsServer);
-const fetchIndexableTutorsForSeoMock = vi.mocked(fetchIndexableTutorsForSeo);
 
 describe("/professores/[materia]/[cidade]", () => {
   beforeEach(() => {
     fetchVerifiedTutorsServerMock.mockReset();
-    fetchIndexableTutorsForSeoMock.mockReset();
-    fetchVerifiedTutorsServerMock.mockResolvedValue(MOCK_TUTORS);
-    fetchIndexableTutorsForSeoMock.mockResolvedValue(MOCK_TUTORS);
+    fetchVerifiedTutorsServerMock.mockResolvedValue(okTutorList(MOCK_TUTORS));
   });
 
   it("prerenders only pairs with local inventory", async () => {

@@ -14,12 +14,11 @@ import TutorStickyActions from "@/components/tutor/TutorStickyActions";
 import ProfileViewTracker from "@/components/observability/ProfileViewTracker";
 import BookingWidget from "@/components/tutor/BookingWidget";
 import SendMessageButton from "@/components/conversations/SendMessageButton";
+import TutorCatalogProblem from "@/components/catalog/TutorCatalogProblem";
 import { INDEX_FOLLOW_ROBOTS, NOINDEX_FOLLOW_ROBOTS } from "@/lib/seo/robots-policy";
 import { buildTutorPersonJsonLd } from "@/lib/seo/tutor-jsonld";
-import {
-  fetchIndexableTutorIdsForSeo,
-  fetchTutorProfile,
-} from "@/lib/tutors/server";
+import { isCatalogProblem, tutorsForPublicPages } from "@/lib/tutors/catalog";
+import { fetchAllTutorIds, fetchTutorProfile } from "@/lib/tutors/server";
 import { offersLessonType } from "@/lib/tutors/profile-display";
 
 interface TutorPageProps {
@@ -29,19 +28,28 @@ interface TutorPageProps {
 export const dynamicParams = true;
 
 export async function generateStaticParams() {
-  const ids = await fetchIndexableTutorIdsForSeo();
-  return ids.map((id) => ({ id }));
+  const catalog = await fetchAllTutorIds();
+  return tutorsForPublicPages(catalog).map((id) => ({ id }));
 }
 
 export async function generateMetadata({ params }: TutorPageProps): Promise<Metadata> {
-  const tutor = await fetchTutorProfile(params.id);
+  const result = await fetchTutorProfile(params.id);
 
-  if (!tutor) {
+  if (isCatalogProblem(result.state)) {
+    return {
+      title: "Professor — Aprendiz Bay",
+      robots: NOINDEX_FOLLOW_ROBOTS,
+    };
+  }
+
+  if (!result.tutor) {
     return {
       title: "Professor não encontrado — Aprendiz Bay",
       robots: NOINDEX_FOLLOW_ROBOTS,
     };
   }
+
+  const tutor = result.tutor;
 
   const description =
     tutor.headline?.trim() ||
@@ -62,15 +70,26 @@ export async function generateMetadata({ params }: TutorPageProps): Promise<Meta
       locale: "pt_BR",
       type: "profile",
     },
+    twitter: {
+      card: "summary",
+      title: `${tutor.name} — ${tutor.subject} | Aprendiz Bay`,
+      description,
+    },
   };
 }
 
 export default async function TutorPage({ params }: TutorPageProps) {
-  const tutor = await fetchTutorProfile(params.id);
+  const result = await fetchTutorProfile(params.id);
 
-  if (!tutor) {
+  if (isCatalogProblem(result.state)) {
+    return <TutorCatalogProblem kind={result.state} scope="profile" />;
+  }
+
+  if (!result.tutor) {
     notFound();
   }
+
+  const tutor = result.tutor;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 pb-28 sm:px-6 lg:px-8 lg:pb-8">

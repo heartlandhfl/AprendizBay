@@ -1,21 +1,42 @@
 import { describe, expect, it } from "vitest";
-import { allowMockTutorFallback } from "@/lib/tutors/fallback";
+import { MOCK_TUTORS } from "@/lib/mock-tutors";
+import {
+  getMockTutorProfileForFallback,
+  getMockTutorsForFallback,
+} from "@/lib/tutors/fallback";
 
-describe("allowMockTutorFallback", () => {
-  it("is off in production so demo tutors are not indexed", () => {
-    expect(allowMockTutorFallback({ NODE_ENV: "production" })).toBe(false);
+const PRODUCTION_ENV = {
+  NODE_ENV: "production" as const,
+  ENABLE_MOCK_TUTORS: "true",
+  NEXT_PUBLIC_ENABLE_MOCK_TUTORS: "true",
+};
+
+describe("mock tutor fallback", () => {
+  it("returns no tutors when NODE_ENV is production", () => {
+    const tutors = getMockTutorsForFallback(PRODUCTION_ENV);
+
+    expect(tutors).toEqual([]);
+    expect(tutors).not.toEqual(MOCK_TUTORS);
+    expect(tutors.map((tutor) => tutor.name)).not.toEqual(
+      expect.arrayContaining(["Mariana Silva", "Lucas Ferreira"]),
+    );
   });
 
-  it("is on in development for local previews", () => {
-    expect(allowMockTutorFallback({ NODE_ENV: "development" })).toBe(true);
+  it("does not return a fictional profile in production", () => {
+    expect(getMockTutorProfileForFallback("1", PRODUCTION_ENV)).toBeUndefined();
+    expect(getMockTutorProfileForFallback("2", PRODUCTION_ENV)).toBeUndefined();
   });
 
-  it("honors an explicit SEO_ALLOW_MOCK_TUTORS override", () => {
-    expect(allowMockTutorFallback({ NODE_ENV: "production", SEO_ALLOW_MOCK_TUTORS: "1" })).toBe(
-      true,
-    );
-    expect(allowMockTutorFallback({ NODE_ENV: "development", SEO_ALLOW_MOCK_TUTORS: "0" })).toBe(
-      false,
-    );
+  it("still serves fixtures when development mocks are explicitly enabled", () => {
+    const tutors = getMockTutorsForFallback({
+      NODE_ENV: "development",
+      ENABLE_MOCK_TUTORS: "true",
+    });
+
+    expect(tutors).toEqual(MOCK_TUTORS);
+    expect(getMockTutorProfileForFallback("1", {
+      NODE_ENV: "test",
+      ENABLE_MOCK_TUTORS: "true",
+    })?.name).toBe("Mariana Silva");
   });
 });

@@ -46,7 +46,7 @@ export const TUTOR_PROFILE_DETAILS: Record<
     hoursTaught: 1240,
     studentsServed: 186,
     about:
-      "Sou professora de inglês formada pela USP e certificada pelo Cambridge (CELTA). Ao longo de 8 anos, ajudei centenas de alunos brasileiros a perder o medo de falar, passar em entrevistas internacionais e viajar com confiança. Trabalhei em escolas de idiomas e hoje atendo alunos de todo o Brasil de forma online e presencial em São Paulo.",
+      "Sou professora de inglês formada pela USP e certificada pelo Cambridge (CELTA). Ao longo de 8 anos, ajudo alunos brasileiros a perder o medo de falar, passar em entrevistas internacionais e viajar com confiança. Trabalhei em escolas de idiomas e hoje atendo alunos de todo o Brasil de forma online e presencial em São Paulo.",
     methodology:
       "Minhas aulas são 100% práticas e personalizadas. Começo com um diagnóstico rápido do seu nível e objetivos, e monto um plano sob medida. Uso role-plays, podcasts, séries e situações reais do seu dia a dia. Nas turmas coletivas, estimulo a conversação em grupo — você aprende ouvindo colegas com perfis diferentes e divide o custo sem perder qualidade.",
     collectiveHubs: [
@@ -137,7 +137,7 @@ export const TUTOR_PROFILE_DETAILS: Record<
     hoursTaught: 1580,
     studentsServed: 230,
     about:
-      "Licenciada em Matemática pela UFMG, com especialização em preparação para ENEM e vestibulares. Já ajudei mais de 200 alunos a aumentar a nota em até 40% em menos de 6 meses. Sei que muita gente tem bloqueio com matemática — meu trabalho é desmontar esse medo com explicações claras e muita paciência.",
+      "Licenciada em Matemática pela UFMG, com especialização em preparação para ENEM e vestibulares. Ajudo alunos a subir a nota com explicações claras e consistência. Sei que muita gente tem bloqueio com matemática — meu trabalho é desmontar esse medo com paciência e prática guiada.",
     methodology:
       "Começo sempre pelo diagnóstico: onde você trava? A partir daí, uso mapas mentais, resolução comentada e listas progressivas de exercícios. Nas turmas coletivas, os alunos resolvem questões em grupo e aprendem com as dúvidas uns dos outros — o que reforça o conteúdo e deixa a aula mais dinâmica e barata.",
     collectiveHubs: [
@@ -190,6 +190,7 @@ export const TUTOR_PROFILE_DETAILS: Record<
   },
 };
 
+/** Development/test fixture. Do not call from production user-facing paths. */
 export function getTutorProfile(id: string): TutorProfile | undefined {
   const base = MOCK_TUTORS.find((t) => t.id === id);
   if (!base) return undefined;
@@ -200,6 +201,7 @@ export function getTutorProfile(id: string): TutorProfile | undefined {
   return { ...base, ...details };
 }
 
+/** Development/test fixture IDs. Do not use to generate production routes. */
 export function getAllTutorIds(): string[] {
   return Object.keys(TUTOR_PROFILE_DETAILS);
 }

@@ -40,8 +40,8 @@ export function absoluteUrl(origin: string, path: string): string {
 }
 
 /**
- * Builds sitemap rows from real tutors only. Callers must not pass MOCK_TUTORS
- * in production — use fetchIndexableTutorsForSeo().
+ * Builds sitemap rows from real tutors only. Callers must pass
+ * tutorsForPublicPages() results, never MOCK_TUTORS in production.
  */
 export function buildSitemapEntries(input: {
   origin: string;

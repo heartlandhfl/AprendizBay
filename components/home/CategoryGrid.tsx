@@ -50,7 +50,7 @@ export default function CategoryGrid() {
               Explore por Categoria
             </h2>
             <p className="mt-2 text-lg text-muted-foreground">
-              As matérias mais buscadas pelos nossos alunos
+              Encontre professores nas matérias que você quer aprender
             </p>
           </div>
           <Link

@@ -19,6 +19,12 @@ export const metadata: Metadata = {
     locale: "pt_BR",
     type: "website",
   },
+  twitter: {
+    card: "summary",
+    title: "Aprendiz Bay — Encontre seu professor ideal",
+    description:
+      "Plataforma brasileira de tutoria e aprendizado coletivo. Encontre professores particulares e participe de aulas em grupo com preços acessíveis.",
+  },
 };
 
 export default function RootLayout({

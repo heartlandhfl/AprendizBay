@@ -1,3 +1,10 @@
+/**
+ * Shared tutor types plus development/test fixtures.
+ *
+ * MOCK_TUTORS are fictional people. They must never reach students, SEO pages,
+ * or structured data in production. Use `areMockTutorsEnabled()` before reading
+ * this catalog into any user-facing path.
+ */
 export type Modality = "online" | "presencial" | "ambos";
 export type LessonType = "individual" | "coletivo";
 export type FilterLessonType = LessonType | "todos";

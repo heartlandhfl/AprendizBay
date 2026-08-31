@@ -7,6 +7,7 @@ vi.mock("@/lib/tutors/server", () => ({
 }));
 
 import ProfessoresIndexPage, { metadata } from "@/app/professores/page";
+import { okTutorList } from "@/lib/tutors/catalog";
 import { fetchVerifiedTutorsServer } from "@/lib/tutors/server";
 
 const fetchVerifiedTutorsServerMock = vi.mocked(fetchVerifiedTutorsServer);
@@ -23,7 +24,7 @@ describe("/professores", () => {
   });
 
   it("lists only cities that actually have a tutor for that subject", async () => {
-    fetchVerifiedTutorsServerMock.mockResolvedValue(MOCK_TUTORS);
+    fetchVerifiedTutorsServerMock.mockResolvedValue(okTutorList(MOCK_TUTORS));
 
     render(await ProfessoresIndexPage());
 
@@ -39,7 +40,7 @@ describe("/professores", () => {
   });
 
   it("shows a useful empty state when there is no inventory", async () => {
-    fetchVerifiedTutorsServerMock.mockResolvedValue([]);
+    fetchVerifiedTutorsServerMock.mockResolvedValue(okTutorList([]));
 
     render(await ProfessoresIndexPage());
 

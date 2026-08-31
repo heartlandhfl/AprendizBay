@@ -1,26 +1,11 @@
-import { MOCK_TUTORS } from "@/lib/mock-tutors";
-import { getTutorProfile as getMockTutorProfile } from "@/lib/tutor-profiles";
+import { MOCK_TUTORS, type Tutor } from "@/lib/mock-tutors";
+import { getTutorProfile as getMockTutorProfile, type TutorProfile } from "@/lib/tutor-profiles";
+import { areMockTutorsEnabled, type MockTutorEnv } from "@/lib/tutors/mock-gate";
 
 const FALLBACK_WARNING =
-  "[Aprendiz Bay] Coleção tutors vazia — usando MOCK_TUTORS temporariamente. Execute `npx tsx scripts/seed.ts` para popular o Firestore.";
+  "[Aprendiz Bay] Usando MOCK_TUTORS porque ENABLE_MOCK_TUTORS está ativo. Execute `npx tsx scripts/seed.ts` apenas em desenvolvimento.";
 
 let fallbackWarningLogged = false;
-
-/**
- * Demo tutors must never be indexed. Production builds omit the mock
- * fallback unless SEO_ALLOW_MOCK_TUTORS=1 (local SEO previews only).
- */
-export function allowMockTutorFallback(
-  env: NodeJS.ProcessEnv = process.env,
-): boolean {
-  if (env.SEO_ALLOW_MOCK_TUTORS === "0") {
-    return false;
-  }
-  if (env.SEO_ALLOW_MOCK_TUTORS === "1") {
-    return true;
-  }
-  return env.NODE_ENV !== "production";
-}
 
 export function warnMockTutorFallback() {
   if (fallbackWarningLogged || typeof console === "undefined") {
@@ -31,12 +16,23 @@ export function warnMockTutorFallback() {
   fallbackWarningLogged = true;
 }
 
-export function getMockTutorsForFallback() {
+export function getMockTutorsForFallback(env: MockTutorEnv = process.env): Tutor[] {
+  if (!areMockTutorsEnabled(env)) {
+    return [];
+  }
+
   warnMockTutorFallback();
   return MOCK_TUTORS;
 }
 
-export function getMockTutorProfileForFallback(id: string) {
+export function getMockTutorProfileForFallback(
+  id: string,
+  env: MockTutorEnv = process.env,
+): TutorProfile | undefined {
+  if (!areMockTutorsEnabled(env)) {
+    return undefined;
+  }
+
   warnMockTutorFallback();
   return getMockTutorProfile(id);
 }
