@@ -46,12 +46,31 @@ async function getJson(port, path) {
   return { status: response.status, payload };
 }
 
+async function postJson(port, path, body, headers = {}) {
+  const response = await fetch(`http://127.0.0.1:${port}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...headers },
+    body: JSON.stringify(body),
+  });
+  const payload = await response.json().catch(() => null);
+  return { status: response.status, payload };
+}
+
 async function withHttpRoute() {
   const app = express();
   app.use("/api/bookings", bookingsRouter);
   const { server, port } = await listen(app);
 
   try {
+    const unauthenticatedComplete = await postJson(port, "/api/bookings/complete", {
+      bookingId: "booking-1",
+    });
+    assert.equal(unauthenticatedComplete.status, 401);
+    assert.match(
+      String(unauthenticatedComplete.payload?.error || ""),
+      /Token|autenticação|login/i,
+    );
+
     const missingTutor = await getJson(port, "/api/bookings/occupancy");
     assert.equal(missingTutor.status, 400);
     assert.match(String(missingTutor.payload?.error || ""), /professor/);

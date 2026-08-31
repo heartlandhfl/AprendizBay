@@ -3,8 +3,8 @@
 /**
  * Server Action — works natively on Vercel / next start.
  * Production Hostinger serves static hostinger-next/ HTML via Express, so this
- * POST handler never runs there. The live path is POST /api/reviews/recompute-rating
- * (server/api/reviews.js), called from lib/reviews/client.ts after createReview.
+ * POST handler never runs there. The live path is POST /api/reviews
+ * (server/api/reviews.js), which recomputes the tutor rating after create.
  */
 import { recomputeTutorRating } from "@/lib/reviews/server";
 

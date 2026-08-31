@@ -58,7 +58,10 @@ async function withFakeDb() {
           where() {
             return {
               get: async () => ({
-                docs: [{ data: () => ({ rating: 5 }) }, { data: () => ({ rating: 4 }) }],
+                docs: [
+                  { id: "booking-1", data: () => ({ bookingId: "booking-1", rating: 5 }) },
+                  { id: "booking-2", data: () => ({ bookingId: "booking-2", rating: 4 }) },
+                ],
               }),
             };
           },
@@ -97,8 +100,8 @@ function listen(app) {
   });
 }
 
-async function postJson(port, body, headers = {}) {
-  const response = await fetch(`http://127.0.0.1:${port}/api/reviews/recompute-rating`, {
+async function postJson(port, path, body, headers = {}) {
+  const response = await fetch(`http://127.0.0.1:${port}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...headers },
     body: JSON.stringify(body),
@@ -113,13 +116,24 @@ async function withHttpRoute() {
   const { server, port } = await listen(app);
 
   try {
-    const missingTutor = await postJson(port, {});
+    const missingTutor = await postJson(port, "/api/reviews/recompute-rating", {});
     assert.equal(missingTutor.status, 400);
     assert.match(String(missingTutor.payload?.error || ""), /professor/);
 
-    const missingToken = await postJson(port, { tutorId: "tutor-1" });
+    const missingToken = await postJson(port, "/api/reviews/recompute-rating", {
+      tutorId: "tutor-1",
+    });
     assert.equal(missingToken.status, 401);
     assert.match(String(missingToken.payload?.error || ""), /Token|autenticação/i);
+
+    const unauthenticatedCreate = await postJson(port, "/api/reviews", {
+      bookingId: "booking-1",
+      tutorId: "tutor-1",
+      rating: 5,
+      comment: "Aula excelente.",
+    });
+    assert.equal(unauthenticatedCreate.status, 401);
+    assert.match(String(unauthenticatedCreate.payload?.error || ""), /Token|autenticação|login/i);
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

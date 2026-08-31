@@ -1,17 +1,25 @@
 /**
  * Hostinger audit — firebase-admin (Next.js server modules)
  *
- * Used by lib/reviews/actions.ts ("use server") and
- * app/api/reviews/recompute-rating/route.ts on Vercel / next start.
+ * Used by lib/reviews/actions.ts ("use server"),
+ * app/api/reviews/route.ts and app/api/reviews/recompute-rating/route.ts
+ * on Vercel / next start.
  *
  * Production Hostinger does not execute this module. Express serves the same
- * recompute via POST /api/reviews/recompute-rating (server/api/reviews.js),
- * which lazy-loads firebase-admin from server/api/firebase-admin.js.
+ * create and recompute via POST /api/reviews and
+ * POST /api/reviews/recompute-rating (server/api/reviews.js),
+ * which lazy-load firebase-admin from server/api/firebase-admin.js.
  *
  * Do not import this file from server.js. Express must use server/api/reviews.js.
  */
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
+import {
+  computeTutorRatingFromRatings,
+  createReviewForStudent,
+  ratingsFromReviewDocs,
+  type CreateReviewResult,
+} from "@/lib/reviews/create-review";
 
 let adminApp: App | undefined;
 
@@ -44,19 +52,31 @@ export async function recomputeTutorRating(tutorId: string): Promise<void> {
   const db = getAdminFirestore();
   const reviewsSnap = await db.collection("reviews").where("tutorId", "==", tutorId).get();
 
-  const ratings = reviewsSnap.docs.map(
-    (docSnap) => docSnap.data().rating as number,
-  );
-  const reviewCount = ratings.length;
-  const rating =
-    reviewCount > 0
-      ? Math.round((ratings.reduce((sum, value) => sum + value, 0) / reviewCount) * 10) /
-        10
-      : 0;
+  const ratings = ratingsFromReviewDocs(reviewsSnap.docs);
+  const { rating, reviewCount } = computeTutorRatingFromRatings(ratings);
 
   await db.collection("tutors").doc(tutorId).update({
     rating,
     reviewCount,
     updatedAt: FieldValue.serverTimestamp(),
   });
+}
+
+export async function createStudentReview(input: {
+  actorUid: string;
+  bookingId: string;
+  tutorId: string;
+  rating: number;
+  comment: string;
+}): Promise<CreateReviewResult> {
+  const db = getAdminFirestore();
+  const result = await createReviewForStudent(db, input, {
+    timestamp: FieldValue.serverTimestamp(),
+  });
+  try {
+    await recomputeTutorRating(result.tutorId);
+  } catch {
+    // The review is already persisted; rating can be repaired via recompute-rating.
+  }
+  return result;
 }

@@ -59,6 +59,15 @@ function turmasDetailRedirect(urlPath) {
   return `/turmas?id=${encodeURIComponent(match[1])}`;
 }
 
+function aulasLessonRedirect(urlPath) {
+  const match = urlPath.match(/^\/aulas\/([^/]+)$/);
+  if (!match) {
+    return null;
+  }
+
+  return `/aulas?aula=${encodeURIComponent(match[1])}`;
+}
+
 function resolvePageFile(appOut, urlPath, rsc) {
   const ext = rsc ? ".rsc" : ".html";
   const relative =
@@ -205,6 +214,11 @@ function attachStaticUi(app, appDir) {
       res.redirect(302, turmasRedirect);
       return;
     }
+    const aulasRedirect = aulasLessonRedirect(urlPath);
+    if (aulasRedirect) {
+      res.redirect(302, aulasRedirect);
+      return;
+    }
     const pageFile = resolvePageFile(appOut, urlPath, wantsRsc);
     const contentType = wantsRsc ? "text/x-component" : "html";
 
@@ -235,4 +249,5 @@ module.exports = {
   NOT_FOUND_JSON,
   mensagensThreadRedirect,
   turmasDetailRedirect,
+  aulasLessonRedirect,
 };

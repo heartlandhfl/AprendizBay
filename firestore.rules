@@ -36,9 +36,10 @@ rules_version = '2';
 //     paymentId?, asaasCheckoutId?, asaasCheckoutExpiresAt?, checkoutLockUntil?
 //     refundId?, refundStatus?, refundAmount?, refundLockUntil?
 //     scheduledAt, price, platformFee?, tutorAmount?, meetingUrl?, createdAt, updatedAt
+//     completedAt?                      // set when the tutor/admin marks the lesson completed
 //     lessonReminderSentAt?             // admin-only, set after the 1h reminder email
 //
-//   reviews/{reviewId}
+//   reviews/{reviewId}              // reviewId === bookingId (one review per booking)
 //     tutorId, studentId, bookingId, rating, comment, createdAt
 //
 //   conversations/{conversationId}      // conversationId === studentId_tutorId
@@ -69,7 +70,11 @@ rules_version = '2';
 //        (asaasWebhookReceipts + booking write in one Admin transaction; e-mail after commit)
 // ADMIN  bookings lesson reminder      → lib/notifications (lessonReminderSentAt)
 // MATCH  bookings tutor cancel         → unpaid client-capable; paid via /api/bookings/cancel + refund
-// MATCH  bookings tutor complete       → lib/bookings/service.ts (status → completed)
+// ADMIN  bookings tutor complete       → POST /api/bookings/complete
+//        Hostinger Express: server/api/bookings.js
+//        Vercel / next start: app/api/bookings/complete + lib/bookings/server.ts
+//        Only the booking tutor or an admin; confirmed + paid only; sets completedAt
+// MATCH  bookings tutor complete       → hardened rules (same transition as the API)
 // MATCH  collectiveHubs create         → lib/hubs/service.ts (approved tutor dashboard)
 // MATCH  collectiveHubs student join   → lib/hubs/service.ts (transaction: roster + count + status)
 // MATCH  tutors/{tutorId}/availability  → lib/availability/service.ts (tutor dashboard)
@@ -78,10 +83,12 @@ rules_version = '2';
 // MATCH  conversations create        → lib/conversations/service.ts (student starts thread)
 // MATCH  conversations update        → lib/conversations/service.ts (lastMessage preview)
 // MATCH  conversations/messages create → lib/conversations/service.ts (either participant)
-// MATCH  reviews create              → lib/reviews/client.ts (requires completed booking + e-mail ao professor)
-// ADMIN  tutors rating/reviewCount   → POST /api/reviews/recompute-rating after createReview
+// ADMIN  reviews create              → POST /api/reviews (deterministic id = bookingId)
 //        Hostinger Express: server/api/reviews.js (firebase-admin; bypasses rules)
-//        Vercel / next start: app/api/reviews/recompute-rating + lib/reviews/server.ts
+//        Vercel / next start: app/api/reviews + lib/reviews/server.ts
+//        Client: lib/reviews/client.ts (never writes reviews from the browser)
+// MATCH  reviews create              → hardened rules (completed booking, student + tutor match)
+// ADMIN  tutors rating/reviewCount   → POST /api/reviews after create, or /recompute-rating
 //        Server Action lib/reviews/actions.ts remains for Next hosts only
 // ADMIN  account delete + anonymize  → POST /api/account/delete (LGPD art. 18)
 //        Deletes users/{uid}; anonymizes bookings/reviews (keeps docs for integrity)
@@ -158,9 +165,7 @@ service cloud.firestore {
     }
 
     function validRating() {
-      return request.resource.data.rating is number
-        && request.resource.data.rating >= 1
-        && request.resource.data.rating <= 5;
+      return request.resource.data.rating in [1, 2, 3, 4, 5];
     }
 
     function unchanged(field) {
@@ -433,12 +438,20 @@ service cloud.firestore {
           && request.resource.data.paymentStatus == "awaiting_payment"
           && unchanged("status"))
         || (resource.data.tutorId == request.auth.uid
+          && resource.data.status in ["pending", "confirmed"]
           && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(["status", "updatedAt", "meetingUrl"])
-          && request.resource.data.status in ["cancelled", "completed"]
-          && (request.resource.data.status == "completed"
-            || !("paymentStatus" in resource.data)
-            || resource.data.paymentStatus != "paid"));
+          && request.resource.data.status == "cancelled"
+          && (!("paymentStatus" in resource.data)
+            || resource.data.paymentStatus != "paid"))
+        || (resource.data.tutorId == request.auth.uid
+          && resource.data.status == "confirmed"
+          && resource.data.paymentStatus == "paid"
+          && resource.data.scheduledAt <= request.time
+          && request.resource.data.status == "completed"
+          && request.resource.data.completedAt is timestamp
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(["status", "updatedAt", "completedAt"]));
 
       allow delete: if isAdmin();
     }
@@ -448,21 +461,50 @@ service cloud.firestore {
     // -------------------------------------------------------------------------
 
     match /reviews/{reviewId} {
+      function reviewBooking() {
+        return get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data;
+      }
+
+      function validReviewCreate() {
+        let data = request.resource.data;
+        let booking = reviewBooking();
+
+        return isStudent()
+          && reviewId == data.bookingId
+          && data.studentId == request.auth.uid
+          && data.tutorId == booking.tutorId
+          && data.bookingId is string
+          && data.bookingId.size() > 0
+          && data.comment is string
+          && data.comment.size() > 0
+          && data.comment.size() <= 2000
+          && data.createdAt is timestamp
+          && validRating()
+          && exists(/databases/$(database)/documents/bookings/$(data.bookingId))
+          && booking.studentId == request.auth.uid
+          && booking.status == "completed";
+      }
+
+      function validReviewUpdate() {
+        return isAuthenticated()
+          && resource.data.studentId == request.auth.uid
+          && unchanged("bookingId")
+          && unchanged("tutorId")
+          && unchanged("studentId")
+          && validRating()
+          && request.resource.data.comment is string
+          && request.resource.data.comment.size() > 0
+          && request.resource.data.comment.size() <= 2000
+          && request.time < resource.data.createdAt + duration.value(48, "h");
+      }
+
       allow read: if true;
 
-      allow create: if isStudent()
-        && request.resource.data.studentId == request.auth.uid
-        && validRating()
-        && exists(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId))
-        && get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.studentId
-          == request.auth.uid
-        && get(/databases/$(database)/documents/bookings/$(request.resource.data.bookingId)).data.status
-          == "completed";
+      allow create: if validReviewCreate();
 
-      allow update, delete: if isAdmin()
-        || (isAuthenticated()
-          && resource.data.studentId == request.auth.uid
-          && request.time < resource.data.createdAt + duration.value(48, "h"));
+      allow update: if isAdmin() || validReviewUpdate();
+
+      allow delete: if isAdmin();
     }
 
     // -------------------------------------------------------------------------

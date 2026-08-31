@@ -212,6 +212,10 @@ export async function fetchCollectiveHubById(
   return mapLiveHub(snapshot.id, snapshot.data() as FirestoreCollectiveHubDoc, viewerId);
 }
 
+export async function fetchHub(hubId: string): Promise<CollectiveHubLive | null> {
+  return fetchCollectiveHubById(hubId);
+}
+
 export function subscribeToTutorCollectiveHubs(
   tutorId: string,
   onChange: (hubs: CollectiveHubLive[]) => void,

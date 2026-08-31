@@ -18,7 +18,9 @@ import type {
   CreateBookingInput,
   PaymentStatus,
 } from "@/lib/bookings/types";
+import { normalizeBookingId } from "@/lib/bookings/complete-lesson";
 import { parseOccupiedStarts } from "@/lib/bookings/occupancy";
+import type { Modality } from "@/lib/mock-tutors";
 import { requestNotification } from "@/lib/notifications/client";
 import { loadPlatformFeePercent, splitBookingPrice } from "@/lib/payments/fees";
 
@@ -43,6 +45,7 @@ function mapBookingDoc(id: string, data: Record<string, unknown>): Booking {
     scheduledAt: data.scheduledAt as Timestamp,
     createdAt: data.createdAt as Timestamp,
     updatedAt: data.updatedAt as Timestamp | undefined,
+    completedAt: data.completedAt as Timestamp | undefined,
     meetingUrl: data.meetingUrl as string | undefined,
     paymentStatus: (data.paymentStatus as PaymentStatus | undefined) ?? "unpaid",
     paymentId: data.paymentId as string | undefined,
@@ -137,10 +140,25 @@ export async function cancelBookingAsTutor(bookingId: string): Promise<void> {
 
 export async function markBookingCompleted(bookingId: string): Promise<void> {
   await requireFirebaseApp();
-  await updateDoc(doc(db, "bookings", bookingId), {
-    status: "completed",
-    updatedAt: serverTimestamp(),
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error("Faça login para concluir esta aula.");
+  }
+
+  const idToken = await user.getIdToken();
+  const response = await fetch("/api/bookings/complete", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({ bookingId }),
   });
+
+  const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+  if (!response.ok) {
+    throw new Error(payload?.error || "Não foi possível marcar a aula como concluída.");
+  }
 }
 
 export function hasScheduledTimePassed(scheduledAt: Timestamp, now: Date = new Date()): boolean {
@@ -261,6 +279,32 @@ export function subscribeToTutorPendingBookingCount(
   );
 }
 
+export function subscribeToBooking(
+  bookingId: string,
+  onChange: (booking: Booking | null) => void,
+  onError?: (error: Error) => void,
+): Unsubscribe {
+  const id = normalizeBookingId(bookingId);
+  if (!id) {
+    onChange(null);
+    return () => {};
+  }
+
+  return whenFirebaseReady(() => {
+    return onSnapshot(
+      doc(db, "bookings", id),
+      (snapshot) => {
+        onChange(
+          snapshot.exists()
+            ? mapBookingDoc(snapshot.id, snapshot.data() as Record<string, unknown>)
+            : null,
+        );
+      },
+      (error) => onError?.(error),
+    );
+  });
+}
+
 export async function fetchUserDisplayName(userId: string): Promise<string> {
   await requireFirebaseApp();
   const snapshot = await getDoc(doc(db, "users", userId));
@@ -272,13 +316,39 @@ export async function fetchUserDisplayName(userId: string): Promise<string> {
 }
 
 export async function fetchTutorName(tutorId: string): Promise<string> {
+  const details = await fetchTutorLessonDetails(tutorId);
+  return details.name;
+}
+
+export async function fetchTutorLessonDetails(tutorId: string): Promise<{
+  name: string;
+  subject: string;
+  modality: Modality;
+}> {
   await requireFirebaseApp();
   const snapshot = await getDoc(doc(db, "tutors", tutorId));
   if (!snapshot.exists()) {
-    return "Professor";
+    return {
+      name: "Professor",
+      subject: "Disciplina não informada",
+      modality: "online",
+    };
   }
 
-  return (snapshot.data().name as string) || "Professor";
+  const data = snapshot.data();
+  const modality = data.modality;
+
+  return {
+    name: (data.name as string) || "Professor",
+    subject:
+      typeof data.subject === "string" && data.subject.trim()
+        ? data.subject.trim()
+        : "Disciplina não informada",
+    modality:
+      modality === "presencial" || modality === "ambos" || modality === "online"
+        ? modality
+        : "online",
+  };
 }
 
 export function formatBookingDate(timestamp: Timestamp): string {

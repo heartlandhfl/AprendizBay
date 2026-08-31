@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import BookingStatusBadge from "@/components/bookings/BookingStatusBadge";
 import CancelBookingDialog from "@/components/bookings/CancelBookingDialog";
-import JoinLessonButton from "@/components/bookings/JoinLessonButton";
 import PayBookingForm from "@/components/bookings/PayBookingForm";
 import PaymentStatusBadge from "@/components/bookings/PaymentStatusBadge";
 import ReviewModal from "@/components/reviews/ReviewModal";
@@ -24,9 +24,11 @@ import {
   canStartCheckout,
   getPaymentLifecycle,
   getStudentPaymentCopy,
-  isLessonUnlocked,
 } from "@/lib/payments/status";
+import { studentCompletedLessonCopy } from "@/lib/bookings/complete-lesson";
+import { lessonPath } from "@/lib/lessons/paths";
 import { subscribeToStudentReviewBookingIds } from "@/lib/reviews/client";
+import { studentReviewAction } from "@/lib/reviews/create-review";
 
 interface EnrichedBooking extends Booking {
   tutorName: string;
@@ -172,8 +174,9 @@ export default function StudentBookingsList() {
             );
             const showCancel =
               booking.status === "pending" || booking.status === "confirmed";
-            const canReview =
-              booking.status === "completed" && !reviewedBookingIds.has(booking.id);
+            const alreadyReviewed = reviewedBookingIds.has(booking.id);
+            const reviewAction = studentReviewAction(booking.status, alreadyReviewed);
+            const completedCopy = studentCompletedLessonCopy(booking.status, alreadyReviewed);
 
             return (
               <article
@@ -209,6 +212,14 @@ export default function StudentBookingsList() {
                       {formatBookingPrice(booking.price)}/h
                     </dd>
                   </div>
+                  {booking.completedAt && (
+                    <div>
+                      <dt className="text-muted-foreground">Concluída em</dt>
+                      <dd className="font-medium text-foreground">
+                        {formatBookingDate(booking.completedAt)}
+                      </dd>
+                    </div>
+                  )}
                 </dl>
 
                 {lifecycle === "not_started" && (
@@ -244,13 +255,20 @@ export default function StudentBookingsList() {
                   />
                 )}
 
-                {isLessonUnlocked(booking) && (
-                  <div className="mt-4">
-                    <JoinLessonButton meetingUrl={booking.meetingUrl!} />
-                  </div>
+                <Link
+                  href={lessonPath(booking.id)}
+                  className="mt-4 inline-flex min-h-11 w-full items-center justify-center rounded-2xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700 sm:w-auto"
+                >
+                  Abrir aula
+                </Link>
+
+                {completedCopy && (
+                  <p className="mt-4 text-sm font-medium text-foreground" role="status">
+                    {completedCopy}
+                  </p>
                 )}
 
-                {canReview && user && (
+                {reviewAction?.kind === "button" && user && (
                   <button
                     type="button"
                     onClick={() =>
@@ -262,8 +280,14 @@ export default function StudentBookingsList() {
                     }
                     className="mt-4 rounded-2xl bg-secondary-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary-600"
                   >
-                    Deixar avaliação
+                    {reviewAction.label}
                   </button>
+                )}
+
+                {reviewAction?.kind === "status" && (
+                  <p className="mt-4 text-sm font-medium text-muted-foreground" role="status">
+                    {reviewAction.label}
+                  </p>
                 )}
 
                 {showCancel && paymentStatus === "paid" && (
@@ -306,10 +330,16 @@ export default function StudentBookingsList() {
         <ReviewModal
           bookingId={reviewTarget.bookingId}
           tutorId={reviewTarget.tutorId}
-          studentId={user.uid}
           tutorName={reviewTarget.tutorName}
           onClose={() => setReviewTarget(null)}
-          onSubmitted={() => setReviewTarget(null)}
+          onSubmitted={() => {
+            setReviewedBookingIds((current) => {
+              const next = new Set(current);
+              next.add(reviewTarget.bookingId);
+              return next;
+            });
+            setReviewTarget(null);
+          }}
         />
       )}
     </div>
