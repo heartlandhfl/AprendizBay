@@ -340,6 +340,8 @@ async function saveCreatedCheckout(
   bookingId: string,
   checkout: AsaasCheckoutResult,
   expiresAt: Date,
+  now: Date,
+  replacedCheckoutId?: string,
 ): Promise<CreateBookingCheckoutResult> {
   return store.runAtomic(async (tx) => {
     const booking = await tx.getBooking(bookingId);
@@ -350,11 +352,18 @@ async function saveCreatedCheckout(
     if (invalid) {
       return invalid;
     }
-    if (booking.asaasCheckoutId && booking.asaasCheckoutId !== checkout.id) {
+    const existingId = booking.asaasCheckoutId?.trim();
+    if (
+      existingId &&
+      existingId !== checkout.id &&
+      existingId !== replacedCheckoutId &&
+      checkoutStillOpen(booking, now)
+    ) {
+      tx.updateBooking(booking.id, { checkoutLockUntil: null });
       return {
         ok: true as const,
-        checkoutId: booking.asaasCheckoutId,
-        checkoutUrl: buildCheckoutUrl(booking.asaasCheckoutId),
+        checkoutId: existingId,
+        checkoutUrl: buildCheckoutUrl(existingId),
         reused: true,
       };
     }
@@ -478,5 +487,13 @@ export async function createBookingCheckout(
   }
 
   const expiresAt = new Date(now.getTime() + minutesToExpire * 60_000);
-  return saveCreatedCheckout(store, input.uid, payable.id, checkout, expiresAt);
+  return saveCreatedCheckout(
+    store,
+    input.uid,
+    payable.id,
+    checkout,
+    expiresAt,
+    now,
+    ignoreCheckoutId,
+  );
 }
