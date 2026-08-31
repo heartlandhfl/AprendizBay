@@ -66,6 +66,14 @@ export default function TutorProfileSettings() {
           currentFileName={tutorDoc?.credentialFileName}
         />
       </div>
+
+      <p className="text-sm text-muted-foreground">
+        Para cookies, privacidade ou exclusão da conta, abra{" "}
+        <Link href="/configuracoes" className="font-medium text-primary-700 hover:text-primary-600">
+          Configurações
+        </Link>
+        .
+      </p>
     </section>
   );
 }
