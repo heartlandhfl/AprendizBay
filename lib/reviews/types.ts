@@ -12,7 +12,6 @@ export interface Review {
 
 export interface CreateReviewInput {
   tutorId: string;
-  studentId: string;
   bookingId: string;
   rating: number;
   comment: string;

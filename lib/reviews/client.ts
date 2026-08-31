@@ -1,9 +1,7 @@
 import {
-  addDoc,
   collection,
   onSnapshot,
   query,
-  serverTimestamp,
   where,
   type Unsubscribe,
 } from "firebase/firestore";
@@ -11,19 +9,44 @@ import { auth, db, requireFirebaseApp, whenFirebaseReady } from "@/lib/firebase/
 import { requestNotification } from "@/lib/notifications/client";
 import type { CreateReviewInput } from "@/lib/reviews/types";
 
+/**
+ * Hostinger production has no Next.js Server Actions. Call the Express route
+ * POST /api/reviews (server/api/reviews.js). The same path is served by
+ * app/api/reviews/route.ts on Vercel / next start.
+ */
 export async function createReview(input: CreateReviewInput): Promise<string> {
   await requireFirebaseApp();
-  const docRef = await addDoc(collection(db, "reviews"), {
-    tutorId: input.tutorId,
-    studentId: input.studentId,
-    bookingId: input.bookingId,
-    rating: input.rating,
-    comment: input.comment.trim(),
-    createdAt: serverTimestamp(),
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error("Faça login para enviar a avaliação.");
+  }
+
+  const idToken = await user.getIdToken();
+  const response = await fetch("/api/reviews", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({
+      bookingId: input.bookingId,
+      tutorId: input.tutorId,
+      rating: input.rating,
+      comment: input.comment,
+    }),
   });
 
-  void requestNotification({ type: "new_review", reviewId: docRef.id });
-  return docRef.id;
+  const payload = (await response.json().catch(() => null)) as
+    | { error?: string; reviewId?: string }
+    | null;
+
+  if (!response.ok) {
+    throw new Error(payload?.error || "Não foi possível enviar a avaliação.");
+  }
+
+  const reviewId = payload?.reviewId || input.bookingId;
+  void requestNotification({ type: "new_review", reviewId });
+  return reviewId;
 }
 
 /**
@@ -72,7 +95,10 @@ export function subscribeToStudentReviewBookingIds(
       reviewsQuery,
       (snapshot) => {
         const bookingIds = new Set(
-          snapshot.docs.map((docSnap) => docSnap.data().bookingId as string),
+          snapshot.docs.map((docSnap) => {
+            const bookingId = docSnap.data().bookingId as string | undefined;
+            return bookingId || docSnap.id;
+          }),
         );
         onChange(bookingIds);
       },

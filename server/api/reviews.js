@@ -3,30 +3,17 @@
 const express = require("express");
 const { Router } = require("express");
 const {
+  computeTutorRatingFromRatings,
+  createReviewForStudent,
+  ratingsFromReviewDocs,
+  statusFromCreateReviewError,
+} = require("../../lib/reviews/create-review");
+const {
   getAdminFirestore,
   readBearerToken,
   verifyIdToken,
 } = require("./firebase-admin");
 const { captureException } = require("./sentry");
-
-/**
- * Average tutor rating from review scores. Shared with scripts/test-reviews-api.js.
- * @param {number[]} ratings
- * @returns {{ rating: number, reviewCount: number }}
- */
-function computeTutorRatingFromRatings(ratings) {
-  const numeric = ratings.filter(
-    (value) => typeof value === "number" && Number.isFinite(value),
-  );
-  const reviewCount = numeric.length;
-  const rating =
-    reviewCount > 0
-      ? Math.round(
-          (numeric.reduce((sum, value) => sum + value, 0) / reviewCount) * 10,
-        ) / 10
-      : 0;
-  return { rating, reviewCount };
-}
 
 /**
  * Recompute tutors/{tutorId}.rating and reviewCount from reviews.
@@ -41,7 +28,7 @@ async function recomputeTutorRating(db, tutorId) {
     .where("tutorId", "==", tutorId)
     .get();
 
-  const ratings = reviewsSnap.docs.map((docSnap) => docSnap.data().rating);
+  const ratings = ratingsFromReviewDocs(reviewsSnap.docs);
   const { rating, reviewCount } = computeTutorRatingFromRatings(ratings);
   const { FieldValue } = require("firebase-admin/firestore");
 
@@ -56,6 +43,41 @@ async function recomputeTutorRating(db, tutorId) {
 
 const reviewsRouter = Router();
 reviewsRouter.use(express.json({ limit: "32kb" }));
+
+reviewsRouter.post("/", async (req, res) => {
+  try {
+    const { uid } = await verifyIdToken(readBearerToken(req));
+    const db = getAdminFirestore();
+    const { FieldValue } = require("firebase-admin/firestore");
+    const result = await createReviewForStudent(
+      db,
+      {
+        actorUid: uid,
+        bookingId: req.body?.bookingId,
+        tutorId: req.body?.tutorId,
+        rating: req.body?.rating,
+        comment: req.body?.comment,
+      },
+      { timestamp: FieldValue.serverTimestamp() },
+    );
+
+    try {
+      await recomputeTutorRating(db, result.tutorId);
+    } catch (recomputeError) {
+      captureException(recomputeError);
+    }
+
+    res.json({ ok: true, ...result });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Não foi possível enviar a avaliação.";
+    const status = statusFromCreateReviewError(error);
+    if (status >= 500) {
+      captureException(error);
+    }
+    res.status(status).json({ error: message });
+  }
+});
 
 reviewsRouter.post("/recompute-rating", async (req, res) => {
   try {

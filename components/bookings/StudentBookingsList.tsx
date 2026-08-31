@@ -172,8 +172,8 @@ export default function StudentBookingsList() {
             );
             const showCancel =
               booking.status === "pending" || booking.status === "confirmed";
-            const canReview =
-              booking.status === "completed" && !reviewedBookingIds.has(booking.id);
+            const alreadyReviewed = reviewedBookingIds.has(booking.id);
+            const canReview = booking.status === "completed" && !alreadyReviewed;
 
             return (
               <article
@@ -262,8 +262,14 @@ export default function StudentBookingsList() {
                     }
                     className="mt-4 rounded-2xl bg-secondary-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-secondary-600"
                   >
-                    Deixar avaliação
+                    Avaliar aula
                   </button>
+                )}
+
+                {booking.status === "completed" && alreadyReviewed && (
+                  <p className="mt-4 text-sm font-medium text-muted-foreground" role="status">
+                    Avaliação enviada
+                  </p>
                 )}
 
                 {showCancel && paymentStatus === "paid" && (
@@ -306,10 +312,16 @@ export default function StudentBookingsList() {
         <ReviewModal
           bookingId={reviewTarget.bookingId}
           tutorId={reviewTarget.tutorId}
-          studentId={user.uid}
           tutorName={reviewTarget.tutorName}
           onClose={() => setReviewTarget(null)}
-          onSubmitted={() => setReviewTarget(null)}
+          onSubmitted={() => {
+            setReviewedBookingIds((current) => {
+              const next = new Set(current);
+              next.add(reviewTarget.bookingId);
+              return next;
+            });
+            setReviewTarget(null);
+          }}
         />
       )}
     </div>

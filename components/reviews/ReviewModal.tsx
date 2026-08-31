@@ -2,12 +2,11 @@
 
 import { FormEvent, useState } from "react";
 import { Loader2, Star, X } from "lucide-react";
-import { createReview, recomputeTutorRating } from "@/lib/reviews/client";
+import { createReview } from "@/lib/reviews/client";
 
 interface ReviewModalProps {
   bookingId: string;
   tutorId: string;
-  studentId: string;
   tutorName: string;
   onClose: () => void;
   onSubmitted: () => void;
@@ -16,7 +15,6 @@ interface ReviewModalProps {
 export default function ReviewModal({
   bookingId,
   tutorId,
-  studentId,
   tutorName,
   onClose,
   onSubmitted,
@@ -35,17 +33,19 @@ export default function ReviewModal({
     try {
       await createReview({
         tutorId,
-        studentId,
         bookingId,
         rating,
         comment,
       });
 
-      await recomputeTutorRating(tutorId);
       onSubmitted();
       onClose();
-    } catch {
-      setError("Não foi possível enviar a avaliação. Tente novamente.");
+    } catch (submitError) {
+      setError(
+        submitError instanceof Error
+          ? submitError.message
+          : "Não foi possível enviar a avaliação. Tente novamente.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -64,7 +64,7 @@ export default function ReviewModal({
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
             <h2 id="review-modal-title" className="text-xl font-bold text-foreground">
-              Deixar avaliação
+              Avaliar aula
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
               Como foi sua aula com {tutorName}?
