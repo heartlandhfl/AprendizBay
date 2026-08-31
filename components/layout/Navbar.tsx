@@ -43,7 +43,11 @@ export default function Navbar() {
 
   const displayName = userDoc?.displayName || user?.displayName || "Usuário";
   const dashboardHref =
-    userDoc?.role === "tutor" ? "/tutor/dashboard" : "/bookings";
+    userDoc?.role === "admin"
+      ? "/admin/tutors"
+      : userDoc?.role === "tutor"
+        ? "/tutor/dashboard"
+        : "/bookings";
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-surface/80 backdrop-blur-md">
@@ -134,13 +138,24 @@ export default function Navbar() {
                     role="menuitem"
                   >
                     <LayoutDashboard className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                    Meu painel
+                    {userDoc?.role === "admin" ? "Verificação" : "Meu painel"}
                     {userDoc?.role === "tutor" && pendingBookingCount > 0 && (
                       <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-secondary-500 px-1.5 text-[10px] font-bold text-white">
                         {pendingBookingCount > 9 ? "9+" : pendingBookingCount}
                       </span>
                     )}
                   </Link>
+                  {userDoc?.role === "tutor" && (
+                    <Link
+                      href="/tutor/settings"
+                      onClick={() => setMenuOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2.5 text-sm text-foreground transition-colors hover:bg-muted"
+                      role="menuitem"
+                    >
+                      <Settings className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                      Perfil de professor
+                    </Link>
+                  )}
                   <Link
                     href="/mensagens"
                     onClick={() => setMenuOpen(false)}

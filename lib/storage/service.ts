@@ -1,4 +1,5 @@
 import {
+  getBlob,
   getDownloadURL,
   ref,
   uploadBytes,
@@ -29,7 +30,7 @@ export async function uploadUserAvatar(userId: string, file: File): Promise<stri
 export async function uploadTutorCredential(
   tutorId: string,
   file: File,
-): Promise<{ fileName: string; downloadUrl: string }> {
+): Promise<{ fileName: string }> {
   await requireFirebaseApp();
   const fileName = sanitizeCredentialFileName(file);
   const path = tutorCredentialPath(tutorId, fileName);
@@ -37,16 +38,15 @@ export async function uploadTutorCredential(
   const storageRef = ref(storage, path);
 
   await uploadBytes(storageRef, file, metadata);
-  const downloadUrl = await getDownloadURL(storageRef);
 
-  return { fileName, downloadUrl };
+  return { fileName };
 }
 
-export async function getTutorCredentialDownloadUrl(
+export async function getTutorCredentialBlob(
   tutorId: string,
   fileName: string,
-): Promise<string> {
+): Promise<Blob> {
   await requireFirebaseApp();
   const storageRef = ref(storage, tutorCredentialPath(tutorId, fileName));
-  return getDownloadURL(storageRef);
+  return getBlob(storageRef);
 }

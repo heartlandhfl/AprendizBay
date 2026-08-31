@@ -75,6 +75,7 @@ export async function createTutorProfile(
     collectivePrice: input.collectivePrice,
     modality: input.modality,
     isVerified: false,
+    verificationStatus: "pending",
     isOnline: false,
     rating: 0,
     reviewCount: 0,

@@ -24,6 +24,7 @@ import {
   mapFirestoreTutorDoc,
   mapFirestoreTutorProfile,
 } from "@/lib/tutors/map";
+import { isMarketplaceVisible } from "@/lib/tutors/verification";
 
 let adminApp: App | undefined;
 
@@ -72,9 +73,14 @@ export async function fetchVerifiedTutorsServer(): Promise<Tutor[]> {
     }
 
     return snapshot.docs
-      .map((docSnap) =>
-        mapFirestoreTutorDoc(docSnap.id, docSnap.data() as FirestoreTutorDoc),
-      )
+      .map((docSnap) => {
+        const data = docSnap.data() as FirestoreTutorDoc;
+        if (!isMarketplaceVisible(data)) {
+          return null;
+        }
+        return mapFirestoreTutorDoc(docSnap.id, data);
+      })
+      .filter((tutor): tutor is Tutor => tutor !== null)
       .sort((a, b) => b.rating - a.rating);
   } catch (error) {
     console.error("[Aprendiz Bay] Erro ao buscar tutores no Firestore:", error);

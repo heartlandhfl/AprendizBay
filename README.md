@@ -54,7 +54,7 @@ This repo supports a **two-target** setup. Production today stays on the slim Ho
 
 | Target | Role | What runs | When to use |
 |--------|------|-----------|-------------|
-| **Hostinger Express** (`server.js`) | Primary production site | Committed `hostinger-next/` static HTML + `/_next/static` + Express `/api/*` | Default — no Next.js runtime. `firebase-admin` is loaded only by `server/api/` (review rating recompute) |
+| **Hostinger Express** (`server.js`) | Primary production site | Committed `hostinger-next/` static HTML + `/_next/static` + Express `/api/*` | Default — no Next.js runtime. `firebase-admin` is loaded only by `server/api/` (review rating recompute, tutor verification) |
 | **Vercel** (or similar Next host) | Optional full Next.js runtime | `next build` + Server Actions, `lib/**/server.ts`, `app/api/**`, `firebase-admin` | Preview/staging or a later migration — not required for review recompute |
 
 **Hostinger path (current):** `npm install --omit=dev` → `node server.js`. UI is prebuilt and committed; Express never loads Next.js. Review rating recompute runs as `POST /api/reviews/recompute-rating` (`server/api/reviews.js`). Add other backend behavior in `server/api/` (plain JS).
@@ -72,7 +72,7 @@ Não há fluxo de cadastro para `role: "admin"`. O primeiro administrador deve s
 3. Edite o campo `role` e altere de `student` ou `tutor` para **`admin`**.
 4. Salve o documento.
 
-Somente usuários com `users/{uid}.role == "admin"` podem acessar `/admin/tutors`. Aprovações de professores (`isVerified: true`) usam **Server Action** com `firebase-admin` (`lib/tutors/actions.ts`) — funcionam no deploy **Vercel** (Next.js completo). No Hostinger estático, use o console do Firestore para definir `tutors/{tutorId}.isVerified` manualmente ou migre essa ação para Vercel / uma API Express futura.
+Somente usuários com `users/{uid}.role == "admin"` podem acessar `/admin/tutors`. A revisão operacional (`approve`, `reject`, `request_changes`, `suspend`) grava `verificationStatus` e mantém `isVerified` sincronizado (`true` só quando o status é `approved`). O caminho ao vivo é `POST /api/tutors/review` (`server/api/tutors.js` no Hostinger e `app/api/tutors/review` no Next). Professores reenviam com `POST /api/tutors/resubmit` após recusa ou pedido de ajustes. Tutores nunca podem alterar o próprio status.
 
 
 ### 1. Firebase (Firestore + Storage rules)

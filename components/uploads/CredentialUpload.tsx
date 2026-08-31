@@ -4,10 +4,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { FileText, Loader2, Upload } from "lucide-react";
 import { DOCUMENT_ACCEPT } from "@/lib/storage/constants";
-import {
-  getTutorCredentialDownloadUrl,
-  uploadTutorCredential,
-} from "@/lib/storage/service";
+import { getTutorCredentialBlob, uploadTutorCredential } from "@/lib/storage/service";
 import { validateDocumentFile } from "@/lib/storage/validation";
 import { updateTutorProfile } from "@/lib/tutors/service";
 
@@ -48,16 +45,23 @@ export default function CredentialUpload({
     }
 
     let cancelled = false;
+    let objectUrl: string | null = null;
 
-    void getTutorCredentialDownloadUrl(tutorId, fileName)
-      .then((url) => {
+    void getTutorCredentialBlob(tutorId, fileName)
+      .then((blob) => {
         if (cancelled) {
           return;
         }
 
-        const pdf = fileName.toLowerCase().endsWith(".pdf");
+        const pdf = fileName.toLowerCase().endsWith(".pdf") || blob.type === "application/pdf";
         setIsPdf(pdf);
-        setPreviewUrl(pdf ? null : url);
+        if (pdf) {
+          setPreviewUrl(null);
+          return;
+        }
+
+        objectUrl = URL.createObjectURL(blob);
+        setPreviewUrl(objectUrl);
       })
       .catch(() => {
         if (!cancelled) {
@@ -67,6 +71,9 @@ export default function CredentialUpload({
 
     return () => {
       cancelled = true;
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
     };
   }, [fileName, tutorId]);
 
@@ -95,17 +102,13 @@ export default function CredentialUpload({
     setPreviewUrl(localPreview);
 
     try {
-      const { fileName: uploadedName, downloadUrl } = await uploadTutorCredential(
-        tutorId,
-        file,
-      );
+      const { fileName: uploadedName } = await uploadTutorCredential(tutorId, file);
 
       if (persistToFirestore) {
         await updateTutorProfile(tutorId, { credentialFileName: uploadedName });
       }
 
       setFileName(uploadedName);
-      setPreviewUrl(file.type === "application/pdf" ? null : downloadUrl);
       setSuccess("Documento enviado com sucesso.");
       onUploaded?.(uploadedName);
     } catch {

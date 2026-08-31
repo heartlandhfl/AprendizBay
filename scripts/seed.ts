@@ -59,6 +59,7 @@ async function seed() {
           modality: tutor.modality,
           lessonTypes: tutor.lessonTypes,
           isVerified: profile.isVerified,
+          verificationStatus: profile.isVerified ? "approved" : "pending",
           isOnline: tutor.isOnline,
           hoursTaught: profile.hoursTaught,
           studentsServed: profile.studentsServed,

@@ -14,7 +14,7 @@ function isFirebaseAdminRequest(request) {
 
 /**
  * firebase-admin is allowed only from server/api/ (review rating recompute,
- * account deletion).
+ * account deletion, tutor verification review).
  * Next.js server bundles under hostinger-next/ and lib/ server modules must not
  * load it in the Express process.
  */

@@ -74,6 +74,7 @@ assert.deepEqual(removeStudentFromHubIds(["a", "aluno-1", "b"], "aluno-1"), ["a"
 const tutorUpdate = buildTutorAnonymizeUpdate("DELETE");
 assert.equal(tutorUpdate.name, ANONYMIZED_DISPLAY_NAME);
 assert.equal(tutorUpdate.isVerified, false);
+assert.equal(tutorUpdate.verificationStatus, "suspended");
 assert.equal(tutorUpdate.avatarUrl, "DELETE");
 assert.equal(tutorUpdate.bio, "");
 

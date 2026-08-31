@@ -9,6 +9,7 @@ import {
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   setDoc,
   updateDoc,
@@ -32,7 +33,10 @@ function emulatorTarget() {
   };
 }
 
-async function seedBaseDocs(options: { tutorVerified: boolean }) {
+async function seedBaseDocs(options: {
+  tutorVerified: boolean;
+  verificationStatus?: "pending" | "approved" | "rejected" | "changes_requested" | "suspended";
+}) {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
 
@@ -61,6 +65,8 @@ async function seedBaseDocs(options: { tutorVerified: boolean }) {
       individualPrice: 70,
       collectivePrice: 25,
       isVerified: options.tutorVerified,
+      verificationStatus:
+        options.verificationStatus ?? (options.tutorVerified ? "approved" : "pending"),
       rating: 4.9,
       reviewCount: 10,
       createdAt: new Date(),
@@ -151,11 +157,17 @@ describe("firestore.rules", () => {
     });
 
     it("allows a student to book a verified tutor", async () => {
-      await seedBaseDocs({ tutorVerified: true });
+      await seedBaseDocs({ tutorVerified: true, verificationStatus: "approved" });
 
       await assertSucceeds(
         addDoc(collection(studentDb(), "bookings"), pendingBookingPayload()),
       );
+    });
+
+    it("denies booking a suspended tutor even if isVerified is stale", async () => {
+      await seedBaseDocs({ tutorVerified: true, verificationStatus: "suspended" });
+
+      await assertFails(addDoc(collection(studentDb(), "bookings"), pendingBookingPayload()));
     });
   });
 
@@ -183,12 +195,28 @@ describe("firestore.rules", () => {
     });
   });
 
-  describe("tutors.isVerified", () => {
+  describe("tutors.verificationStatus", () => {
     it("denies a tutor changing their own isVerified flag", async () => {
       await seedBaseDocs({ tutorVerified: false });
 
       await assertFails(
         updateDoc(doc(tutorDb(), "tutors", TUTOR_ID), { isVerified: true }),
+      );
+    });
+
+    it("denies a tutor changing verificationStatus, reviewedBy or reason", async () => {
+      await seedBaseDocs({ tutorVerified: false, verificationStatus: "pending" });
+
+      await assertFails(
+        updateDoc(doc(tutorDb(), "tutors", TUTOR_ID), { verificationStatus: "approved" }),
+      );
+      await assertFails(
+        updateDoc(doc(tutorDb(), "tutors", TUTOR_ID), { reviewedBy: TUTOR_ID }),
+      );
+      await assertFails(
+        updateDoc(doc(tutorDb(), "tutors", TUTOR_ID), {
+          verificationReason: "Eu mesmo aprovei.",
+        }),
       );
     });
 
@@ -202,11 +230,83 @@ describe("firestore.rules", () => {
       );
     });
 
-    it("allows an admin to verify a tutor", async () => {
-      await seedBaseDocs({ tutorVerified: false });
+    it("allows an admin to approve, reject, request changes and suspend", async () => {
+      await seedBaseDocs({ tutorVerified: false, verificationStatus: "pending" });
 
       await assertSucceeds(
-        updateDoc(doc(adminDb(), "tutors", TUTOR_ID), { isVerified: true }),
+        updateDoc(doc(adminDb(), "tutors", TUTOR_ID), {
+          verificationStatus: "approved",
+          isVerified: true,
+          reviewedBy: ADMIN_ID,
+          reviewedAt: new Date(),
+        }),
+      );
+
+      await assertSucceeds(
+        updateDoc(doc(adminDb(), "tutors", TUTOR_ID), {
+          verificationStatus: "rejected",
+          isVerified: false,
+          verificationReason: "Documento ilegível.",
+          reviewedBy: ADMIN_ID,
+        }),
+      );
+
+      await assertSucceeds(
+        updateDoc(doc(adminDb(), "tutors", TUTOR_ID), {
+          verificationStatus: "changes_requested",
+          isVerified: false,
+          verificationReason: "Envie o diploma.",
+          reviewedBy: ADMIN_ID,
+        }),
+      );
+
+      await assertSucceeds(
+        updateDoc(doc(adminDb(), "tutors", TUTOR_ID), {
+          verificationStatus: "suspended",
+          isVerified: false,
+          verificationReason: "Denúncia confirmada.",
+          reviewedBy: ADMIN_ID,
+        }),
+      );
+    });
+
+    it("denies a student writing verification fields", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertFails(
+        updateDoc(doc(studentDb(), "tutors", TUTOR_ID), { verificationStatus: "approved" }),
+      );
+    });
+
+    it("lets a tutor create a pending profile but not a self-approved one", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await deleteDoc(doc(context.firestore(), "tutors", TUTOR_ID));
+      });
+
+      const payload = {
+        userId: TUTOR_ID,
+        name: "Mariana Silva",
+        subject: "Inglês",
+        individualPrice: 70,
+        collectivePrice: 25,
+        isVerified: false,
+        verificationStatus: "pending",
+        createdAt: new Date(),
+      };
+
+      await assertSucceeds(setDoc(doc(tutorDb(), "tutors", TUTOR_ID), payload));
+
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await deleteDoc(doc(context.firestore(), "tutors", TUTOR_ID));
+      });
+
+      await assertFails(
+        setDoc(doc(tutorDb(), "tutors", TUTOR_ID), {
+          ...payload,
+          isVerified: true,
+          verificationStatus: "approved",
+        }),
       );
     });
   });

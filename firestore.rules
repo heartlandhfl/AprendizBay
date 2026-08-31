@@ -13,6 +13,8 @@ rules_version = '2';
 //   tutors/{tutorId}                    // tutorId === users/{userId} for tutors
 //     userId, name, subject, city, state, bio, about, methodology
 //     individualPrice, collectivePrice, modality, isVerified, isOnline
+//     verificationStatus: pending | approved | rejected | changes_requested | suspended
+//     reviewedAt, reviewedBy, verificationReason, credentialFileName
 //     hoursTaught, studentsServed, rating, reviewCount, createdAt, updatedAt
 //
 //   tutors/{tutorId}/availability/{docId}  // weekly schedule (docId usually "weekly")
@@ -76,8 +78,11 @@ rules_version = '2';
 //        Hostinger Express: server/api/account.js
 //        Vercel / next start: app/api/account/delete + lib/account/server.ts
 // ADMIN  seed data                     → scripts/seed.ts
-// GAP    No client UI creates tutors/{tutorId} on tutor signup; profiles come from seed/admin.
-// GAP    No Storage upload UI yet; storage.rules paths are unused by the current app.
+// MATCH  tutors/{tutorId} create     → lib/tutors/service.ts (onboarding)
+// MATCH  tutors/{tutorId} update     → lib/tutors/service.ts (avatar/credential metadata only)
+// ADMIN  tutors verification review  → POST /api/tutors/review (admin-only; Hostinger + Next)
+// MATCH  tutors verification resubmit → POST /api/tutors/resubmit (tutor-only, changes_requested|rejected → pending)
+// MATCH  Storage credentials         → lib/storage/service.ts (tutors/{id}/credentials/*)
 // =============================================================================
 
 service cloud.firestore {
@@ -121,7 +126,20 @@ service cloud.firestore {
     }
 
     function isVerifiedTutor(tutorId) {
-      return get(/databases/$(database)/documents/tutors/$(tutorId)).data.isVerified == true;
+      let tutor = get(/databases/$(database)/documents/tutors/$(tutorId)).data;
+      return tutor.isVerified == true
+        && (!("verificationStatus" in tutor) || tutor.verificationStatus == "approved");
+    }
+
+    function verificationFieldsLocked() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny([
+          "isVerified",
+          "verificationStatus",
+          "reviewedAt",
+          "reviewedBy",
+          "verificationReason"
+        ]);
     }
 
     function tutorOwnedByAuth(tutorId) {
@@ -222,15 +240,19 @@ service cloud.firestore {
         && isOwner(tutorId)
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.isVerified == false
+        && (!("verificationStatus" in request.resource.data)
+          || request.resource.data.verificationStatus == "pending")
+        && !("reviewedAt" in request.resource.data)
+        && !("reviewedBy" in request.resource.data)
         && request.resource.data.keys().hasAll([
           "userId", "name", "subject", "individualPrice", "collectivePrice", "createdAt"
         ]);
 
       allow update: if tutorOwnedByAuth(tutorId)
         && unchanged("userId")
-        && unchanged("isVerified")
         && unchanged("rating")
         && unchanged("reviewCount")
+        && verificationFieldsLocked()
         || isAdmin();
 
       allow delete: if isAdmin();

@@ -8,24 +8,51 @@ import {
 import type { Tutor } from "@/lib/mock-tutors";
 import { db, ensureFirebaseApp } from "@/lib/firebase/client";
 import { getMockTutorsForFallback, warnMockTutorFallback } from "@/lib/tutors/fallback";
-import type { FirestoreTutorDoc, TutorQueryFilters } from "@/lib/tutors/firestore-types";
-import { mapFirestoreTutorDoc } from "@/lib/tutors/map";
+import type {
+  AdminTutorApplication,
+  FirestoreTutorDoc,
+  TutorQueryFilters,
+} from "@/lib/tutors/firestore-types";
+import { mapAdminTutorApplication, mapFirestoreTutorDoc } from "@/lib/tutors/map";
+import { isMarketplaceVisible } from "@/lib/tutors/verification";
 
-export async function fetchUnverifiedTutors(): Promise<Tutor[]> {
+export async function fetchAdminTutorApplications(): Promise<AdminTutorApplication[]> {
   const app = await ensureFirebaseApp();
   if (!app) {
     return [];
   }
 
-  const snapshot = await getDocs(
-    query(collection(db, "tutors"), where("isVerified", "==", false)),
-  );
+  const snapshot = await getDocs(collection(db, "tutors"));
 
   return snapshot.docs
     .map((docSnap) =>
-      mapFirestoreTutorDoc(docSnap.id, docSnap.data() as FirestoreTutorDoc),
+      mapAdminTutorApplication(docSnap.id, docSnap.data() as FirestoreTutorDoc),
     )
     .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+}
+
+/** @deprecated Use fetchAdminTutorApplications. Kept for callers that only need unverified rows. */
+export async function fetchUnverifiedTutors(): Promise<Tutor[]> {
+  const applications = await fetchAdminTutorApplications();
+  return applications
+    .filter((tutor) => !tutor.isVerified)
+    .map((tutor) => ({
+      id: tutor.id,
+      name: tutor.name,
+      subject: tutor.subject,
+      city: tutor.city,
+      state: tutor.state,
+      rating: 0,
+      reviewCount: 0,
+      bio: tutor.bio,
+      individualPrice: tutor.individualPrice,
+      collectivePrice: tutor.collectivePrice,
+      modality: tutor.modality,
+      lessonTypes: ["individual", "coletivo"],
+      isOnline: false,
+      avatarUrl: tutor.avatarUrl,
+      avatarColor: "bg-emerald-100",
+    }));
 }
 
 export async function fetchVerifiedTutors(filters: TutorQueryFilters = {}): Promise<Tutor[]> {
@@ -56,9 +83,15 @@ export async function fetchVerifiedTutors(filters: TutorQueryFilters = {}): Prom
     return filterByModality(getMockTutorsForFallback(), filters.modality);
   }
 
-  const tutors = snapshot.docs.map((docSnap) =>
-    mapFirestoreTutorDoc(docSnap.id, docSnap.data() as FirestoreTutorDoc),
-  );
+  const tutors = snapshot.docs
+    .map((docSnap) => {
+      const data = docSnap.data() as FirestoreTutorDoc;
+      if (!isMarketplaceVisible(data)) {
+        return null;
+      }
+      return mapFirestoreTutorDoc(docSnap.id, data);
+    })
+    .filter((tutor): tutor is Tutor => tutor !== null);
 
   return filterByModality(tutors, filters.modality).sort((a, b) => b.rating - a.rating);
 }

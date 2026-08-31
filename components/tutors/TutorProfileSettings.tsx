@@ -6,10 +6,14 @@ import AvatarUpload from "@/components/uploads/AvatarUpload";
 import CredentialUpload from "@/components/uploads/CredentialUpload";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useTutorProfile } from "@/lib/tutors/useTutorProfile";
+import { resubmitTutorVerificationRequest } from "@/lib/tutors/review-client";
+import { canTutorResubmit, resolveVerificationStatus } from "@/lib/tutors/verification";
+import VerificationStatusBanner from "@/components/tutors/VerificationStatusBanner";
 
 export default function TutorProfileSettings() {
   const { user, userDoc } = useAuth();
   const { tutorDoc, loading, isProfileComplete } = useTutorProfile();
+  const verificationStatus = tutorDoc ? resolveVerificationStatus(tutorDoc) : null;
 
   if (loading) {
     return (
@@ -60,10 +64,17 @@ export default function TutorProfileSettings() {
         />
       </div>
 
+      <VerificationStatusBanner />
+
       <div className="rounded-3xl bg-surface p-6 shadow-soft ring-1 ring-border/60 sm:p-8">
         <CredentialUpload
           tutorId={user.uid}
           currentFileName={tutorDoc?.credentialFileName}
+          onUploaded={() => {
+            if (verificationStatus && canTutorResubmit(verificationStatus)) {
+              void resubmitTutorVerificationRequest();
+            }
+          }}
         />
       </div>
 
