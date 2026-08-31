@@ -1,7 +1,9 @@
-import Image from "next/image";
 import Link from "next/link";
 import { BadgeCheck, MapPin, Monitor, Star, Users } from "lucide-react";
+import TutorAvatar from "@/components/tutor/TutorAvatar";
 import type { Tutor } from "@/lib/mock-tutors";
+import { hasPublicRating } from "@/lib/tutors/profile-display";
+import { formatReviewCountLabel, formatTutorRating } from "@/lib/tutors/format";
 
 interface TutorCardProps {
   tutor: Tutor;
@@ -27,31 +29,18 @@ export default function TutorCard({ tutor }: TutorCardProps) {
   return (
     <article className="group flex flex-col rounded-2xl bg-surface p-5 shadow-card ring-1 ring-border/50 transition-all duration-300 hover:-translate-y-1 hover:shadow-soft-lg hover:ring-primary-200/60">
       <div className="flex items-start gap-4">
-        <div className="relative shrink-0">
-          <div className="relative h-16 w-16 overflow-hidden rounded-full ring-2 ring-border/60 transition-all duration-300 group-hover:ring-primary-200">
-            <Image
-              src={tutor.avatarUrl}
-              alt={`Foto de perfil de ${tutor.name}`}
-              width={64}
-              height={64}
-              className="h-full w-full object-cover"
-              unoptimized
-            />
-          </div>
-          {tutor.isOnline && (
-            <span
-              className="absolute bottom-0.5 right-0.5 h-3.5 w-3.5 rounded-full border-2 border-surface bg-primary-500"
-              title="Online agora"
-              aria-label="Online agora"
-            />
-          )}
-        </div>
+        <TutorAvatar
+          name={tutor.name}
+          src={tutor.avatarUrl}
+          size="sm"
+          online={tutor.isOnline}
+        />
 
         <div className="min-w-0 flex-1">
           <h3 className="truncate text-lg font-semibold text-foreground">
             {tutor.name}
           </h3>
-          {tutor.isVerified !== false ? (
+          {tutor.isVerified === true ? (
             <span className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-primary-700">
               <BadgeCheck className="h-3.5 w-3.5" aria-hidden="true" />
               Professor verificado
@@ -59,14 +48,22 @@ export default function TutorCard({ tutor }: TutorCardProps) {
           ) : null}
           <p className="text-sm font-medium text-primary-600">{tutor.subject}</p>
           <div className="mt-1 flex items-center gap-1.5 text-sm">
-            <Star
-              className="h-4 w-4 fill-secondary-400 text-secondary-400"
-              aria-hidden="true"
-            />
-            <span className="font-semibold text-foreground">{tutor.rating}</span>
-            <span className="text-muted-foreground">
-              ({tutor.reviewCount} avaliações)
-            </span>
+            {hasPublicRating(tutor) ? (
+              <>
+                <Star
+                  className="h-4 w-4 fill-secondary-400 text-secondary-400"
+                  aria-hidden="true"
+                />
+                <span className="font-semibold text-foreground">
+                  {formatTutorRating(tutor.rating)}
+                </span>
+                <span className="text-muted-foreground">
+                  ({formatReviewCountLabel(tutor.reviewCount)})
+                </span>
+              </>
+            ) : (
+              <span className="text-muted-foreground">Ainda sem avaliações</span>
+            )}
           </div>
           <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
             {tutor.modality === "online" ? (

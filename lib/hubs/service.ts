@@ -222,31 +222,34 @@ export function subscribeToTutorCollectiveHubs(
   onError?: (error: Error) => void,
   viewerId?: string,
 ): Unsubscribe {
-  return whenFirebaseReady(() => {
-    const hubsQuery = query(
-      collection(db, "collectiveHubs"),
-      where("tutorId", "==", tutorId),
-      where("status", "in", ["open", "full"]),
-    );
+  return whenFirebaseReady(
+    () => {
+      const hubsQuery = query(
+        collection(db, "collectiveHubs"),
+        where("tutorId", "==", tutorId),
+        where("status", "in", ["open", "full"]),
+      );
 
-    return onSnapshot(
-      hubsQuery,
-      (snapshot) => {
-        const hubs = snapshot.docs
-          .map((docSnap) =>
-            mapLiveHub(
-              docSnap.id,
-              docSnap.data() as FirestoreCollectiveHubDoc,
-              viewerId,
-            ),
-          )
-          .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
+      return onSnapshot(
+        hubsQuery,
+        (snapshot) => {
+          const hubs = snapshot.docs
+            .map((docSnap) =>
+              mapLiveHub(
+                docSnap.id,
+                docSnap.data() as FirestoreCollectiveHubDoc,
+                viewerId,
+              ),
+            )
+            .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
 
-        onChange(hubs);
-      },
-      (error) => onError?.(error),
-    );
-  });
+          onChange(hubs);
+        },
+        (error) => onError?.(error),
+      );
+    },
+    () => onChange([]),
+  );
 }
 
 export function formatHubPrice(price: number): string {

@@ -18,12 +18,21 @@ export interface CollectiveHub {
 }
 
 export interface TutorProfile extends Tutor {
-  headline: string;
+  headline?: string;
   isVerified: boolean;
-  hoursTaught: number;
-  studentsServed: number;
-  about: string;
-  methodology: string;
+  hoursTaught?: number;
+  studentsServed?: number;
+  about?: string;
+  methodology?: string;
+  experience?: string;
+  qualifications?: string[];
+  subjects?: string[];
+  levels?: string[];
+  languages?: string[];
+  specialties?: string[];
+  responseTime?: string;
+  firstLessonPrice?: number;
+  offersFreeTrial?: boolean;
   collectiveHubs: CollectiveHub[];
 }
 

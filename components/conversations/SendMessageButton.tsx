@@ -54,7 +54,7 @@ export default function SendMessageButton({
   }
 
   return (
-    <div className="rounded-2xl bg-surface p-4 shadow-soft ring-1 ring-border/50">
+    <div id="mensagem" className="scroll-mt-24 rounded-2xl bg-surface p-4 shadow-soft ring-1 ring-border/50">
       <button
         type="button"
         onClick={handleSendMessage}

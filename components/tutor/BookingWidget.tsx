@@ -22,6 +22,11 @@ import { HUB_JOIN_ERRORS, type HubJoinErrorCode } from "@/lib/hubs/join";
 import { resolveCollectiveClassScheduledAt } from "@/lib/hubs/schedule";
 import { joinCollectiveClassAndBook } from "@/lib/hubs/service";
 import type { CollectiveHubLive } from "@/lib/hubs/types";
+import {
+  defaultBookingOption,
+  offeredLessonTypes,
+  offersLessonType,
+} from "@/lib/tutors/profile-display";
 
 interface BookingWidgetProps {
   tutor: TutorProfile;
@@ -33,7 +38,10 @@ export default function BookingWidget({ tutor }: BookingWidgetProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, userDoc, loading: authLoading } = useAuth();
-  const [option, setOption] = useState<BookingOption>("coletivo");
+  const offeredTypes = offeredLessonTypes(tutor);
+  const [option, setOption] = useState<BookingOption>(
+    () => defaultBookingOption(tutor) ?? "individual",
+  );
   const [hubs, setHubs] = useState<CollectiveHubLive[]>([]);
   const [selectedHubId, setSelectedHubId] = useState("");
   const [selectedSlot, setSelectedSlot] = useState<Date | null>(null);
@@ -138,43 +146,55 @@ export default function BookingWidget({ tutor }: BookingWidgetProps) {
   }
 
   return (
-    <aside className="lg:sticky lg:top-24">
-      <div className="rounded-2xl bg-surface p-6 shadow-soft-lg ring-1 ring-border/50">
-        <h2 className="text-lg font-bold text-foreground">Agendar Aula</h2>
+    <aside id="agendar" className="scroll-mt-24 lg:sticky lg:top-24">
+      <div className="rounded-2xl bg-surface p-5 shadow-soft-lg ring-1 ring-border/50 sm:p-6">
+        <h2 className="text-lg font-bold text-foreground">Agendar aula</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Escolha o formato ideal para você
         </p>
 
-        <div className="mt-5 flex rounded-2xl bg-muted p-1">
-          <button
-            type="button"
-            onClick={() => setOption("individual")}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
-              option === "individual"
-                ? "bg-surface text-primary-700 shadow-card"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            aria-pressed={option === "individual"}
-          >
-            <User className="h-4 w-4" aria-hidden="true" />
-            Individual
-          </button>
-          <button
-            type="button"
-            onClick={() => setOption("coletivo")}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
-              option === "coletivo"
-                ? "bg-surface text-secondary-700 shadow-card"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-            aria-pressed={option === "coletivo"}
-          >
-            <Users className="h-4 w-4" aria-hidden="true" />
-            Coletivo
-          </button>
-        </div>
+        {offeredTypes.length === 0 ? (
+          <p className="mt-5 rounded-2xl bg-muted/40 px-4 py-6 text-center text-sm text-muted-foreground">
+            Este professor ainda não cadastrou opções de agendamento.
+          </p>
+        ) : null}
 
-        {option === "individual" ? (
+        {offeredTypes.length > 1 ? (
+          <div className="mt-5 flex rounded-2xl bg-muted p-1">
+            {offersLessonType(tutor, "individual") ? (
+              <button
+                type="button"
+                onClick={() => setOption("individual")}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+                  option === "individual"
+                    ? "bg-surface text-primary-700 shadow-card"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                aria-pressed={option === "individual"}
+              >
+                <User className="h-4 w-4" aria-hidden="true" />
+                Individual
+              </button>
+            ) : null}
+            {offersLessonType(tutor, "coletivo") ? (
+              <button
+                type="button"
+                onClick={() => setOption("coletivo")}
+                className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+                  option === "coletivo"
+                    ? "bg-surface text-secondary-700 shadow-card"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                aria-pressed={option === "coletivo"}
+              >
+                <Users className="h-4 w-4" aria-hidden="true" />
+                Coletivo
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
+        {offeredTypes.length > 0 && option === "individual" && offersLessonType(tutor, "individual") ? (
           <div className="mt-5 space-y-4">
             <div className="rounded-2xl border border-border bg-muted/40 p-4">
               <h3 className="font-semibold text-foreground">
@@ -198,7 +218,7 @@ export default function BookingWidget({ tutor }: BookingWidgetProps) {
               onSelectSlot={setSelectedSlot}
             />
           </div>
-        ) : (
+        ) : offeredTypes.length > 0 && option === "coletivo" && offersLessonType(tutor, "coletivo") ? (
           <div className="mt-5 space-y-4">
             <div className="rounded-2xl border border-secondary-200 bg-gradient-to-br from-secondary-50 to-secondary-100/50 p-4">
               <h3 className="flex items-center gap-2 font-semibold text-secondary-800">
@@ -218,9 +238,10 @@ export default function BookingWidget({ tutor }: BookingWidgetProps) {
               selectedHubId={selectedHubId}
               onSelectHub={setSelectedHubId}
               onHubsChange={setHubs}
+              initialHubs={tutor.collectiveHubs}
             />
           </div>
-        )}
+        ) : null}
 
         {error && (
           <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
@@ -234,21 +255,23 @@ export default function BookingWidget({ tutor }: BookingWidgetProps) {
           </p>
         )}
 
-        <button
-          type="button"
-          onClick={handleReserve}
-          disabled={submitting || authLoading}
-          className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-600 px-4 py-3.5 text-sm font-bold text-white shadow-soft transition-all duration-200 hover:scale-[1.02] hover:bg-primary-700 hover:shadow-soft-lg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {submitting ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              Reservando...
-            </>
-          ) : (
-            "Reservar Minha Vaga"
-          )}
-        </button>
+        {offeredTypes.length > 0 ? (
+          <button
+            type="button"
+            onClick={handleReserve}
+            disabled={submitting || authLoading}
+            className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-primary-600 px-4 py-3.5 text-sm font-bold text-white shadow-soft transition-all duration-200 hover:scale-[1.02] hover:bg-primary-700 hover:shadow-soft-lg active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {submitting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                Agendando...
+              </>
+            ) : (
+              "Agendar aula"
+            )}
+          </button>
+        ) : null}
 
         {option === "coletivo" && selectedHub && (
           <p className="mt-3 text-center text-xs text-muted-foreground">

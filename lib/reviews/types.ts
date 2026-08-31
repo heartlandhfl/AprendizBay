@@ -10,6 +10,13 @@ export interface Review {
   createdAt: Timestamp;
 }
 
+export interface PublicTutorReview {
+  id: string;
+  rating: number;
+  comment: string;
+  createdAt: Date | null;
+}
+
 export interface CreateReviewInput {
   tutorId: string;
   bookingId: string;
