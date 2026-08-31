@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifyUserIdToken } from "@/lib/auth/admin-server";
+import { CancelBookingError } from "@/lib/bookings/cancellation";
 import { cancelBookingWithRefund } from "@/lib/bookings/server";
-import type { CancelActor } from "@/lib/bookings/cancellation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,29 +11,56 @@ function readBearerToken(request: Request): string {
   return header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : "";
 }
 
+function errorHttpStatus(error: unknown): number {
+  if (error instanceof CancelBookingError) {
+    return error.httpStatus;
+  }
+  const message = error instanceof Error ? error.message : "";
+  if (message.includes("Token") || message.includes("autenticação") || message.includes("login")) {
+    return 401;
+  }
+  if (message.includes("não pode cancelar") || message.includes("só pode")) {
+    return 403;
+  }
+  if (message.includes("não encontrada")) {
+    return 404;
+  }
+  if (
+    message.includes("24 horas") ||
+    message.includes("já está cancelada") ||
+    message.includes("não pode ser cancelada") ||
+    message.includes("já está em andamento")
+  ) {
+    return 409;
+  }
+  if (message.includes("tempo limite")) {
+    return 504;
+  }
+  if (message.includes("ASAAS_API_KEY") || message.includes("Firebase Admin")) {
+    return 503;
+  }
+  if (message.includes("Asaas") || message.includes("estornar")) {
+    return 502;
+  }
+  return 400;
+}
+
 export async function POST(request: Request) {
   try {
     const { uid } = await verifyUserIdToken(readBearerToken(request));
     const body = (await request.json()) as {
       bookingId?: string;
-      actor?: CancelActor;
     };
 
     const bookingId = body.bookingId?.trim();
-    const actor = body.actor;
 
     if (!bookingId) {
       return NextResponse.json({ error: "Informe o identificador da reserva." }, { status: 400 });
     }
 
-    if (actor !== "student" && actor !== "tutor") {
-      return NextResponse.json({ error: "Informe se o cancelamento é do aluno ou do professor." }, { status: 400 });
-    }
-
     const result = await cancelBookingWithRefund({
       bookingId,
       actorUid: uid,
-      actor,
     });
 
     return NextResponse.json({
@@ -45,21 +72,6 @@ export async function POST(request: Request) {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Não foi possível cancelar a reserva.";
-    const status =
-      message.includes("Token") || message.includes("autenticação") || message.includes("login")
-        ? 401
-        : message.includes("só pode")
-          ? 403
-          : message.includes("não encontrada")
-            ? 404
-            : message.includes("24 horas") ||
-                message.includes("já está cancelada") ||
-                message.includes("não pode ser cancelada")
-              ? 409
-              : message.includes("ASAAS_API_KEY") || message.includes("Firebase Admin")
-                ? 503
-                : 400;
-
-    return NextResponse.json({ error: message }, { status });
+    return NextResponse.json({ error: message }, { status: errorHttpStatus(error) });
   }
 }

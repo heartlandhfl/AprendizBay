@@ -3,9 +3,7 @@
 import { X } from "lucide-react";
 import type { Booking } from "@/lib/bookings/types";
 import {
-  decideCancellation,
-  getCancellationCopy,
-  toScheduledDate,
+  describeCancellation,
   type CancelActor,
 } from "@/lib/bookings/cancellation";
 import { formatBookingPrice } from "@/lib/bookings/service";
@@ -27,13 +25,11 @@ export default function CancelBookingDialog({
   onClose,
   onConfirm,
 }: CancelBookingDialogProps) {
-  const decision = decideCancellation({
-    status: booking.status,
-    paymentStatus: booking.paymentStatus,
-    scheduledAt: toScheduledDate(booking.scheduledAt),
+  const { decision, copy } = describeCancellation(
+    booking,
     actor,
-  });
-  const copy = getCancellationCopy(decision, formatBookingPrice(booking.price));
+    formatBookingPrice(booking.price),
+  );
 
   return (
     <div

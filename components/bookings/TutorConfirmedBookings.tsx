@@ -8,11 +8,7 @@ import JoinLessonButton from "@/components/bookings/JoinLessonButton";
 import { useAuth } from "@/lib/auth/AuthContext";
 import type { Booking } from "@/lib/bookings/types";
 import { BOOKING_TYPE_LABELS } from "@/lib/bookings/types";
-import {
-  decideCancellation,
-  getCancellationCopy,
-  toScheduledDate,
-} from "@/lib/bookings/cancellation";
+import { describeCancellation } from "@/lib/bookings/cancellation";
 import {
   cancelBookingAsTutor,
   fetchUserDisplayName,
@@ -128,14 +124,9 @@ export default function TutorConfirmedBookings() {
       <div className="space-y-4">
         {bookings.map((booking) => {
           const canComplete = hasScheduledTimePassed(booking.scheduledAt, now);
-          const cancellation = decideCancellation({
-            status: booking.status,
-            paymentStatus: booking.paymentStatus,
-            scheduledAt: toScheduledDate(booking.scheduledAt),
-            actor: "tutor",
-          });
-          const cancellationCopy = getCancellationCopy(
-            cancellation,
+          const { decision: cancellation, copy: cancellationCopy } = describeCancellation(
+            booking,
+            "tutor",
             formatBookingPrice(booking.price),
           );
 

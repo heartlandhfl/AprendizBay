@@ -96,6 +96,16 @@ export function asaasRequestHeaders(): Record<string, string> {
   };
 }
 
+export const ASAAS_REFUND_TIMEOUT_MS = 20_000;
+
+export const SUCCESSFUL_ASAAS_REFUND_STATUSES = new Set([
+  "REFUNDED",
+  "REFUND_REQUESTED",
+  "REFUND_IN_PROGRESS",
+]);
+
+export const SUCCESSFUL_ASAAS_REFUND_ITEM_STATUSES = new Set(["DONE", "PENDING"]);
+
 export interface AsaasRefundResult {
   paymentId: string;
   status?: string;
@@ -125,6 +135,8 @@ export function parseAsaasRefund(payload: unknown): AsaasRefundResult {
 
   const refunds = Array.isArray(payload.refunds) ? payload.refunds : [];
   const latestRefund = refunds.filter(isRecord).at(-1);
+  const latestRefundStatus = latestRefund ? readString(latestRefund.status)?.toUpperCase() : undefined;
+  const paymentStatus = readString(payload.status)?.toUpperCase();
   const refundAmount =
     latestRefund && typeof latestRefund.value === "number" && Number.isFinite(latestRefund.value)
       ? latestRefund.value
@@ -132,13 +144,43 @@ export function parseAsaasRefund(payload: unknown): AsaasRefundResult {
         ? payload.value
         : undefined;
 
+  const statusConfirmed =
+    Boolean(paymentStatus && SUCCESSFUL_ASAAS_REFUND_STATUSES.has(paymentStatus)) ||
+    Boolean(latestRefundStatus && SUCCESSFUL_ASAAS_REFUND_ITEM_STATUSES.has(latestRefundStatus));
+
+  if (!statusConfirmed) {
+    throw new Error("O Asaas não confirmou o estorno do pagamento.");
+  }
+
   return {
     paymentId,
-    status: readString(payload.status),
+    status: paymentStatus ?? latestRefundStatus,
     refundId:
       (latestRefund ? readString(latestRefund.endToEndIdentifier) : undefined) ?? paymentId,
     refundAmount,
   };
+}
+
+export function isAsaasAlreadyRefundedError(payload: unknown): boolean {
+  const text = [
+    isRecord(payload) && Array.isArray(payload.errors)
+      ? payload.errors
+          .map((item) => (isRecord(item) ? readString(item.description) ?? readString(item.code) : undefined))
+          .filter(Boolean)
+          .join(" ")
+      : "",
+    isRecord(payload) ? readString(payload.message) ?? "" : "",
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  return (
+    text.includes("already refunded") ||
+    text.includes("payment already refunded") ||
+    text.includes("já estornado") ||
+    text.includes("ja estornado") ||
+    text.includes("estornado anteriormente")
+  );
 }
 
 export async function refundAsaasPayment(input: {
@@ -149,19 +191,38 @@ export async function refundAsaasPayment(input: {
   const body: Record<string, unknown> = {
     description: input.description ?? "Cancelamento da aula no Aprendiz Bay",
   };
-  if (typeof input.value === "number" && Number.isFinite(input.value)) {
+  if (typeof input.value === "number" && Number.isFinite(input.value) && input.value > 0) {
     body.value = input.value;
   }
 
-  const response = await fetch(buildAsaasRefundUrl(input.paymentId), {
-    method: "POST",
-    headers: asaasRequestHeaders(),
-    body: JSON.stringify(body),
-  });
+  let response: Response;
+  try {
+    response = await fetch(buildAsaasRefundUrl(input.paymentId), {
+      method: "POST",
+      headers: asaasRequestHeaders(),
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(ASAAS_REFUND_TIMEOUT_MS),
+    });
+  } catch (error) {
+    const name = error instanceof Error ? error.name : "";
+    if (name === "TimeoutError" || name === "AbortError") {
+      throw new Error(
+        "O estorno no Asaas excedeu o tempo limite. Nenhum cancelamento foi concluído. Tente novamente.",
+      );
+    }
+    throw error;
+  }
 
   const payload: unknown = await response.json().catch(() => null);
 
   if (!response.ok) {
+    if (isAsaasAlreadyRefundedError(payload)) {
+      return {
+        paymentId: input.paymentId,
+        status: "REFUNDED",
+        refundId: input.paymentId,
+      };
+    }
     throw new Error(
       asaasErrorMessage(
         payload,
