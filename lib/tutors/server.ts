@@ -14,9 +14,15 @@ import { getFirestore, type Firestore } from "firebase-admin/firestore";
 import type { Tutor } from "@/lib/mock-tutors";
 import type { TutorProfile } from "@/lib/tutor-profiles";
 import {
+  okTutorList,
+  resolveFailedTutorCatalog,
+  resolveFailedTutorProfile,
+  type TutorListResult,
+  type TutorProfileResult,
+} from "@/lib/tutors/catalog";
+import {
   getMockTutorProfileForFallback,
   getMockTutorsForFallback,
-  warnMockTutorFallback,
 } from "@/lib/tutors/fallback";
 import type { FirestoreCollectiveHubDoc, FirestoreTutorDoc } from "@/lib/tutors/firestore-types";
 import {
@@ -24,6 +30,7 @@ import {
   mapFirestoreTutorDoc,
   mapFirestoreTutorProfile,
 } from "@/lib/tutors/map";
+import { areMockTutorsEnabled } from "@/lib/tutors/mock-gate";
 import { isEligibleForSearch } from "@/lib/tutors/search";
 
 let adminApp: App | undefined;
@@ -51,28 +58,45 @@ function getAdminFirestore(): Firestore | null {
   return getFirestore(adminApp);
 }
 
+function mockCatalogFallback(failure: "unavailable" | "error"): TutorListResult<Tutor> {
+  return resolveFailedTutorCatalog(failure, {
+    mocksEnabled: areMockTutorsEnabled(),
+    mockItems: getMockTutorsForFallback(),
+  });
+}
+
+function mockProfileFallback(
+  id: string,
+  failure: "unavailable" | "error",
+): TutorProfileResult<TutorProfile> {
+  return resolveFailedTutorProfile(failure, {
+    mocksEnabled: areMockTutorsEnabled(),
+    mockTutor: getMockTutorProfileForFallback(id),
+  });
+}
+
 async function isTutorsCollectionEmpty(db: Firestore): Promise<boolean> {
   const snapshot = await db.collection("tutors").limit(1).get();
   return snapshot.empty;
 }
 
-export async function fetchVerifiedTutorsServer(): Promise<Tutor[]> {
+export async function fetchVerifiedTutorsServer(): Promise<TutorListResult<Tutor>> {
   const db = getAdminFirestore();
   if (!db) {
-    return getMockTutorsForFallback();
+    return mockCatalogFallback("unavailable");
   }
 
   try {
     const snapshot = await db.collection("tutors").where("isVerified", "==", true).get();
 
     if (snapshot.empty) {
-      if (await isTutorsCollectionEmpty(db)) {
-        return getMockTutorsForFallback();
+      if ((await isTutorsCollectionEmpty(db)) && areMockTutorsEnabled()) {
+        return okTutorList(getMockTutorsForFallback());
       }
-      return [];
+      return okTutorList([]);
     }
 
-    return snapshot.docs
+    const tutors = snapshot.docs
       .map((docSnap) => {
         const data = docSnap.data() as FirestoreTutorDoc;
         if (!isEligibleForSearch(data)) {
@@ -82,31 +106,41 @@ export async function fetchVerifiedTutorsServer(): Promise<Tutor[]> {
       })
       .filter((tutor): tutor is Tutor => tutor !== null)
       .sort((a, b) => b.rating - a.rating);
+
+    return okTutorList(tutors);
   } catch (error) {
     console.error("[Aprendiz Bay] Erro ao buscar tutores no Firestore:", error);
-    return getMockTutorsForFallback();
+    return mockCatalogFallback("error");
   }
 }
 
-export async function fetchTutorProfile(id: string): Promise<TutorProfile | undefined> {
+export async function fetchTutorProfile(
+  id: string,
+): Promise<TutorProfileResult<TutorProfile>> {
   const db = getAdminFirestore();
   if (!db) {
-    return getMockTutorProfileForFallback(id);
+    return mockProfileFallback(id, "unavailable");
   }
 
   try {
     if (await isTutorsCollectionEmpty(db)) {
-      return getMockTutorProfileForFallback(id);
+      if (areMockTutorsEnabled()) {
+        const mockTutor = getMockTutorProfileForFallback(id);
+        if (mockTutor) {
+          return { state: "ok", tutor: mockTutor };
+        }
+      }
+      return { state: "not_found" };
     }
 
     const tutorSnap = await db.collection("tutors").doc(id).get();
     if (!tutorSnap.exists) {
-      return undefined;
+      return { state: "not_found" };
     }
 
     const tutorData = tutorSnap.data() as FirestoreTutorDoc;
     if (!isEligibleForSearch(tutorData)) {
-      return undefined;
+      return { state: "not_found" };
     }
 
     const hubsSnap = await db
@@ -122,35 +156,44 @@ export async function fetchTutorProfile(id: string): Promise<TutorProfile | unde
       ),
     );
 
-    return mapFirestoreTutorProfile(
-      tutorSnap.id,
-      tutorData,
-      collectiveHubs,
-    );
+    return {
+      state: "ok",
+      tutor: mapFirestoreTutorProfile(tutorSnap.id, tutorData, collectiveHubs),
+    };
   } catch (error) {
     console.error("[Aprendiz Bay] Erro ao buscar perfil do tutor:", error);
-    warnMockTutorFallback();
-    return getMockTutorProfileForFallback(id);
+    return mockProfileFallback(id, "error");
   }
 }
 
-export async function fetchAllTutorIds(): Promise<string[]> {
+export async function fetchAllTutorIds(): Promise<TutorListResult<string>> {
   const db = getAdminFirestore();
   if (!db) {
-    return getMockTutorsForFallback().map((tutor) => tutor.id);
+    return resolveFailedTutorCatalog("unavailable", {
+      mocksEnabled: areMockTutorsEnabled(),
+      mockItems: getMockTutorsForFallback().map((tutor) => tutor.id),
+    });
   }
 
   try {
     if (await isTutorsCollectionEmpty(db)) {
-      return getMockTutorsForFallback().map((tutor) => tutor.id);
+      if (areMockTutorsEnabled()) {
+        return okTutorList(getMockTutorsForFallback().map((tutor) => tutor.id));
+      }
+      return okTutorList([]);
     }
 
     const snapshot = await db.collection("tutors").where("isVerified", "==", true).get();
-    return snapshot.docs
+    const ids = snapshot.docs
       .filter((docSnap) => isEligibleForSearch(docSnap.data() as FirestoreTutorDoc))
       .map((docSnap) => docSnap.id);
+
+    return okTutorList(ids);
   } catch (error) {
     console.error("[Aprendiz Bay] Erro ao listar IDs de tutores:", error);
-    return getMockTutorsForFallback().map((tutor) => tutor.id);
+    return resolveFailedTutorCatalog("error", {
+      mocksEnabled: areMockTutorsEnabled(),
+      mockItems: getMockTutorsForFallback().map((tutor) => tutor.id),
+    });
   }
 }

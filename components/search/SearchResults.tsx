@@ -11,6 +11,7 @@ import SearchFilters, {
 import TutorCard from "@/components/search/TutorCard";
 import { trackEvent } from "@/lib/analytics/client";
 import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
+import CatalogLoadState from "@/components/catalog/CatalogLoadState";
 import { fetchOpenCollectiveHubs } from "@/lib/hubs/service";
 import type { CollectiveHubLive } from "@/lib/hubs/types";
 import {
@@ -19,6 +20,7 @@ import {
   type FilterModality,
   type Tutor,
 } from "@/lib/mock-tutors";
+import { isCatalogProblem, type TutorCatalogState } from "@/lib/tutors/catalog";
 import { SEARCH_CITIES } from "@/lib/tutors/constants";
 import { fetchVerifiedTutors } from "@/lib/tutors/client";
 import {
@@ -112,6 +114,8 @@ export default function SearchResults({
   const [tutors, setTutors] = useState<Tutor[]>([]);
   const [hubs, setHubs] = useState<CollectiveHubLive[]>([]);
   const [loading, setLoading] = useState(true);
+  const [catalogState, setCatalogState] = useState<TutorCatalogState>("ok");
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -120,7 +124,7 @@ export default function SearchResults({
       setLoading(true);
 
       try {
-        const [fetchedTutors, fetchedHubs] = await Promise.all([
+        const [tutorCatalog, hubCatalog] = await Promise.all([
           fetchVerifiedTutors({
             subject: filters.subject,
             city: filters.city,
@@ -128,13 +132,28 @@ export default function SearchResults({
           fetchOpenCollectiveHubs(),
         ]);
 
-        if (!cancelled) {
-          setTutors(fetchedTutors);
-          setHubs(fetchedHubs.map((hub) => enrichHub(hub, fetchedTutors)));
+        if (cancelled) {
+          return;
         }
+
+        if (isCatalogProblem(tutorCatalog.state) || isCatalogProblem(hubCatalog.state)) {
+          setCatalogState(
+            tutorCatalog.state === "unavailable" || hubCatalog.state === "unavailable"
+              ? "unavailable"
+              : "error",
+          );
+          setTutors([]);
+          setHubs([]);
+          return;
+        }
+
+        setCatalogState(tutorCatalog.state === "ok" || hubCatalog.state === "ok" ? "ok" : "empty");
+        setTutors(tutorCatalog.items);
+        setHubs(hubCatalog.items.map((hub) => enrichHub(hub, tutorCatalog.items)));
       } catch (error) {
         console.error("[Aprendiz Bay] Erro ao buscar tutores:", error);
         if (!cancelled) {
+          setCatalogState("error");
           setTutors([]);
           setHubs([]);
         }
@@ -150,7 +169,7 @@ export default function SearchResults({
     return () => {
       cancelled = true;
     };
-  }, [filters.subject, filters.city]);
+  }, [filters.subject, filters.city, reloadToken]);
 
   useEffect(() => {
     trackEvent(ANALYTICS_EVENTS.search, {
@@ -241,6 +260,11 @@ export default function SearchResults({
               <Loader2 className="h-8 w-8 animate-spin text-primary-600" aria-hidden="true" />
               <span className="sr-only">Carregando professores e turmas...</span>
             </div>
+          ) : isCatalogProblem(catalogState) ? (
+            <CatalogLoadState
+              kind={catalogState}
+              onRetry={() => setReloadToken((token) => token + 1)}
+            />
           ) : resultCount > 0 ? (
             <div className="space-y-8">
               {classResults.length > 0 ? (

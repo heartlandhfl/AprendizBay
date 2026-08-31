@@ -3,8 +3,10 @@ import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { MOCK_TUTORS } from "../lib/mock-tutors";
 import { TUTOR_PROFILE_DETAILS } from "../lib/tutor-profiles";
+import { assertDevSeedAllowed } from "../lib/tutors/mock-gate";
 
 config({ path: ".env.local" });
+assertDevSeedAllowed();
 
 function getSeedFirestore() {
   const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID;

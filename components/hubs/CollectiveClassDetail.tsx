@@ -18,12 +18,14 @@ import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
 import { HUB_JOIN_ERRORS, type HubJoinErrorCode } from "@/lib/hubs/join";
 import { collectiveSavingsPercent, formatVacancyLabel } from "@/lib/hubs/public";
 import { resolveCollectiveClassScheduledAt } from "@/lib/hubs/schedule";
+import CatalogLoadState from "@/components/catalog/CatalogLoadState";
 import {
   fetchCollectiveHubById,
   formatHubPrice,
   joinCollectiveClassAndBook,
 } from "@/lib/hubs/service";
 import type { CollectiveHubLive } from "@/lib/hubs/types";
+import { isCatalogProblem, type HubLoadState } from "@/lib/tutors/catalog";
 
 interface CollectiveClassDetailProps {
   hubId: string;
@@ -50,7 +52,9 @@ export default function CollectiveClassDetail({ hubId }: CollectiveClassDetailPr
   const pathname = usePathname();
   const { user, userDoc, loading: authLoading } = useAuth();
   const [hub, setHub] = useState<CollectiveHubLive | null>(null);
+  const [hubState, setHubState] = useState<HubLoadState>("ok");
   const [loading, setLoading] = useState(true);
+  const [reloadToken, setReloadToken] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -61,13 +65,15 @@ export default function CollectiveClassDetail({ hubId }: CollectiveClassDetailPr
     async function loadHub() {
       setLoading(true);
       try {
-        const nextHub = await fetchCollectiveHubById(hubId, user?.uid);
+        const result = await fetchCollectiveHubById(hubId, user?.uid);
         if (!cancelled) {
-          setHub(nextHub);
+          setHub(result.hub);
+          setHubState(result.state);
         }
       } catch {
         if (!cancelled) {
           setHub(null);
+          setHubState("error");
         }
       } finally {
         if (!cancelled) {
@@ -81,7 +87,7 @@ export default function CollectiveClassDetail({ hubId }: CollectiveClassDetailPr
     return () => {
       cancelled = true;
     };
-  }, [hubId, user?.uid]);
+  }, [hubId, user?.uid, reloadToken]);
 
   async function handleJoin() {
     setError(null);
@@ -146,6 +152,16 @@ export default function CollectiveClassDetail({ hubId }: CollectiveClassDetailPr
         <Loader2 className="h-8 w-8 animate-spin text-primary-600" aria-hidden="true" />
         <span className="sr-only">Carregando turma...</span>
       </div>
+    );
+  }
+
+  if (isCatalogProblem(hubState)) {
+    return (
+      <CatalogLoadState
+        kind={hubState}
+        scope="hubs"
+        onRetry={() => setReloadToken((token) => token + 1)}
+      />
     );
   }
 

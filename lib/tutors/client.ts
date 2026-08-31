@@ -9,7 +9,13 @@ import {
 } from "firebase/firestore";
 import type { Tutor } from "@/lib/mock-tutors";
 import { db, ensureFirebaseApp } from "@/lib/firebase/client";
+import {
+  okTutorList,
+  resolveFailedTutorCatalog,
+  type TutorListResult,
+} from "@/lib/tutors/catalog";
 import { getMockTutorsForFallback } from "@/lib/tutors/fallback";
+import { areMockTutorsEnabled } from "@/lib/tutors/mock-gate";
 import type {
   AdminTutorApplication,
   FirestoreTutorDoc,
@@ -62,35 +68,50 @@ export async function fetchUnverifiedTutors(): Promise<Tutor[]> {
     }));
 }
 
-export async function fetchVerifiedTutors(filters: TutorQueryFilters = {}): Promise<Tutor[]> {
+export async function fetchVerifiedTutors(
+  filters: TutorQueryFilters = {},
+): Promise<TutorListResult<Tutor>> {
   const app = await ensureFirebaseApp();
   if (!app) {
-    return getMockTutorsForFallback().filter((tutor) => tutor.isVerified !== false);
+    return resolveFailedTutorCatalog("unavailable", {
+      mocksEnabled: areMockTutorsEnabled(),
+      mockItems: getMockTutorsForFallback().filter((tutor) => tutor.isVerified !== false),
+    });
   }
 
-  const { subject, city } = firestoreSearchConstraints(filters);
-  const constraints: QueryConstraint[] = [where("isVerified", "==", true)];
+  try {
+    const { subject, city } = firestoreSearchConstraints(filters);
+    const constraints: QueryConstraint[] = [where("isVerified", "==", true)];
 
-  if (subject) {
-    constraints.push(where("subject", "==", subject));
+    if (subject) {
+      constraints.push(where("subject", "==", subject));
+    }
+
+    if (city) {
+      constraints.push(where("city", "==", city));
+    }
+
+    constraints.push(orderBy("rating", "desc"));
+    constraints.push(limit(SEARCH_RESULT_LIMIT));
+
+    const snapshot = await getDocs(query(collection(db, "tutors"), ...constraints));
+
+    const tutors = snapshot.docs
+      .map((docSnap) => {
+        const data = docSnap.data() as FirestoreTutorDoc;
+        if (!isEligibleForSearch(data)) {
+          return null;
+        }
+        return mapFirestoreTutorDoc(docSnap.id, data);
+      })
+      .filter((tutor): tutor is Tutor => tutor !== null);
+
+    return okTutorList(tutors);
+  } catch (error) {
+    console.error("[Aprendiz Bay] Erro ao buscar tutores no Firestore:", error);
+    return resolveFailedTutorCatalog("error", {
+      mocksEnabled: areMockTutorsEnabled(),
+      mockItems: getMockTutorsForFallback().filter((tutor) => tutor.isVerified !== false),
+    });
   }
-
-  if (city) {
-    constraints.push(where("city", "==", city));
-  }
-
-  constraints.push(orderBy("rating", "desc"));
-  constraints.push(limit(SEARCH_RESULT_LIMIT));
-
-  const snapshot = await getDocs(query(collection(db, "tutors"), ...constraints));
-
-  return snapshot.docs
-    .map((docSnap) => {
-      const data = docSnap.data() as FirestoreTutorDoc;
-      if (!isEligibleForSearch(data)) {
-        return null;
-      }
-      return mapFirestoreTutorDoc(docSnap.id, data);
-    })
-    .filter((tutor): tutor is Tutor => tutor !== null);
 }

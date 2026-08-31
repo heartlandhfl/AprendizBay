@@ -14,7 +14,9 @@ import TutorStickyActions from "@/components/tutor/TutorStickyActions";
 import ProfileViewTracker from "@/components/observability/ProfileViewTracker";
 import BookingWidget from "@/components/tutor/BookingWidget";
 import SendMessageButton from "@/components/conversations/SendMessageButton";
+import TutorCatalogProblem from "@/components/catalog/TutorCatalogProblem";
 import { buildTutorPersonJsonLd } from "@/lib/seo/tutor-jsonld";
+import { isCatalogProblem, tutorsForPublicPages } from "@/lib/tutors/catalog";
 import { fetchAllTutorIds, fetchTutorProfile } from "@/lib/tutors/server";
 import { offersLessonType } from "@/lib/tutors/profile-display";
 
@@ -23,16 +25,22 @@ interface TutorPageProps {
 }
 
 export async function generateStaticParams() {
-  const ids = await fetchAllTutorIds();
-  return ids.map((id) => ({ id }));
+  const catalog = await fetchAllTutorIds();
+  return tutorsForPublicPages(catalog).map((id) => ({ id }));
 }
 
 export async function generateMetadata({ params }: TutorPageProps): Promise<Metadata> {
-  const tutor = await fetchTutorProfile(params.id);
+  const result = await fetchTutorProfile(params.id);
 
-  if (!tutor) {
+  if (isCatalogProblem(result.state)) {
+    return { title: "Professor — Aprendiz Bay" };
+  }
+
+  if (!result.tutor) {
     return { title: "Professor não encontrado — Aprendiz Bay" };
   }
+
+  const tutor = result.tutor;
 
   const description =
     tutor.headline?.trim() ||
@@ -53,11 +61,17 @@ export async function generateMetadata({ params }: TutorPageProps): Promise<Meta
 }
 
 export default async function TutorPage({ params }: TutorPageProps) {
-  const tutor = await fetchTutorProfile(params.id);
+  const result = await fetchTutorProfile(params.id);
 
-  if (!tutor) {
+  if (isCatalogProblem(result.state)) {
+    return <TutorCatalogProblem kind={result.state} scope="profile" />;
+  }
+
+  if (!result.tutor) {
     notFound();
   }
+
+  const tutor = result.tutor;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 pb-28 sm:px-6 lg:px-8 lg:pb-8">

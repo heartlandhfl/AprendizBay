@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { getPopularSubjectCityPairs, subjectCityPath } from "@/lib/seo/subject-city";
 import { getSiteOrigin } from "@/lib/seo/site-url";
+import { tutorsForPublicPages } from "@/lib/tutors/catalog";
 import { fetchAllTutorIds, fetchVerifiedTutorsServer } from "@/lib/tutors/server";
 
 export const dynamic = "force-static";
@@ -9,10 +10,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const origin = getSiteOrigin();
   const lastModified = new Date();
 
-  const [tutors, tutorIds] = await Promise.all([
+  const [tutorCatalog, tutorIdCatalog] = await Promise.all([
     fetchVerifiedTutorsServer(),
     fetchAllTutorIds(),
   ]);
+  const tutors = tutorsForPublicPages(tutorCatalog);
+  const tutorIds = tutorsForPublicPages(tutorIdCatalog);
 
   const subjectCityPages = getPopularSubjectCityPairs(tutors).map((pair) => ({
     url: `${origin}${subjectCityPath(pair.subject, pair.city)}`,

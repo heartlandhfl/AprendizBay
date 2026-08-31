@@ -23,6 +23,14 @@ import { toPublicCollectiveHub } from "@/lib/hubs/public";
 import { requestNotification } from "@/lib/notifications/client";
 import { loadPlatformFeePercent, splitBookingPrice } from "@/lib/payments/fees";
 import { getTutorProfile } from "@/lib/tutor-profiles";
+import {
+  okTutorList,
+  resolveFailedHubItem,
+  resolveFailedHubList,
+  type HubItemResult,
+  type HubListResult,
+} from "@/lib/tutors/catalog";
+import { areMockTutorsEnabled } from "@/lib/tutors/mock-gate";
 import type { FirestoreCollectiveHubDoc } from "@/lib/tutors/firestore-types";
 import { mapFirestoreCollectiveHubDoc } from "@/lib/tutors/map";
 import type {
@@ -57,6 +65,10 @@ function throwJoinError(code: HubJoinErrorCode): never {
 }
 
 function getMockOpenHubs(): CollectiveHubLive[] {
+  if (!areMockTutorsEnabled()) {
+    return [];
+  }
+
   return ["1", "2", "3", "4", "5"].flatMap((tutorId) => {
     const profile = getTutorProfile(tutorId);
     if (!profile) {
@@ -170,50 +182,78 @@ export async function joinCollectiveClassAndBook(
   return bookingRef.id;
 }
 
-export async function fetchOpenCollectiveHubs(): Promise<CollectiveHubLive[]> {
+export async function fetchOpenCollectiveHubs(): Promise<HubListResult<CollectiveHubLive>> {
   const app = await ensureFirebaseApp();
   if (!app) {
-    return getMockOpenHubs();
+    return resolveFailedHubList("unavailable", {
+      mocksEnabled: areMockTutorsEnabled(),
+      mockItems: getMockOpenHubs(),
+    });
   }
 
-  const snapshot = await getDocs(
-    query(collection(db, "collectiveHubs"), where("status", "==", "open")),
-  );
+  try {
+    const snapshot = await getDocs(
+      query(collection(db, "collectiveHubs"), where("status", "==", "open")),
+    );
 
-  if (snapshot.empty) {
-    const anyHubs = await getDocs(collection(db, "collectiveHubs"));
-    if (anyHubs.empty) {
-      return getMockOpenHubs();
+    if (snapshot.empty) {
+      const anyHubs = await getDocs(collection(db, "collectiveHubs"));
+      if (anyHubs.empty && areMockTutorsEnabled()) {
+        return okTutorList(getMockOpenHubs());
+      }
+      return okTutorList([]);
     }
-    return [];
-  }
 
-  return snapshot.docs
-    .map((docSnap) =>
-      mapLiveHub(docSnap.id, docSnap.data() as FirestoreCollectiveHubDoc),
-    )
-    .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
+    const hubs = snapshot.docs
+      .map((docSnap) =>
+        mapLiveHub(docSnap.id, docSnap.data() as FirestoreCollectiveHubDoc),
+      )
+      .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
+
+    return okTutorList(hubs);
+  } catch (error) {
+    console.error("[Aprendiz Bay] Erro ao buscar turmas coletivas:", error);
+    return resolveFailedHubList("error", {
+      mocksEnabled: areMockTutorsEnabled(),
+      mockItems: getMockOpenHubs(),
+    });
+  }
 }
 
 export async function fetchCollectiveHubById(
   hubId: string,
   viewerId?: string,
-): Promise<CollectiveHubLive | null> {
+): Promise<HubItemResult<CollectiveHubLive>> {
   const app = await ensureFirebaseApp();
   if (!app) {
-    return getMockOpenHubs().find((hub) => hub.id === hubId) ?? null;
+    return resolveFailedHubItem("unavailable", {
+      mocksEnabled: areMockTutorsEnabled(),
+      mockHub: getMockOpenHubs().find((hub) => hub.id === hubId) ?? null,
+    });
   }
 
-  const snapshot = await getDoc(doc(db, "collectiveHubs", hubId));
-  if (!snapshot.exists()) {
-    return getMockOpenHubs().find((hub) => hub.id === hubId) ?? null;
-  }
+  try {
+    const snapshot = await getDoc(doc(db, "collectiveHubs", hubId));
+    if (!snapshot.exists()) {
+      return { state: "not_found", hub: null };
+    }
 
-  return mapLiveHub(snapshot.id, snapshot.data() as FirestoreCollectiveHubDoc, viewerId);
+    return {
+      state: "ok",
+      hub: mapLiveHub(snapshot.id, snapshot.data() as FirestoreCollectiveHubDoc, viewerId),
+    };
+  } catch (error) {
+    console.error("[Aprendiz Bay] Erro ao buscar turma coletiva:", error);
+    return resolveFailedHubItem("error", {
+      mocksEnabled: areMockTutorsEnabled(),
+      mockHub: getMockOpenHubs().find((hub) => hub.id === hubId) ?? null,
+    });
+  }
 }
 
 export async function fetchHub(hubId: string): Promise<CollectiveHubLive | null> {
-  return fetchCollectiveHubById(hubId);
+  const result = await fetchCollectiveHubById(hubId);
+  return result.hub;
 }
 
 export function subscribeToTutorCollectiveHubs(
