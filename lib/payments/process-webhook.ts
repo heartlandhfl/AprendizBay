@@ -8,7 +8,7 @@ import {
 import { generateMeetingUrl } from "@/lib/bookings/meeting";
 import { getAdminApp } from "@/lib/firebase/admin";
 import { notifyConfirmedBooking, safeNotify } from "@/lib/notifications/server";
-import type { AsaasWebhookMatch } from "@/lib/payments/asaas";
+import type { AsaasWebhookMatch, AsaasWebhookOutcome } from "@/lib/payments/asaas";
 import { getSiteOrigin } from "@/lib/seo/site-url";
 import {
   ASAAS_WEBHOOK_RECEIPTS_COLLECTION,
@@ -16,6 +16,8 @@ import {
   WEBHOOK_BOOKING_NOT_FOUND_MESSAGE,
   WEBHOOK_CANCELLED_MESSAGE,
   WEBHOOK_CONFIRMED_MESSAGE,
+  WEBHOOK_EXPIRED_MESSAGE,
+  WEBHOOK_FAILED_MESSAGE,
   buildAsaasWebhookReceiptIds,
   type AsaasWebhookReceipt,
   type AsaasWebhookReceiptOutcome,
@@ -25,7 +27,10 @@ export type ProcessAsaasWebhookKind =
   | "confirmed"
   | "already_processed"
   | "cancelled"
-  | "booking_not_found";
+  | "booking_not_found"
+  | "failed"
+  | "expired"
+  | "ignored";
 
 export interface ProcessAsaasWebhookResult {
   kind: ProcessAsaasWebhookKind;
@@ -87,6 +92,15 @@ function jsonResponseFields(
     };
   }
 
+  if (kind === "failed" || kind === "expired" || kind === "ignored") {
+    return {
+      kind,
+      httpStatus: 200,
+      received: true,
+      message,
+    };
+  }
+
   return {
     kind: "booking_not_found",
     httpStatus: 200,
@@ -104,9 +118,26 @@ function toPublicResult(kind: ProcessAsaasWebhookKind): ProcessAsaasWebhookResul
       return jsonResponseFields(kind, WEBHOOK_ALREADY_PROCESSED_MESSAGE);
     case "cancelled":
       return jsonResponseFields(kind, WEBHOOK_CANCELLED_MESSAGE);
+    case "failed":
+      return jsonResponseFields(kind, WEBHOOK_FAILED_MESSAGE);
+    case "expired":
+      return jsonResponseFields(kind, WEBHOOK_EXPIRED_MESSAGE);
+    case "ignored":
+      return jsonResponseFields(kind, eventIgnoredMessage());
     default:
       return jsonResponseFields(kind, WEBHOOK_BOOKING_NOT_FOUND_MESSAGE);
   }
+}
+
+function eventIgnoredMessage(): string {
+  return "Evento ignorado.";
+}
+
+function resolveEventOutcome(event: AsaasWebhookMatch): AsaasWebhookOutcome {
+  if (event.outcome) {
+    return event.outcome;
+  }
+  return event.isSuccessfulPayment ? "successful" : "ignored";
 }
 
 function buildReceipt(
@@ -205,6 +236,57 @@ async function claimSuccessfulPayment(
   };
 }
 
+async function claimUnsuccessfulPayment(
+  tx: WebhookTransaction,
+  event: AsaasWebhookMatch,
+  outcome: "failed" | "expired",
+): Promise<ClaimResult> {
+  const bookingId = event.bookingId;
+  if (!bookingId) {
+    return { kind: "booking_not_found" };
+  }
+
+  const booking = await tx.getBooking(bookingId);
+  if (!booking) {
+    return { kind: "booking_not_found" };
+  }
+
+  if (booking.status === "cancelled") {
+    return { kind: "cancelled", booking };
+  }
+
+  if (bookingAlreadyPaid(booking)) {
+    return { kind: "already_processed", booking };
+  }
+
+  const paymentStatus = outcome === "failed" ? "failed" : "expired";
+  const updates: Record<string, unknown> = {
+    paymentStatus,
+  };
+
+  if (event.paymentId) {
+    updates.paymentId = event.paymentId;
+  }
+  if (event.asaasCheckoutId) {
+    updates.asaasCheckoutId = event.asaasCheckoutId;
+  }
+  if (outcome === "expired") {
+    updates.asaasCheckoutExpiresAt = new Date();
+  }
+
+  tx.updateBooking(booking.id, updates);
+  return {
+    kind: outcome,
+    booking: {
+      ...booking,
+      paymentStatus,
+      paymentId: event.paymentId ?? booking.paymentId,
+      asaasCheckoutId: event.asaasCheckoutId ?? booking.asaasCheckoutId,
+      ...(outcome === "expired" ? { asaasCheckoutExpiresAt: new Date() } : {}),
+    },
+  };
+}
+
 export function createMemoryWebhookStore(
   bookings: Map<string, BookingRecord> = new Map(),
   receipts: Map<string, AsaasWebhookReceipt> = new Map(),
@@ -262,6 +344,10 @@ export function createMemoryWebhookStore(
               typeof updates.asaasCheckoutId === "string"
                 ? updates.asaasCheckoutId
                 : current.asaasCheckoutId,
+            asaasCheckoutExpiresAt:
+              updates.asaasCheckoutExpiresAt instanceof Date
+                ? updates.asaasCheckoutExpiresAt
+                : current.asaasCheckoutExpiresAt,
           });
         }
 
@@ -352,8 +438,20 @@ export async function processAsaasPaymentWebhook(
   deps: ProcessAsaasWebhookDeps = {},
 ): Promise<ProcessAsaasWebhookResult> {
   const store = deps.store ?? getDefaultStore();
-  const receiptIds = buildAsaasWebhookReceiptIds(event);
+  const outcome = resolveEventOutcome(event);
 
+  if (outcome === "ignored") {
+    return toPublicResult("ignored");
+  }
+
+  if (outcome === "failed" || outcome === "expired") {
+    const claimed = await store.runAtomic((tx) =>
+      claimUnsuccessfulPayment(tx, event, outcome),
+    );
+    return toPublicResult(claimed.kind);
+  }
+
+  const receiptIds = buildAsaasWebhookReceiptIds(event);
   const claimed = await store.runAtomic((tx) => claimSuccessfulPayment(tx, event, receiptIds));
   const result = toPublicResult(claimed.kind);
 

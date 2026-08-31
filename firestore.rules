@@ -25,7 +25,7 @@ rules_version = '2';
 //   bookings/{bookingId}
 //     studentId, tutorId, hubId?, type: "individual" | "coletivo"
 //     status: "pending" | "confirmed" | "cancelled" | "completed"
-//     paymentStatus?: "unpaid" | "awaiting_payment" | "paid" | "failed"
+//     paymentStatus?: "unpaid" | "awaiting_payment" | "paid" | "failed" | "expired"
 //     paymentId?, asaasCheckoutId?, asaasCheckoutExpiresAt?, checkoutLockUntil?
 //     refundId?, refundStatus?, refundAmount?
 //     scheduledAt, price, platformFee?, tutorAmount?, meetingUrl?, createdAt, updatedAt

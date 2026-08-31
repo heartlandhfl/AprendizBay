@@ -17,6 +17,11 @@ import {
   formatBookingPrice,
   subscribeToTutorPendingBookings,
 } from "@/lib/bookings/service";
+import {
+  getPaymentLifecycle,
+  getTutorPaymentCopy,
+  hasTutorRequestedPayment,
+} from "@/lib/payments/status";
 
 interface EnrichedBooking extends Booking {
   studentName: string;
@@ -126,7 +131,9 @@ export default function TutorDashboardBookings() {
         <div className="space-y-4">
           {bookings.map((booking) => {
             const paymentStatus: PaymentStatus = booking.paymentStatus ?? "unpaid";
-            const awaitingPayment = paymentStatus === "awaiting_payment";
+            const lifecycle = getPaymentLifecycle(booking);
+            const tutorCopy = getTutorPaymentCopy(lifecycle);
+            const paymentRequested = hasTutorRequestedPayment(paymentStatus);
 
             return (
             <article
@@ -173,14 +180,18 @@ export default function TutorDashboardBookings() {
                 />
               </div>
 
-              {awaitingPayment && (
-                <p className="mt-4 text-sm text-amber-800">
-                  Você aceitou esta aula. O aluno ainda precisa pagar para liberar o link da reunião.
+              {tutorCopy && (
+                <p className={`mt-4 text-sm ${
+                  lifecycle === "failed" || lifecycle === "expired"
+                    ? "text-red-800"
+                    : "text-amber-800"
+                }`}>
+                  {tutorCopy.explanation}
                 </p>
               )}
 
               <div className="mt-4 flex flex-wrap gap-2">
-                {!awaitingPayment && (
+                {!paymentRequested && (
                   <button
                     type="button"
                     onClick={() => handleConfirm(booking.id)}

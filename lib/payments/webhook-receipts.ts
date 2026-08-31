@@ -7,6 +7,8 @@ export const WEBHOOK_ALREADY_PROCESSED_MESSAGE = "Evento já processado.";
 export const WEBHOOK_UNAUTHORIZED_MESSAGE = "Webhook não autorizado.";
 export const WEBHOOK_INVALID_MESSAGE = "Webhook inválido.";
 export const WEBHOOK_CONFIRMED_MESSAGE = "Pagamento confirmado.";
+export const WEBHOOK_FAILED_MESSAGE = "Pagamento recusado.";
+export const WEBHOOK_EXPIRED_MESSAGE = "Checkout expirado ou cancelado.";
 export const WEBHOOK_CANCELLED_MESSAGE = "Reserva cancelada.";
 export const WEBHOOK_BOOKING_NOT_FOUND_MESSAGE = "Reserva não encontrada.";
 

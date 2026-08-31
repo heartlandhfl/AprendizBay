@@ -64,6 +64,27 @@ assert.equal(checkoutPaid.asaasCheckoutId, "131ca662-56c8-4479-b5b3-fd61a413fce7
 
 const ignored = parseAsaasWebhook({ event: "PAYMENT_CREATED", payment: { id: "pay_1" } });
 assert.equal(ignored.isSuccessfulPayment, false);
+assert.equal(ignored.outcome, "ignored");
+
+const failed = parseAsaasWebhook({
+  event: "PAYMENT_CREDIT_CARD_CAPTURE_REFUSED",
+  payment: { id: "pay_refused", externalReference: "booking-123" },
+});
+assert.equal(failed.outcome, "failed");
+assert.equal(failed.isSuccessfulPayment, false);
+
+const expired = parseAsaasWebhook({
+  event: "CHECKOUT_EXPIRED",
+  checkout: { id: "checkout-abc", status: "EXPIRED", externalReference: "booking-456" },
+});
+assert.equal(expired.outcome, "expired");
+assert.equal(expired.bookingId, "booking-456");
+
+const abandoned = parseAsaasWebhook({
+  event: "CHECKOUT_CANCELED",
+  checkout: { id: "checkout-abc", externalReference: "booking-456" },
+});
+assert.equal(abandoned.outcome, "expired");
 
 assert.equal(isMalformedAsaasWebhookPayload(null), true);
 assert.equal(isMalformedAsaasWebhookPayload(["PAYMENT_CONFIRMED"]), true);

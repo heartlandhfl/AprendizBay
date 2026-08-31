@@ -11,6 +11,8 @@ import {
   WEBHOOK_BOOKING_NOT_FOUND_MESSAGE,
   WEBHOOK_CANCELLED_MESSAGE,
   WEBHOOK_CONFIRMED_MESSAGE,
+  WEBHOOK_EXPIRED_MESSAGE,
+  WEBHOOK_FAILED_MESSAGE,
   buildAsaasWebhookReceiptIds,
 } from "@/lib/payments/webhook-receipts";
 
@@ -226,5 +228,215 @@ describe("processAsaasPaymentWebhook", () => {
     expect(kinds).toEqual(["already_processed", "confirmed"]);
     expect(onConfirmed).toHaveBeenCalledTimes(1);
     expect(store.bookings.get("booking-123")?.status).toBe("confirmed");
+  });
+
+  it("records a failed payment without confirming the lesson or creating a meeting URL", async () => {
+    const store = createMemoryWebhookStore(
+      new Map([["booking-123", pendingBooking({ asaasCheckoutId: "checkout-abc" })]]),
+    );
+    const onConfirmed = vi.fn(async () => undefined);
+
+    const result = await processAsaasPaymentWebhook(
+      {
+        event: "PAYMENT_CREDIT_CARD_CAPTURE_REFUSED",
+        isSuccessfulPayment: false,
+        outcome: "failed",
+        bookingId: "booking-123",
+        paymentId: "pay_refused",
+        asaasCheckoutId: "checkout-abc",
+      },
+      { store, onConfirmed },
+    );
+
+    expect(result).toMatchObject({
+      kind: "failed",
+      httpStatus: 200,
+      message: WEBHOOK_FAILED_MESSAGE,
+    });
+    expect(onConfirmed).not.toHaveBeenCalled();
+
+    const booking = store.bookings.get("booking-123")!;
+    expect(booking.status).toBe("pending");
+    expect(booking.paymentStatus).toBe("failed");
+    expect(booking.meetingUrl).toBeUndefined();
+    expect(booking.paymentId).toBe("pay_refused");
+    expect(store.receipts.size).toBe(0);
+  });
+
+  it("records an expired checkout without confirming the lesson or cancelling the booking", async () => {
+    const store = createMemoryWebhookStore(
+      new Map([["booking-123", pendingBooking({ asaasCheckoutId: "checkout-abc" })]]),
+    );
+    const onConfirmed = vi.fn(async () => undefined);
+
+    const result = await processAsaasPaymentWebhook(
+      {
+        event: "CHECKOUT_EXPIRED",
+        isSuccessfulPayment: false,
+        outcome: "expired",
+        bookingId: "booking-123",
+        asaasCheckoutId: "checkout-abc",
+      },
+      { store, onConfirmed },
+    );
+
+    expect(result.kind).toBe("expired");
+    expect(result.message).toBe(WEBHOOK_EXPIRED_MESSAGE);
+    expect(onConfirmed).not.toHaveBeenCalled();
+
+    const booking = store.bookings.get("booking-123")!;
+    expect(booking.status).toBe("pending");
+    expect(booking.paymentStatus).toBe("expired");
+    expect(booking.meetingUrl).toBeUndefined();
+  });
+
+  it("records an abandoned checkout as expired without unlocking the lesson", async () => {
+    const store = createMemoryWebhookStore(
+      new Map([["booking-123", pendingBooking({ asaasCheckoutId: "checkout-abc" })]]),
+    );
+    const onConfirmed = vi.fn(async () => undefined);
+
+    const result = await processAsaasPaymentWebhook(
+      {
+        event: "CHECKOUT_CANCELED",
+        isSuccessfulPayment: false,
+        outcome: "expired",
+        bookingId: "booking-123",
+        asaasCheckoutId: "checkout-abc",
+      },
+      { store, onConfirmed },
+    );
+
+    expect(result.kind).toBe("expired");
+    expect(onConfirmed).not.toHaveBeenCalled();
+    expect(store.bookings.get("booking-123")).toMatchObject({
+      status: "pending",
+      paymentStatus: "expired",
+      meetingUrl: undefined,
+    });
+  });
+
+  it("confirms a genuine payment after a previous failed attempt", async () => {
+    const store = createMemoryWebhookStore(
+      new Map([["booking-123", pendingBooking({ asaasCheckoutId: "checkout-abc" })]]),
+    );
+    const onConfirmed = vi.fn(async () => undefined);
+
+    await processAsaasPaymentWebhook(
+      {
+        event: "PAYMENT_CREDIT_CARD_CAPTURE_REFUSED",
+        isSuccessfulPayment: false,
+        outcome: "failed",
+        bookingId: "booking-123",
+        paymentId: "pay_refused",
+        asaasCheckoutId: "checkout-abc",
+      },
+      { store, onConfirmed },
+    );
+
+    const result = await processAsaasPaymentWebhook(successfulEvent(), {
+      store,
+      onConfirmed,
+    });
+
+    expect(result.kind).toBe("confirmed");
+    expect(onConfirmed).toHaveBeenCalledTimes(1);
+    expect(store.bookings.get("booking-123")).toMatchObject({
+      status: "confirmed",
+      paymentStatus: "paid",
+      meetingUrl: generateMeetingUrl("booking-123"),
+      paymentId: "pay_080225913252",
+    });
+  });
+
+  it("does not confirm a lesson when a webhook arrives after checkout expiration", async () => {
+    const store = createMemoryWebhookStore(
+      new Map([["booking-123", pendingBooking({ asaasCheckoutId: "checkout-abc" })]]),
+    );
+    const onConfirmed = vi.fn(async () => undefined);
+
+    await processAsaasPaymentWebhook(
+      {
+        event: "CHECKOUT_EXPIRED",
+        isSuccessfulPayment: false,
+        outcome: "expired",
+        bookingId: "booking-123",
+        asaasCheckoutId: "checkout-abc",
+      },
+      { store, onConfirmed },
+    );
+
+    const lateWebhook = await processAsaasPaymentWebhook(
+      {
+        event: "PAYMENT_OVERDUE",
+        isSuccessfulPayment: false,
+        outcome: "expired",
+        bookingId: "booking-123",
+        asaasCheckoutId: "checkout-abc",
+      },
+      { store, onConfirmed },
+    );
+
+    expect(lateWebhook.kind).toBe("expired");
+    expect(onConfirmed).not.toHaveBeenCalled();
+    expect(store.bookings.get("booking-123")).toMatchObject({
+      status: "pending",
+      paymentStatus: "expired",
+      meetingUrl: undefined,
+    });
+  });
+
+  it("still confirms a genuine payment that arrives after the checkout was marked expired", async () => {
+    const store = createMemoryWebhookStore(
+      new Map([["booking-123", pendingBooking({ asaasCheckoutId: "checkout-abc" })]]),
+    );
+    const onConfirmed = vi.fn(async () => undefined);
+
+    await processAsaasPaymentWebhook(
+      {
+        event: "CHECKOUT_EXPIRED",
+        isSuccessfulPayment: false,
+        outcome: "expired",
+        bookingId: "booking-123",
+        asaasCheckoutId: "checkout-abc",
+      },
+      { store, onConfirmed },
+    );
+
+    const latePaid = await processAsaasPaymentWebhook(successfulEvent(), {
+      store,
+      onConfirmed,
+    });
+
+    expect(latePaid.kind).toBe("confirmed");
+    expect(store.bookings.get("booking-123")?.paymentStatus).toBe("paid");
+    expect(store.bookings.get("booking-123")?.status).toBe("confirmed");
+  });
+
+  it("does not downgrade a paid booking when a late expiration webhook arrives", async () => {
+    const store = createMemoryWebhookStore(
+      new Map([["booking-123", pendingBooking()]]),
+    );
+    const onConfirmed = vi.fn(async () => undefined);
+
+    await processAsaasPaymentWebhook(successfulEvent(), { store, onConfirmed });
+    const expired = await processAsaasPaymentWebhook(
+      {
+        event: "CHECKOUT_EXPIRED",
+        isSuccessfulPayment: false,
+        outcome: "expired",
+        bookingId: "booking-123",
+        asaasCheckoutId: "checkout-abc",
+      },
+      { store, onConfirmed },
+    );
+
+    expect(expired.alreadyProcessed).toBe(true);
+    expect(store.bookings.get("booking-123")).toMatchObject({
+      status: "confirmed",
+      paymentStatus: "paid",
+      meetingUrl: generateMeetingUrl("booking-123"),
+    });
+    expect(onConfirmed).toHaveBeenCalledTimes(1);
   });
 });

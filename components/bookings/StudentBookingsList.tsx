@@ -24,6 +24,12 @@ import {
   formatBookingPrice,
   subscribeToStudentBookings,
 } from "@/lib/bookings/service";
+import {
+  canStartCheckout,
+  getPaymentLifecycle,
+  getStudentPaymentCopy,
+  isLessonUnlocked,
+} from "@/lib/payments/status";
 import { subscribeToStudentReviewBookingIds } from "@/lib/reviews/client";
 
 interface EnrichedBooking extends Booking {
@@ -38,8 +44,10 @@ interface ReviewTarget {
 
 const PAYMENT_RETURN_MESSAGES: Record<string, string> = {
   sucesso: "Pagamento enviado. Assim que o Asaas confirmar, sua aula será liberada.",
-  cancelado: "O pagamento foi cancelado. Você pode tentar novamente quando quiser.",
-  expirado: "O link de pagamento expirou. Gere um novo checkout para continuar.",
+  cancelado:
+    "O pagamento foi cancelado. Nenhum valor foi confirmado. Você pode tentar novamente.",
+  expirado:
+    "O link de pagamento expirou. Nenhum valor foi confirmado. Tente o pagamento novamente.",
 };
 
 export default function StudentBookingsList() {
@@ -158,8 +166,9 @@ export default function StudentBookingsList() {
         <div className="space-y-4">
           {bookings.map((booking) => {
             const paymentStatus: PaymentStatus = booking.paymentStatus ?? "unpaid";
-            const canPay =
-              booking.status === "pending" && paymentStatus === "awaiting_payment";
+            const lifecycle = getPaymentLifecycle(booking);
+            const paymentCopy = getStudentPaymentCopy(lifecycle);
+            const canPay = canStartCheckout(booking);
             const cancellation = decideCancellation({
               status: booking.status,
               paymentStatus,
@@ -211,9 +220,21 @@ export default function StudentBookingsList() {
                   </div>
                 </dl>
 
-                {booking.status === "pending" && paymentStatus === "unpaid" && (
+                {lifecycle === "not_started" && (
                   <p className="mt-4 text-sm text-muted-foreground">
-                    Aguardando o professor confirmar. Depois você poderá pagar para liberar a aula.
+                    {paymentCopy.explanation}
+                  </p>
+                )}
+
+                {(lifecycle === "failed" || lifecycle === "expired") && (
+                  <p className="mt-4 text-sm text-red-800" role="status">
+                    {paymentCopy.explanation}
+                  </p>
+                )}
+
+                {lifecycle === "checkout_created" && (
+                  <p className="mt-4 text-sm text-amber-900" role="status">
+                    {paymentCopy.explanation}
                   </p>
                 )}
 
@@ -223,12 +244,18 @@ export default function StudentBookingsList() {
                     price={booking.price}
                     platformFee={booking.platformFee}
                     tutorAmount={booking.tutorAmount}
+                    headline={
+                      paymentCopy.actionLabel === "Tentar pagamento novamente"
+                        ? `${formatBookingPrice(booking.price)} ainda não foi pago.`
+                        : undefined
+                    }
+                    actionLabel={paymentCopy.actionLabel}
                   />
                 )}
 
-                {booking.status === "confirmed" && booking.meetingUrl && (
+                {isLessonUnlocked(booking) && (
                   <div className="mt-4">
-                    <JoinLessonButton meetingUrl={booking.meetingUrl} />
+                    <JoinLessonButton meetingUrl={booking.meetingUrl!} />
                   </div>
                 )}
 

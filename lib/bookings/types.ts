@@ -4,7 +4,7 @@ export type BookingType = "individual" | "coletivo";
 
 export type BookingStatus = "pending" | "confirmed" | "cancelled" | "completed";
 
-export type PaymentStatus = "unpaid" | "awaiting_payment" | "paid" | "failed";
+export type PaymentStatus = "unpaid" | "awaiting_payment" | "paid" | "failed" | "expired";
 
 export interface Booking {
   id: string;
@@ -55,6 +55,7 @@ export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   awaiting_payment: "Aguardando pagamento",
   paid: "Pago",
   failed: "Pagamento falhou",
+  expired: "Checkout expirado",
 };
 
 export const BOOKING_FEE_LABELS = {

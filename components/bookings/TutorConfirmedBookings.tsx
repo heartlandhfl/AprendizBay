@@ -22,6 +22,7 @@ import {
   markBookingCompleted,
   subscribeToTutorConfirmedBookings,
 } from "@/lib/bookings/service";
+import { isLessonUnlocked } from "@/lib/payments/status";
 
 interface EnrichedBooking extends Booking {
   studentName: string;
@@ -177,9 +178,9 @@ export default function TutorConfirmedBookings() {
                 </p>
               )}
 
-              {booking.meetingUrl && (
+              {isLessonUnlocked(booking) && (
                 <div className="mt-4">
-                  <JoinLessonButton meetingUrl={booking.meetingUrl} />
+                  <JoinLessonButton meetingUrl={booking.meetingUrl!} />
                 </div>
               )}
 
