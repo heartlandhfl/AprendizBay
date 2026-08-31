@@ -719,6 +719,30 @@ describe("firestore.rules", () => {
       );
     });
 
+    it("lets guests list only verified tutors", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+
+      await assertSucceeds(
+        getDocs(query(collection(guestDb(), "tutors"), where("isVerified", "==", true))),
+      );
+      await assertFails(getDocs(collection(guestDb(), "tutors")));
+    });
+
+    it("hides unverified tutor profiles from students and guests", async () => {
+      await seedBaseDocs({ tutorVerified: false, verificationStatus: "pending" });
+
+      await assertFails(getDoc(doc(studentDb(), "tutors", TUTOR_ID)));
+      await assertFails(getDoc(doc(guestDb(), "tutors", TUTOR_ID)));
+      await assertSucceeds(getDoc(doc(tutorDb(), "tutors", TUTOR_ID)));
+    });
+
+    it("lets students read a verified public tutor profile", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+
+      await assertSucceeds(getDoc(doc(studentDb(), "tutors", TUTOR_ID)));
+      await assertSucceeds(getDoc(doc(guestDb(), "tutors", TUTOR_ID)));
+    });
+
     it("denies a student creating a tutor profile", async () => {
       await seedBaseDocs({ tutorVerified: false });
 
@@ -789,6 +813,7 @@ describe("firestore.rules", () => {
           bio: "Professora de inglês com foco em conversação.",
           individualPrice: 80,
           isOnline: true,
+          hasAvailability: true,
           updatedAt: new Date(),
         }),
       );
