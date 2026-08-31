@@ -184,6 +184,52 @@ export async function findAsaasPaymentIdByExternalReference(
   return isRecord(paid) ? readString(paid.id) : undefined;
 }
 
+export const ASAAS_CHECKOUT_MINUTES_TO_EXPIRE = 1440;
+
+export const REUSABLE_ASAAS_CHECKOUT_STATUSES = new Set(["ACTIVE"]);
+export const PAID_ASAAS_CHECKOUT_STATUSES = new Set(["PAID"]);
+export const DEAD_ASAAS_CHECKOUT_STATUSES = new Set(["EXPIRED", "CANCELED"]);
+
+export function parseAsaasCheckout(payload: unknown): AsaasCheckoutResult {
+  if (!isRecord(payload)) {
+    throw new Error("Resposta inválida do Asaas ao criar o checkout.");
+  }
+
+  const id = readString(payload.id);
+  if (!id) {
+    throw new Error("O Asaas não retornou o identificador do checkout.");
+  }
+
+  return {
+    id,
+    checkoutUrl: buildCheckoutUrl(id, readString(payload.link)),
+    status: readString(payload.status),
+  };
+}
+
+export async function inspectAsaasCheckout(
+  checkoutId: string,
+): Promise<AsaasCheckoutResult | null> {
+  const response = await fetch(
+    `${getAsaasApiBaseUrl()}/checkouts/${encodeURIComponent(checkoutId)}`,
+    {
+      method: "GET",
+      headers: asaasRequestHeaders(),
+    },
+  );
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const payload: unknown = await response.json().catch(() => null);
+  try {
+    return parseAsaasCheckout(payload);
+  } catch {
+    return null;
+  }
+}
+
 export function buildCheckoutUrl(checkoutId: string, link?: string): string {
   if (link) {
     return link;
@@ -212,7 +258,7 @@ export async function createAsaasCheckout(
     body: JSON.stringify({
       billingTypes: ["PIX", "CREDIT_CARD"],
       chargeTypes: ["DETACHED"],
-      minutesToExpire: input.minutesToExpire ?? 1440,
+      minutesToExpire: input.minutesToExpire ?? ASAAS_CHECKOUT_MINUTES_TO_EXPIRE,
       externalReference: input.bookingId,
       callback: {
         successUrl: input.successUrl,
@@ -250,20 +296,7 @@ export async function createAsaasCheckout(
     );
   }
 
-  if (!isRecord(payload)) {
-    throw new Error("Resposta inválida do Asaas ao criar o checkout.");
-  }
-
-  const id = readString(payload.id);
-  if (!id) {
-    throw new Error("O Asaas não retornou o identificador do checkout.");
-  }
-
-  return {
-    id,
-    checkoutUrl: buildCheckoutUrl(id, readString(payload.link)),
-    status: readString(payload.status),
-  };
+  return parseAsaasCheckout(payload);
 }
 
 export function isMalformedAsaasWebhookPayload(payload: unknown): boolean {

@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 import { captureServerException } from "@/lib/observability/sentry-server";
 import { getUserProfile, verifyUserIdToken } from "@/lib/auth/admin-server";
-import { getBookingById, saveBookingCheckoutId, saveBookingFeeSplit } from "@/lib/bookings/server";
-import { BOOKING_TYPE_LABELS } from "@/lib/bookings/types";
-import { createAsaasCheckout } from "@/lib/payments/asaas";
-import { resolveBookingFeeSplit } from "@/lib/payments/fees";
+import { createBookingCheckout } from "@/lib/payments/create-checkout";
 import {
   digitsOnly,
   isValidCpf,
@@ -43,6 +40,9 @@ export async function POST(request: Request) {
       addressNumber?: string;
       postalCode?: string;
       province?: string;
+      price?: unknown;
+      platformFee?: unknown;
+      tutorAmount?: unknown;
     };
     const bookingId = body.bookingId?.trim();
     const cpf = digitsOnly(body.cpf ?? "");
@@ -71,57 +71,16 @@ export async function POST(request: Request) {
       );
     }
 
-    const [booking, profile] = await Promise.all([
-      getBookingById(bookingId),
-      getUserProfile(uid),
-    ]);
-
-    if (!booking) {
-      return NextResponse.json({ error: "Reserva não encontrada." }, { status: 404 });
-    }
-
-    if (booking.studentId !== uid) {
-      return NextResponse.json(
-        { error: "Você só pode pagar as suas próprias reservas." },
-        { status: 403 },
-      );
-    }
-
-    if (booking.status !== "pending") {
-      return NextResponse.json(
-        { error: "Esta reserva não está disponível para pagamento." },
-        { status: 409 },
-      );
-    }
-
-    if (booking.paymentStatus !== "awaiting_payment") {
-      return NextResponse.json(
-        { error: "Aguarde o professor confirmar a aula antes de pagar." },
-        { status: 409 },
-      );
-    }
-
-    if (!Number.isFinite(booking.price) || booking.price <= 0) {
-      return NextResponse.json({ error: "O valor da reserva é inválido." }, { status: 400 });
-    }
-
-    const feeSplit = resolveBookingFeeSplit(booking);
-    if (booking.platformFee == null || booking.tutorAmount == null) {
-      await saveBookingFeeSplit(booking.id, feeSplit);
-    }
-
+    const profile = await getUserProfile(uid);
     const email = body.email?.trim() || profile?.email || "";
     if (!email.includes("@")) {
       return NextResponse.json({ error: "Informe um e-mail válido." }, { status: 400 });
     }
 
-    const siteUrl = getSiteUrl(request);
-    const typeLabel = BOOKING_TYPE_LABELS[booking.type] ?? "Aula";
-    const checkout = await createAsaasCheckout({
-      bookingId: booking.id,
-      itemName: `Aula ${typeLabel}`.slice(0, 30),
-      itemDescription: `Pagamento da aula ${typeLabel.toLowerCase()} no Aprendiz Bay`,
-      value: booking.price,
+    const result = await createBookingCheckout({
+      uid,
+      bookingId,
+      siteUrl: getSiteUrl(request),
       customer: {
         name: profile?.displayName?.trim() || "Aluno Aprendiz Bay",
         cpfCnpj: cpf,
@@ -132,16 +91,15 @@ export async function POST(request: Request) {
         postalCode,
         province,
       },
-      successUrl: `${siteUrl}/bookings?pagamento=sucesso`,
-      cancelUrl: `${siteUrl}/bookings?pagamento=cancelado`,
-      expiredUrl: `${siteUrl}/bookings?pagamento=expirado`,
     });
 
-    await saveBookingCheckoutId(booking.id, checkout.id);
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
+    }
 
     return NextResponse.json({
-      checkoutId: checkout.id,
-      checkoutUrl: checkout.checkoutUrl,
+      checkoutId: result.checkoutId,
+      checkoutUrl: result.checkoutUrl,
     });
   } catch (error) {
     const message =
@@ -156,6 +114,13 @@ export async function POST(request: Request) {
       captureServerException(error);
     }
 
-    return NextResponse.json({ error: message }, { status });
+    const publicMessage =
+      status === 503
+        ? "A configuração de pagamento não está disponível."
+        : status === 400 && !/[áàâãéêíóôõúç]/i.test(message)
+          ? "Não foi possível criar o checkout."
+          : message;
+
+    return NextResponse.json({ error: publicMessage }, { status });
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import BookingPaymentSummary from "@/components/bookings/BookingPaymentSummary";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -36,9 +36,13 @@ export default function PayBookingForm({
   const [province, setProvince] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const submittingRef = useRef(false);
 
   async function handlePay(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (submittingRef.current) {
+      return;
+    }
     setError(null);
 
     if (!user) {
@@ -56,6 +60,7 @@ export default function PayBookingForm({
       return;
     }
 
+    submittingRef.current = true;
     setSubmitting(true);
 
     try {
@@ -93,6 +98,7 @@ export default function PayBookingForm({
           ? payError.message
           : "Não foi possível abrir o pagamento.",
       );
+      submittingRef.current = false;
       setSubmitting(false);
     }
   }
@@ -206,6 +212,7 @@ export default function PayBookingForm({
       <button
         type="submit"
         disabled={submitting}
+        aria-busy={submitting}
         className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-60"
       >
         {submitting ? (
