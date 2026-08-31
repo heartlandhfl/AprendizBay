@@ -26,6 +26,7 @@ const path = require("path");
 const fs = require("fs");
 const { apiRouter } = require("./server/api");
 const { isFirebaseAdminInitialized } = require("./server/api/firebase-admin");
+const { attachSentry } = require("./server/api/sentry");
 const {
   attachStaticUi,
   resolveAppDir,
@@ -93,6 +94,7 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.use("/api", apiRouter);
+attachSentry(app);
 
 if (!dev) {
   try {

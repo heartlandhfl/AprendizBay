@@ -13,6 +13,8 @@ import {
 } from "@/lib/auth/service";
 import { useAuth } from "@/lib/auth/AuthContext";
 import type { SignupRole } from "@/lib/auth/types";
+import { trackEvent } from "@/lib/analytics/client";
+import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
 
 export default function SignupForm() {
   const router = useRouter();
@@ -53,6 +55,7 @@ export default function SignupForm() {
 
     try {
       await signUpWithEmail(email.trim(), password, displayName.trim(), role);
+      trackEvent(ANALYTICS_EVENTS.signUp, { role, method: "email" });
       router.replace(role === "tutor" ? "/tutor/onboarding" : "/bookings");
     } catch (signupError) {
       setError(getAuthErrorMessage(signupError));
@@ -71,6 +74,7 @@ export default function SignupForm() {
       } else {
         await signUpWithGoogle(role);
       }
+      trackEvent(ANALYTICS_EVENTS.signUp, { role, method: "google" });
       router.replace(role === "tutor" ? "/tutor/onboarding" : "/bookings");
     } catch (signupError) {
       setError(getAuthErrorMessage(signupError));

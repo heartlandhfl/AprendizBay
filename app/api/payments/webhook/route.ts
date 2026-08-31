@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
+import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
+import { trackServerEvent } from "@/lib/analytics/server";
 import { confirmBookingWithMeetingUrl, getBookingById } from "@/lib/bookings/server";
+import { captureServerException } from "@/lib/observability/sentry-server";
 import { isAuthorizedAsaasWebhook, parseAsaasWebhook } from "@/lib/payments/asaas";
+import { getSiteOrigin } from "@/lib/seo/site-url";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,12 +40,22 @@ export async function POST(request: Request) {
       asaasCheckoutId: event.asaasCheckoutId,
     });
 
+    await trackServerEvent({
+      name: ANALYTICS_EVENTS.paymentCompleted,
+      url: `${getSiteOrigin()}/bookings`,
+      props: {
+        booking_id: event.bookingId,
+        type: booking.type,
+      },
+    });
+
     return NextResponse.json({
       received: true,
       bookingId: event.bookingId,
       confirmed: true,
     });
   } catch (error) {
+    captureServerException(error);
     const message =
       error instanceof Error ? error.message : "Não foi possível processar o webhook.";
     const status = message.includes("Firebase Admin") ? 503 : 400;

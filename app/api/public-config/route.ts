@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { publicObservabilityConfigFromEnv } from "@/lib/observability/config";
 import { getPlatformFeePercent } from "@/lib/payments/fees";
 
 export const runtime = "nodejs";
@@ -21,5 +22,6 @@ export async function GET() {
     firebase,
     configured: Boolean(String(firebase.apiKey).trim()),
     platformFeePercent: getPlatformFeePercent(),
+    observability: publicObservabilityConfigFromEnv(),
   });
 }

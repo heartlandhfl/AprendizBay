@@ -11,6 +11,8 @@ import CollectiveHubList from "@/components/hubs/CollectiveHubList";
 import IndividualSlotPicker from "@/components/tutor/IndividualSlotPicker";
 import type { TutorProfile } from "@/lib/tutor-profiles";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { trackEvent } from "@/lib/analytics/client";
+import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
 import { createBooking, formatBookingPrice } from "@/lib/bookings/service";
 import { resolveHubScheduledAt } from "@/lib/hubs/schedule";
 import type { CollectiveHubLive } from "@/lib/hubs/types";
@@ -85,6 +87,11 @@ export default function BookingWidget({ tutor }: BookingWidgetProps) {
           option === "individual" ? tutor.individualPrice : selectedHub!.currentPrice,
         hubId: option === "coletivo" ? selectedHubId : undefined,
         scheduledAt,
+      });
+
+      trackEvent(ANALYTICS_EVENTS.bookingStarted, {
+        tutor_id: tutor.id,
+        type: option,
       });
 
       setSuccess(

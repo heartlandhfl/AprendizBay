@@ -10,11 +10,13 @@ const {
   mockUseAuth,
   mockCreateBooking,
   mockPush,
+  mockTrackEvent,
   mockHubs,
 } = vi.hoisted(() => ({
   mockUseAuth: vi.fn(),
   mockCreateBooking: vi.fn(),
   mockPush: vi.fn(),
+  mockTrackEvent: vi.fn(),
   mockHubs: [
     {
       id: "hub-1",
@@ -40,6 +42,10 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/lib/auth/AuthContext", () => ({
   useAuth: () => mockUseAuth(),
+}));
+
+vi.mock("@/lib/analytics/client", () => ({
+  trackEvent: mockTrackEvent,
 }));
 
 vi.mock("@/lib/bookings/service", async (importOriginal) => {
@@ -100,6 +106,7 @@ describe("BookingWidget", () => {
     mockUseAuth.mockReset();
     mockCreateBooking.mockReset();
     mockPush.mockReset();
+    mockTrackEvent.mockReset();
     mockUseAuth.mockReturnValue(studentAuth());
     mockCreateBooking.mockResolvedValue("booking-1");
   });
@@ -208,6 +215,10 @@ describe("BookingWidget", () => {
     expect(await screen.findByRole("status")).toHaveTextContent(
       "Reserva enviada! Depois que o professor confirmar",
     );
+    expect(mockTrackEvent).toHaveBeenCalledWith("booking_started", {
+      tutor_id: "1",
+      type: "coletivo",
+    });
   });
 
   it("creates an individual booking after a slot is chosen", async () => {
@@ -228,6 +239,10 @@ describe("BookingWidget", () => {
           scheduledAt: new Date("2026-09-08T19:00:00"),
         }),
       );
+    });
+    expect(mockTrackEvent).toHaveBeenCalledWith("booking_started", {
+      tutor_id: "1",
+      type: "individual",
     });
   });
 
