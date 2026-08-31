@@ -48,10 +48,26 @@ rules_version = '2';
 //
 //   conversations/{conversationId}      // conversationId === studentId_tutorId
 //     studentId, tutorId, participantIds[studentId, tutorId]
-//     studentName?, tutorName?, lastMessage?, lastMessageAt?, createdAt, updatedAt
+//     studentName?, tutorName?, lastMessage?, lastMessageAt?, lastSenderId?
+//     createdAt, updatedAt
+//     Participants only. Admins do NOT read conversations or messages by default.
 //
 //   conversations/{conversationId}/messages/{messageId}
 //     senderId, text, createdAt
+//     Max 2000 chars. senderId must equal auth.uid. Blocked pairs cannot write.
+//
+//   messageRateLimits/{userId}          // per-sender send ticket (3s / 12 per 60s)
+//     lastSentAt, windowStartedAt, windowCount
+//     Message create requires a ticket newer than 15s. Owner-only read/write.
+//
+//   userBlocks/{blockerId}_{blockedId}
+//     blockerId, blockedId, createdAt
+//     Either participant may get a specific pair; only the blocker may list/delete.
+//
+//   conversationReports/{conversationId}_{reporterId}
+//     conversationId, reporterId, reportedUserId, reason, details, status, createdAt
+//     Reporter reads own reports. Admins may list/update report metadata only.
+//     This is the explicit moderation path — not conversation/message access.
 //
 //   asaasWebhookReceipts/{receiptId}    // Admin SDK only (Asaas webhook idempotency)
 //     paymentId?, asaasCheckoutId?, bookingId?, event, outcome, createdAt
@@ -98,6 +114,10 @@ rules_version = '2';
 // MATCH  conversations create        → lib/conversations/service.ts (student starts thread)
 // MATCH  conversations update        → lib/conversations/service.ts (lastMessage preview)
 // MATCH  conversations/messages create → lib/conversations/service.ts (either participant)
+// MATCH  messageRateLimits           → lib/conversations/service.ts (send ticket)
+// MATCH  userBlocks                  → lib/conversations/service.ts (block / unblock)
+// MATCH  conversationReports         → lib/conversations/service.ts (participant report)
+//        Admin may read/update report metadata only — never conversation messages.
 // ADMIN  reviews create              → POST /api/reviews (deterministic id = bookingId)
 //        Hostinger Express: server/api/reviews.js (firebase-admin; bypasses rules)
 //        Vercel / next start: app/api/reviews + lib/reviews/server.ts
@@ -271,6 +291,24 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid in conversationParticipants();
     }
 
+    function usersBlocked(userA, userB) {
+      return exists(/databases/$(database)/documents/userBlocks/$(userA + '_' + userB))
+        || exists(/databases/$(database)/documents/userBlocks/$(userB + '_' + userA));
+    }
+
+    function senderCooldownOk(conv) {
+      return !("lastSenderId" in conv)
+        || !("lastMessageAt" in conv)
+        || conv.lastSenderId != request.auth.uid
+        || request.time >= conv.lastMessageAt + duration.value(3, 's');
+    }
+
+    function hasFreshSendSlot() {
+      let ratePath = /databases/$(database)/documents/messageRateLimits/$(request.auth.uid);
+      return exists(ratePath)
+        && request.time < get(ratePath).data.lastSentAt + duration.value(15, 's');
+    }
+
     function validConversationCreate() {
       let data = request.resource.data;
 
@@ -282,7 +320,8 @@ service cloud.firestore {
         && data.participantIds.size() == 2
         && data.studentId in data.participantIds
         && data.tutorId in data.participantIds
-        && exists(/databases/$(database)/documents/tutors/$(data.tutorId));
+        && exists(/databases/$(database)/documents/tutors/$(data.tutorId))
+        && !usersBlocked(data.studentId, data.tutorId);
     }
 
     function validConversationUpdate() {
@@ -291,7 +330,89 @@ service cloud.firestore {
         && unchanged("tutorId")
         && unchanged("participantIds")
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(["lastMessage", "lastMessageAt", "updatedAt"]);
+          .hasOnly(["lastMessage", "lastMessageAt", "updatedAt", "lastSenderId"])
+        && (!("lastSenderId" in request.resource.data)
+          || request.resource.data.lastSenderId == request.auth.uid)
+        && !usersBlocked(resource.data.studentId, resource.data.tutorId)
+        && senderCooldownOk(resource.data);
+    }
+
+    function validRateLimitCreate(userId) {
+      let data = request.resource.data;
+
+      return isOwner(userId)
+        && data.keys().hasOnly(["lastSentAt", "windowStartedAt", "windowCount"])
+        && data.lastSentAt is timestamp
+        && data.windowStartedAt is timestamp
+        && data.windowCount == 1;
+    }
+
+    function validRateLimitUpdate(userId) {
+      let before = resource.data;
+      let after = request.resource.data;
+      let cooldownOk = request.time >= before.lastSentAt + duration.value(3, 's');
+      let newWindow = after.windowCount == 1
+        && after.windowStartedAt != before.windowStartedAt
+        && request.time >= before.windowStartedAt + duration.value(60, 's');
+      let sameWindow = after.windowCount == before.windowCount + 1
+        && after.windowCount <= 12
+        && after.windowStartedAt == before.windowStartedAt
+        && request.time < before.windowStartedAt + duration.value(60, 's');
+
+      return isOwner(userId)
+        && after.keys().hasOnly(["lastSentAt", "windowStartedAt", "windowCount"])
+        && after.lastSentAt is timestamp
+        && after.windowStartedAt is timestamp
+        && cooldownOk
+        && (newWindow || sameWindow);
+    }
+
+    function validUserBlockCreate(blockId) {
+      let data = request.resource.data;
+
+      return isAuthenticated()
+        && data.blockerId == request.auth.uid
+        && data.blockedId is string
+        && data.blockedId.size() > 0
+        && data.blockedId != request.auth.uid
+        && blockId == data.blockerId + '_' + data.blockedId
+        && data.createdAt is timestamp
+        && data.keys().hasOnly(["blockerId", "blockedId", "createdAt"]);
+    }
+
+    function validConversationReportCreate(reportId) {
+      let data = request.resource.data;
+      let conv = get(/databases/$(database)/documents/conversations/$(data.conversationId)).data;
+
+      return isAuthenticated()
+        && exists(/databases/$(database)/documents/conversations/$(data.conversationId))
+        && request.auth.uid in conv.participantIds
+        && data.reporterId == request.auth.uid
+        && data.reportedUserId in conv.participantIds
+        && data.reportedUserId != request.auth.uid
+        && reportId == data.conversationId + '_' + request.auth.uid
+        && data.reason in ["harassment", "spam", "off_platform", "other"]
+        && data.status == "open"
+        && data.details is string
+        && data.details.size() <= 1000
+        && data.createdAt is timestamp
+        && data.keys().hasOnly([
+          "conversationId", "reporterId", "reportedUserId", "reason",
+          "details", "status", "createdAt"
+        ]);
+    }
+
+    function validConversationReportAdminUpdate() {
+      return isAdmin()
+        && unchanged("conversationId")
+        && unchanged("reporterId")
+        && unchanged("reportedUserId")
+        && unchanged("reason")
+        && unchanged("details")
+        && unchanged("createdAt")
+        && request.resource.data.status in ["open", "reviewed", "dismissed"]
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(["status", "reviewedAt", "reviewedBy"]);
     }
 
     function validUserCreate(userId) {
@@ -547,14 +668,23 @@ service cloud.firestore {
 
       function validMessageCreate() {
         let data = request.resource.data;
+        let conv = conversationParent();
 
         return isMessageParticipant()
           && data.senderId == request.auth.uid
           && data.text is string
           && data.text.size() > 0
-          && data.text.size() <= 2000;
+          && data.text.size() <= 2000
+          && data.keys().hasAll(["senderId", "text"])
+          && data.keys().hasOnly(["senderId", "text", "createdAt"])
+          && (!("createdAt" in data) || data.createdAt is timestamp)
+          && !usersBlocked(conv.studentId, conv.tutorId)
+          && senderCooldownOk(conv)
+          && hasFreshSendSlot();
       }
 
+      // Participants only. Admins are intentionally excluded from conversation
+      // and message reads. Moderation uses conversationReports metadata.
       allow read: if isConversationParticipant();
 
       allow create: if validConversationCreate();
@@ -570,6 +700,60 @@ service cloud.firestore {
 
         allow update, delete: if false;
       }
+    }
+
+    // -------------------------------------------------------------------------
+    // messageRateLimits (per-sender send tickets)
+    // -------------------------------------------------------------------------
+
+    match /messageRateLimits/{userId} {
+      allow get: if isOwner(userId);
+
+      allow create: if validRateLimitCreate(userId);
+
+      allow update: if validRateLimitUpdate(userId);
+
+      allow delete: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // userBlocks (either participant may inspect a pair; only blocker writes)
+    // -------------------------------------------------------------------------
+
+    match /userBlocks/{blockId} {
+      // Path-based get so a missing pair returns empty instead of
+      // permission-denied. UIDs are matched as the blocker or blocked suffix.
+      allow get: if isAuthenticated()
+        && (blockId.matches('^' + request.auth.uid + '_.+')
+          || blockId.matches('.+_' + request.auth.uid + '$'));
+
+      allow list: if isAuthenticated()
+        && resource.data.blockerId == request.auth.uid;
+
+      allow create: if validUserBlockCreate(blockId);
+
+      allow delete: if isAuthenticated()
+        && resource.data.blockerId == request.auth.uid;
+
+      allow update: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // conversationReports (explicit admin moderation metadata — not messages)
+    // -------------------------------------------------------------------------
+
+    match /conversationReports/{reportId} {
+      allow get: if isAuthenticated()
+        && (resource.data.reporterId == request.auth.uid || isAdmin());
+
+      allow list: if isAdmin()
+        || (isAuthenticated() && resource.data.reporterId == request.auth.uid);
+
+      allow create: if validConversationReportCreate(reportId);
+
+      allow update: if validConversationReportAdminUpdate();
+
+      allow delete: if false;
     }
 
     // -------------------------------------------------------------------------

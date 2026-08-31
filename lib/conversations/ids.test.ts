@@ -1,11 +1,30 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { conversationIdFor, otherParticipantName, previewMessage } from "./ids";
+import {
+  conversationIdFor,
+  conversationReportId,
+  otherParticipantId,
+  otherParticipantName,
+  previewMessage,
+  userBlockId,
+} from "./ids";
 import { mapConversationDoc, mapMessageDoc } from "./map";
 
 describe("conversation helpers", () => {
   it("builds a stable student_tutor conversation id", () => {
     assert.equal(conversationIdFor("aluno123", "prof456"), "aluno123_prof456");
+  });
+
+  it("builds block and report ids", () => {
+    assert.equal(userBlockId("aluno123", "prof456"), "aluno123_prof456");
+    assert.equal(
+      conversationReportId("aluno123_prof456", "aluno123"),
+      "aluno123_prof456_aluno123",
+    );
+    assert.equal(
+      otherParticipantId({ studentId: "aluno123", tutorId: "prof456" }, "aluno123"),
+      "prof456",
+    );
   });
 
   it("shows the other participant name from each side", () => {
@@ -37,11 +56,13 @@ describe("conversation helpers", () => {
       studentName: "Ana",
       tutorName: "Mariana",
       lastMessage: "Olá!",
+      lastSenderId: "aluno123",
     });
 
     assert.equal(conversation.id, "aluno123_prof456");
     assert.deepEqual(conversation.participantIds, ["aluno123", "prof456"]);
     assert.equal(conversation.lastMessage, "Olá!");
+    assert.equal(conversation.lastSenderId, "aluno123");
 
     const message = mapMessageDoc("msg1", {
       senderId: "aluno123",
