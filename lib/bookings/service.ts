@@ -43,6 +43,7 @@ function mapBookingDoc(id: string, data: Record<string, unknown>): Booking {
     scheduledAt: data.scheduledAt as Timestamp,
     createdAt: data.createdAt as Timestamp,
     updatedAt: data.updatedAt as Timestamp | undefined,
+    completedAt: data.completedAt as Timestamp | undefined,
     meetingUrl: data.meetingUrl as string | undefined,
     paymentStatus: (data.paymentStatus as PaymentStatus | undefined) ?? "unpaid",
     paymentId: data.paymentId as string | undefined,
@@ -137,10 +138,25 @@ export async function cancelBookingAsTutor(bookingId: string): Promise<void> {
 
 export async function markBookingCompleted(bookingId: string): Promise<void> {
   await requireFirebaseApp();
-  await updateDoc(doc(db, "bookings", bookingId), {
-    status: "completed",
-    updatedAt: serverTimestamp(),
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error("Faça login para concluir esta aula.");
+  }
+
+  const idToken = await user.getIdToken();
+  const response = await fetch("/api/bookings/complete", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({ bookingId }),
   });
+
+  const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+  if (!response.ok) {
+    throw new Error(payload?.error || "Não foi possível marcar a aula como concluída.");
+  }
 }
 
 export function hasScheduledTimePassed(scheduledAt: Timestamp, now: Date = new Date()): boolean {

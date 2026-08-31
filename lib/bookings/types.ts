@@ -19,6 +19,7 @@ export interface Booking {
   scheduledAt: Timestamp;
   createdAt: Timestamp;
   updatedAt?: Timestamp;
+  completedAt?: Timestamp;
   meetingUrl?: string;
   paymentStatus?: PaymentStatus;
   paymentId?: string;

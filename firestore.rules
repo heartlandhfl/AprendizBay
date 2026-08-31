@@ -31,6 +31,7 @@ rules_version = '2';
 //     paymentId?, asaasCheckoutId?, asaasCheckoutExpiresAt?, checkoutLockUntil?
 //     refundId?, refundStatus?, refundAmount?, refundLockUntil?
 //     scheduledAt, price, platformFee?, tutorAmount?, meetingUrl?, createdAt, updatedAt
+//     completedAt?                      // set when the tutor/admin marks the lesson completed
 //     lessonReminderSentAt?             // admin-only, set after the 1h reminder email
 //
 //   reviews/{reviewId}              // reviewId === bookingId (one review per booking)
@@ -64,7 +65,11 @@ rules_version = '2';
 //        (asaasWebhookReceipts + booking write in one Admin transaction; e-mail after commit)
 // ADMIN  bookings lesson reminder      → lib/notifications (lessonReminderSentAt)
 // MATCH  bookings tutor cancel         → unpaid client-capable; paid via /api/bookings/cancel + refund
-// MATCH  bookings tutor complete       → lib/bookings/service.ts (status → completed)
+// ADMIN  bookings tutor complete       → POST /api/bookings/complete
+//        Hostinger Express: server/api/bookings.js
+//        Vercel / next start: app/api/bookings/complete + lib/bookings/server.ts
+//        Only the booking tutor or an admin; confirmed + paid only; sets completedAt
+// MATCH  bookings tutor complete       → hardened rules (same transition as the API)
 // MATCH  collectiveHubs create         → lib/hubs/service.ts (tutor dashboard)
 // MATCH  collectiveHubs student join   → lib/hubs/service.ts (confirmedStudentIds + updatedAt)
 // MATCH  tutors/{tutorId}/availability  → lib/availability/service.ts (tutor dashboard)
@@ -378,12 +383,20 @@ service cloud.firestore {
           && request.resource.data.paymentStatus == "awaiting_payment"
           && unchanged("status"))
         || (resource.data.tutorId == request.auth.uid
+          && resource.data.status in ["pending", "confirmed"]
           && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(["status", "updatedAt", "meetingUrl"])
-          && request.resource.data.status in ["cancelled", "completed"]
-          && (request.resource.data.status == "completed"
-            || !("paymentStatus" in resource.data)
-            || resource.data.paymentStatus != "paid"));
+          && request.resource.data.status == "cancelled"
+          && (!("paymentStatus" in resource.data)
+            || resource.data.paymentStatus != "paid"))
+        || (resource.data.tutorId == request.auth.uid
+          && resource.data.status == "confirmed"
+          && resource.data.paymentStatus == "paid"
+          && resource.data.scheduledAt <= request.time
+          && request.resource.data.status == "completed"
+          && request.resource.data.completedAt is timestamp
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(["status", "updatedAt", "completedAt"]));
 
       allow delete: if isAdmin();
     }
