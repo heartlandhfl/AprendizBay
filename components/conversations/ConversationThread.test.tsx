@@ -1,10 +1,15 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ConversationThread from "@/components/conversations/ConversationThread";
 import { ConversationError } from "@/lib/conversations/errors";
 
+beforeEach(() => {
+  Element.prototype.scrollIntoView = vi.fn();
+});
+
 const {
+  authState,
   mockSendMessage,
   mockBlockUser,
   mockUnblockUser,
@@ -13,6 +18,11 @@ const {
   mockSubscribeToMessages,
   mockSubscribeToPairBlock,
 } = vi.hoisted(() => ({
+  authState: {
+    user: { uid: "student-1" },
+    userDoc: { role: "student", displayName: "Ana Souza" },
+    loading: false,
+  },
   mockSendMessage: vi.fn(),
   mockBlockUser: vi.fn(),
   mockUnblockUser: vi.fn(),
@@ -23,11 +33,7 @@ const {
 }));
 
 vi.mock("@/lib/auth/AuthContext", () => ({
-  useAuth: () => ({
-    user: { uid: "student-1" },
-    userDoc: { role: "student", displayName: "Ana Souza" },
-    loading: false,
-  }),
+  useAuth: () => authState,
 }));
 
 vi.mock("@/lib/conversations/service", () => ({
@@ -86,11 +92,10 @@ describe("ConversationThread", () => {
     render(<ConversationThread conversationId="student-1_tutor-1" />);
 
     await screen.findByRole("heading", { name: "Mariana Silva" });
-    await user.type(
-      screen.getByLabelText("Escreva sua mensagem"),
-      "Meu pix é 550e8400-e29b-41d4-a716-446655440000",
-    );
-    await user.click(screen.getByRole("button", { name: "Enviar" }));
+    fireEvent.change(screen.getByLabelText("Escreva sua mensagem"), {
+      target: { value: "Meu pix é 550e8400-e29b-41d4-a716-446655440000" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
 
     expect(await screen.findByText(/fora da Aprendiz Bay/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Enviar mesmo assim" })).toBeInTheDocument();
@@ -145,8 +150,10 @@ describe("ConversationThread", () => {
 
     render(<ConversationThread conversationId="student-1_tutor-1" />);
     await screen.findByLabelText("Escreva sua mensagem");
-    await user.type(screen.getByLabelText("Escreva sua mensagem"), "Oi, professora!");
-    await user.click(screen.getByRole("button", { name: "Enviar" }));
+    fireEvent.change(screen.getByLabelText("Escreva sua mensagem"), {
+      target: { value: "Oi, professora!" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
 
     expect(
       await screen.findByText(
