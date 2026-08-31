@@ -13,7 +13,7 @@ const features = [
     icon: Users,
     title: "Aprendizado Coletivo",
     description:
-      "Divida o valor com a galera. Forme um grupo ou entre em turmas abertas e economize até 60% em cada aula.",
+      "Divida o valor com a galera. Forme um grupo ou entre em turmas abertas e pague menos em cada aula.",
     gradient: "from-secondary-400/15 to-secondary-500/5",
     iconBg: "bg-secondary-100 text-secondary-600",
   },
@@ -21,7 +21,7 @@ const features = [
     icon: BadgeCheck,
     title: "Professores Verificados",
     description:
-      "Tutores locais e online com perfil verificado, avaliações reais e histórico comprovado na plataforma.",
+      "Tutores locais e online com perfil verificado e avaliações de quem já fez aula.",
     gradient: "from-accent/10 to-primary-400/5",
     iconBg: "bg-teal-100 text-teal-600",
   },

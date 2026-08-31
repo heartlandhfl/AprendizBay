@@ -40,8 +40,7 @@ export default async function ProfessoresIndexPage() {
           Professores por matéria e cidade
         </h1>
         <p className="mt-3 max-w-2xl text-muted-foreground">
-          Páginas estáticas das combinações mais buscadas no Brasil — matéria e cidade,
-          do jeito que os alunos pesquisam.
+          Explore professores por matéria e cidade — do jeito que as pessoas pesquisam.
         </p>
       </header>
 
