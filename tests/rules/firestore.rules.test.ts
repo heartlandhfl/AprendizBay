@@ -269,6 +269,56 @@ describe("firestore.rules", () => {
         await assertSucceeds(getDocs(collection(adminDb(), "bookings")));
       });
     });
+
+    it("lets a student cancel an unpaid booking from the client", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await setDoc(doc(context.firestore(), "bookings", "unpaid-1"), {
+          ...pendingBookingPayload(),
+          createdAt: new Date("2026-08-20T19:00:00Z"),
+        });
+      });
+
+      await assertSucceeds(
+        updateDoc(doc(studentDb(), "bookings", "unpaid-1"), { status: "cancelled" }),
+      );
+    });
+
+    it("blocks a student from cancelling a paid booking from the client", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      await seedBooking("paid-1", "confirmed");
+
+      await assertFails(
+        updateDoc(doc(studentDb(), "bookings", "paid-1"), { status: "cancelled" }),
+      );
+    });
+
+    it("blocks a tutor from cancelling another tutor's booking", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await setDoc(doc(context.firestore(), "users", "tutor-2"), {
+          role: "tutor",
+          displayName: "Outro",
+          email: "outro@test.com",
+          createdAt: new Date(),
+        });
+        await setDoc(doc(context.firestore(), "bookings", "other-tutor"), {
+          ...pendingBookingPayload(),
+          tutorId: TUTOR_ID,
+          createdAt: new Date("2026-08-20T19:00:00Z"),
+        });
+      });
+
+      const otherTutor = testEnv
+        .authenticatedContext("tutor-2", { email: "outro@test.com" })
+        .firestore();
+      await assertFails(
+        updateDoc(doc(otherTutor, "bookings", "other-tutor"), {
+          status: "cancelled",
+          updatedAt: new Date(),
+        }),
+      );
+    });
   });
 
   describe("reviews", () => {

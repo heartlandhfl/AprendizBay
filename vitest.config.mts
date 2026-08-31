@@ -24,6 +24,7 @@ export default defineConfig({
             "lib/analytics/**/*.test.ts",
             "lib/observability/**/*.test.ts",
             "lib/payments/**/*.test.ts",
+            "lib/bookings/**/*.test.ts",
           ],
           exclude: ["node_modules", "hostinger-next", ".next"],
         },

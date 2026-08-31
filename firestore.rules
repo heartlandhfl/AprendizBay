@@ -27,7 +27,7 @@ rules_version = '2';
 //     status: "pending" | "confirmed" | "cancelled" | "completed"
 //     paymentStatus?: "unpaid" | "awaiting_payment" | "paid" | "failed" | "expired"
 //     paymentId?, asaasCheckoutId?, asaasCheckoutExpiresAt?, checkoutLockUntil?
-//     refundId?, refundStatus?, refundAmount?
+//     refundId?, refundStatus?, refundAmount?, refundLockUntil?
 //     scheduledAt, price, platformFee?, tutorAmount?, meetingUrl?, createdAt, updatedAt
 //     lessonReminderSentAt?             // admin-only, set after the 1h reminder email
 //
@@ -53,6 +53,7 @@ rules_version = '2';
 // MATCH  users/{uid} create          → lib/auth/service.ts (signup)
 // MATCH  bookings create             → lib/bookings/service.ts (student reserve)
 // MATCH  bookings student cancel       → unpaid client update; paid via /api/bookings/cancel + refund
+//        (role from uid vs studentId/tutorId; browser actor field is ignored)
 // MATCH  bookings tutor accept payment → lib/bookings/service.ts (paymentStatus, updatedAt)
 // ADMIN  bookings checkout (Asaas)     → lib/payments/create-checkout.ts
 //        (asaasCheckoutId, asaasCheckoutExpiresAt, checkoutLockUntil, fee split)

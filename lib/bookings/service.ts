@@ -18,7 +18,6 @@ import type {
   CreateBookingInput,
   PaymentStatus,
 } from "@/lib/bookings/types";
-import type { CancelActor } from "@/lib/bookings/cancellation";
 import { parseOccupiedStarts } from "@/lib/bookings/occupancy";
 import { requestNotification } from "@/lib/notifications/client";
 import { loadPlatformFeePercent, splitBookingPrice } from "@/lib/payments/fees";
@@ -97,7 +96,7 @@ export async function updateBookingStatus(
   }
 }
 
-async function cancelBookingViaApi(bookingId: string, actor: CancelActor): Promise<void> {
+async function cancelBookingViaApi(bookingId: string): Promise<void> {
   await requireFirebaseApp();
   const user = auth.currentUser;
   if (!user) {
@@ -111,7 +110,7 @@ async function cancelBookingViaApi(bookingId: string, actor: CancelActor): Promi
       "Content-Type": "application/json",
       Authorization: `Bearer ${idToken}`,
     },
-    body: JSON.stringify({ bookingId, actor }),
+    body: JSON.stringify({ bookingId }),
   });
 
   const payload = (await response.json().catch(() => null)) as { error?: string } | null;
@@ -121,7 +120,7 @@ async function cancelBookingViaApi(bookingId: string, actor: CancelActor): Promi
 }
 
 export async function cancelBookingAsStudent(bookingId: string): Promise<void> {
-  await cancelBookingViaApi(bookingId, "student");
+  await cancelBookingViaApi(bookingId);
 }
 
 export async function confirmBookingAsTutor(bookingId: string): Promise<void> {
@@ -133,7 +132,7 @@ export async function confirmBookingAsTutor(bookingId: string): Promise<void> {
 }
 
 export async function cancelBookingAsTutor(bookingId: string): Promise<void> {
-  await cancelBookingViaApi(bookingId, "tutor");
+  await cancelBookingViaApi(bookingId);
 }
 
 export async function markBookingCompleted(bookingId: string): Promise<void> {
