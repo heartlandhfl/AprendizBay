@@ -5,6 +5,7 @@ import ConversationThread from "@/components/conversations/ConversationThread";
 import { ConversationError } from "@/lib/conversations/errors";
 
 const {
+  authState,
   mockSendMessage,
   mockBlockUser,
   mockUnblockUser,
@@ -13,6 +14,11 @@ const {
   mockSubscribeToMessages,
   mockSubscribeToPairBlock,
 } = vi.hoisted(() => ({
+  authState: {
+    user: { uid: "student-1" },
+    userDoc: { role: "student", displayName: "Ana Souza" },
+    loading: false,
+  },
   mockSendMessage: vi.fn(),
   mockBlockUser: vi.fn(),
   mockUnblockUser: vi.fn(),
@@ -23,11 +29,7 @@ const {
 }));
 
 vi.mock("@/lib/auth/AuthContext", () => ({
-  useAuth: () => ({
-    user: { uid: "student-1" },
-    userDoc: { role: "student", displayName: "Ana Souza" },
-    loading: false,
-  }),
+  useAuth: () => authState,
 }));
 
 vi.mock("@/lib/conversations/service", () => ({
