@@ -22,6 +22,7 @@ export default defineConfig({
             "app/**/*.test.ts",
             "components/**/*.test.tsx",
             "lib/analytics/**/*.test.ts",
+            "lib/seo/**/*.test.ts",
             "lib/observability/**/*.test.ts",
             "lib/payments/**/*.test.ts",
             "lib/storage/**/*.test.ts",

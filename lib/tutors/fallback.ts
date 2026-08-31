@@ -6,6 +6,22 @@ const FALLBACK_WARNING =
 
 let fallbackWarningLogged = false;
 
+/**
+ * Demo tutors must never be indexed. Production builds omit the mock
+ * fallback unless SEO_ALLOW_MOCK_TUTORS=1 (local SEO previews only).
+ */
+export function allowMockTutorFallback(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  if (env.SEO_ALLOW_MOCK_TUTORS === "0") {
+    return false;
+  }
+  if (env.SEO_ALLOW_MOCK_TUTORS === "1") {
+    return true;
+  }
+  return env.NODE_ENV !== "production";
+}
+
 export function warnMockTutorFallback() {
   if (fallbackWarningLogged || typeof console === "undefined") {
     return;

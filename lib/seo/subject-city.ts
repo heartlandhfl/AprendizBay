@@ -1,6 +1,9 @@
 import type { Tutor } from "@/lib/mock-tutors";
 import { findLabelBySlug, slugsMatch, toSeoSlug } from "@/lib/seo/slugs";
 
+/** Soft cap so a large catalog cannot emit thousands of thin landing pages. */
+export const MAX_INDEXABLE_SUBJECT_CITY_PAIRS = 200;
+
 export const MAX_COMMON_SUBJECTS = 12;
 export const MAX_COMMON_CITIES = 20;
 
@@ -15,6 +18,11 @@ export interface ResolvedSubjectCity {
   subject: string;
   city: string;
   state?: string;
+}
+
+export interface SubjectCityInventory {
+  local: Tutor[];
+  online: Tutor[];
 }
 
 export function countByLabel(values: string[]): Map<string, number> {
@@ -43,54 +51,84 @@ export function topLabels(counts: Map<string, number>, limit: number): string[] 
     .map(([label]) => label);
 }
 
+function pairKey(subject: string, city: string): string | undefined {
+  const materia = toSeoSlug(subject);
+  const cidade = toSeoSlug(city);
+  if (!materia || !cidade) {
+    return undefined;
+  }
+  return `${materia}/${cidade}`;
+}
+
 /**
- * Combines the most frequent subjects and cities from tutor data
- * (cartesian product) and always keeps pairs that actually exist.
+ * Subject×city pairs that have at least one local tutor. Never invents
+ * combinations (no cartesian product) and dedupes by slug.
  */
-export function getPopularSubjectCityPairs(
+export function getIndexableSubjectCityPairs(
   tutors: Tutor[],
-  maxSubjects = MAX_COMMON_SUBJECTS,
-  maxCities = MAX_COMMON_CITIES,
+  maxPairs = MAX_INDEXABLE_SUBJECT_CITY_PAIRS,
 ): SubjectCityPair[] {
-  const subjectCounts = countByLabel(tutors.map((tutor) => tutor.subject));
-  const cityCounts = countByLabel(tutors.map((tutor) => tutor.city));
-  const topSubjects = topLabels(subjectCounts, maxSubjects);
-  const topCities = topLabels(cityCounts, maxCities);
+  const groups = new Map<string, { pair: SubjectCityPair; count: number }>();
 
-  const pairs = new Map<string, SubjectCityPair>();
-
-  function addPair(subject: string, city: string) {
-    const materia = toSeoSlug(subject);
-    const cidade = toSeoSlug(city);
-    if (!materia || !cidade) {
-      return;
+  for (const tutor of tutors) {
+    const subject = tutor.subject.trim();
+    const city = tutor.city.trim();
+    const key = pairKey(subject, city);
+    if (!key) {
+      continue;
     }
 
-    pairs.set(`${materia}/${cidade}`, {
-      materia,
-      cidade,
-      subject,
-      city,
+    const existing = groups.get(key);
+    if (existing) {
+      existing.count += 1;
+      continue;
+    }
+
+    const [materia, cidade] = key.split("/");
+    groups.set(key, {
+      pair: { materia: materia!, cidade: cidade!, subject, city },
+      count: 1,
     });
   }
 
-  for (const subject of topSubjects) {
-    for (const city of topCities) {
-      addPair(subject, city);
-    }
-  }
+  return [...groups.values()]
+    .sort((a, b) => {
+      if (b.count !== a.count) {
+        return b.count - a.count;
+      }
+      const subjectCompare = a.pair.subject.localeCompare(b.pair.subject, "pt-BR");
+      if (subjectCompare !== 0) {
+        return subjectCompare;
+      }
+      return a.pair.city.localeCompare(b.pair.city, "pt-BR");
+    })
+    .slice(0, maxPairs)
+    .map(({ pair }) => pair)
+    .sort((a, b) => {
+      const subjectCompare = a.subject.localeCompare(b.subject, "pt-BR");
+      if (subjectCompare !== 0) {
+        return subjectCompare;
+      }
+      return a.city.localeCompare(b.city, "pt-BR");
+    });
+}
 
-  for (const tutor of tutors) {
-    addPair(tutor.subject, tutor.city);
-  }
+/** @deprecated Use getIndexableSubjectCityPairs. Kept as the public alias. */
+export function getPopularSubjectCityPairs(
+  tutors: Tutor[],
+  maxPairs = MAX_INDEXABLE_SUBJECT_CITY_PAIRS,
+): SubjectCityPair[] {
+  return getIndexableSubjectCityPairs(tutors, maxPairs);
+}
 
-  return [...pairs.values()].sort((a, b) => {
-    const subjectCompare = a.subject.localeCompare(b.subject, "pt-BR");
-    if (subjectCompare !== 0) {
-      return subjectCompare;
-    }
-    return a.city.localeCompare(b.city, "pt-BR");
-  });
+export function hasLocalSubjectCityInventory(
+  tutors: Tutor[],
+  subject: string,
+  city: string,
+): boolean {
+  return tutors.some(
+    (tutor) => slugsMatch(tutor.subject, subject) && slugsMatch(tutor.city, city),
+  );
 }
 
 export function resolveSubjectCity(
@@ -119,7 +157,7 @@ export function filterTutorsForSubjectCity(
   tutors: Tutor[],
   subject: string,
   city: string,
-): { local: Tutor[]; online: Tutor[] } {
+): SubjectCityInventory {
   const bySubject = tutors.filter((tutor) => slugsMatch(tutor.subject, subject));
   const local = bySubject.filter((tutor) => slugsMatch(tutor.city, city));
   const localIds = new Set(local.map((tutor) => tutor.id));
@@ -130,6 +168,26 @@ export function filterTutorsForSubjectCity(
   );
 
   return { local, online };
+}
+
+export function relatedSubjectCityLinks(
+  tutors: Tutor[],
+  resolved: ResolvedSubjectCity,
+  current: { materia: string; cidade: string },
+  limit = 6,
+): { cities: SubjectCityPair[]; subjects: SubjectCityPair[] } {
+  const pairs = getIndexableSubjectCityPairs(tutors);
+
+  return {
+    cities: pairs
+      .filter(
+        (pair) => pair.subject === resolved.subject && pair.cidade !== current.cidade,
+      )
+      .slice(0, limit),
+    subjects: pairs
+      .filter((pair) => pair.city === resolved.city && pair.materia !== current.materia)
+      .slice(0, limit),
+  };
 }
 
 /** Brazilian Portuguese: "no Rio de Janeiro", "em São Paulo". */
@@ -143,4 +201,40 @@ export function subjectCityHeading(subject: string, city: string): string {
 
 export function subjectCityPath(subject: string, city: string): string {
   return `/professores/${toSeoSlug(subject)}/${toSeoSlug(city)}`;
+}
+
+export function subjectCityEmptyCopy(subject: string, city: string): {
+  title: string;
+  description: string;
+} {
+  const prep = cityPreposition(city);
+  return {
+    title: `Ainda não temos professores de ${subject.toLowerCase()} ${prep} ${city}`,
+    description:
+      "Nenhum professor verificado oferece essa matéria nesta cidade ainda. Veja quem ensina online ou explore outras cidades — sem inventar disponibilidade local.",
+  };
+}
+
+export function subjectCitySeoCopy(
+  subject: string,
+  city: string,
+  hasLocalInventory: boolean,
+): { title: string; description: string; indexable: boolean } {
+  const heading = subjectCityHeading(subject, city);
+  const prep = cityPreposition(city);
+  const subjectLabel = subject.toLowerCase();
+
+  if (hasLocalInventory) {
+    return {
+      title: `${heading} | Aprendiz Bay`,
+      description: `Encontre professores de ${subjectLabel} ${prep} ${city} para aulas particulares ou em grupo. Compare preços e economize com aulas coletivas.`,
+      indexable: true,
+    };
+  }
+
+  return {
+    title: `Professores de ${subject} ${prep} ${city} — em breve | Aprendiz Bay`,
+    description: `Ainda não há professores de ${subjectLabel} ${prep} ${city} na Aprendiz Bay. Veja aulas online dessa matéria ou explore outras cidades.`,
+    indexable: false,
+  };
 }

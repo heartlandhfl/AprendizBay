@@ -14,6 +14,7 @@ import { getFirestore, type Firestore } from "firebase-admin/firestore";
 import type { Tutor } from "@/lib/mock-tutors";
 import type { TutorProfile } from "@/lib/tutor-profiles";
 import {
+  allowMockTutorFallback,
   getMockTutorProfileForFallback,
   getMockTutorsForFallback,
   warnMockTutorFallback,
@@ -56,17 +57,29 @@ async function isTutorsCollectionEmpty(db: Firestore): Promise<boolean> {
   return snapshot.empty;
 }
 
-export async function fetchVerifiedTutorsServer(): Promise<Tutor[]> {
+export interface FetchTutorsServerOptions {
+  /** When false, never substitute MOCK_TUTORS (sitemap, static params). */
+  allowMockFallback?: boolean;
+}
+
+function resolveMockFallback(options?: FetchTutorsServerOptions): boolean {
+  return options?.allowMockFallback ?? allowMockTutorFallback();
+}
+
+export async function fetchVerifiedTutorsServer(
+  options?: FetchTutorsServerOptions,
+): Promise<Tutor[]> {
+  const useMocks = resolveMockFallback(options);
   const db = getAdminFirestore();
   if (!db) {
-    return getMockTutorsForFallback();
+    return useMocks ? getMockTutorsForFallback() : [];
   }
 
   try {
     const snapshot = await db.collection("tutors").where("isVerified", "==", true).get();
 
     if (snapshot.empty) {
-      if (await isTutorsCollectionEmpty(db)) {
+      if (useMocks && (await isTutorsCollectionEmpty(db))) {
         return getMockTutorsForFallback();
       }
       return [];
@@ -84,18 +97,27 @@ export async function fetchVerifiedTutorsServer(): Promise<Tutor[]> {
       .sort((a, b) => b.rating - a.rating);
   } catch (error) {
     console.error("[Aprendiz Bay] Erro ao buscar tutores no Firestore:", error);
-    return getMockTutorsForFallback();
+    return useMocks ? getMockTutorsForFallback() : [];
   }
 }
 
-export async function fetchTutorProfile(id: string): Promise<TutorProfile | undefined> {
+/** Verified tutors for sitemap and SSG. Never returns demo/mock profiles. */
+export async function fetchIndexableTutorsForSeo(): Promise<Tutor[]> {
+  return fetchVerifiedTutorsServer({ allowMockFallback: false });
+}
+
+export async function fetchTutorProfile(
+  id: string,
+  options?: FetchTutorsServerOptions,
+): Promise<TutorProfile | undefined> {
+  const useMocks = resolveMockFallback(options);
   const db = getAdminFirestore();
   if (!db) {
-    return getMockTutorProfileForFallback(id);
+    return useMocks ? getMockTutorProfileForFallback(id) : undefined;
   }
 
   try {
-    if (await isTutorsCollectionEmpty(db)) {
+    if (useMocks && (await isTutorsCollectionEmpty(db))) {
       return getMockTutorProfileForFallback(id);
     }
 
@@ -129,19 +151,25 @@ export async function fetchTutorProfile(id: string): Promise<TutorProfile | unde
     );
   } catch (error) {
     console.error("[Aprendiz Bay] Erro ao buscar perfil do tutor:", error);
+    if (!useMocks) {
+      return undefined;
+    }
     warnMockTutorFallback();
     return getMockTutorProfileForFallback(id);
   }
 }
 
-export async function fetchAllTutorIds(): Promise<string[]> {
+export async function fetchAllTutorIds(
+  options?: FetchTutorsServerOptions,
+): Promise<string[]> {
+  const useMocks = resolveMockFallback(options);
   const db = getAdminFirestore();
   if (!db) {
-    return getMockTutorsForFallback().map((tutor) => tutor.id);
+    return useMocks ? getMockTutorsForFallback().map((tutor) => tutor.id) : [];
   }
 
   try {
-    if (await isTutorsCollectionEmpty(db)) {
+    if (useMocks && (await isTutorsCollectionEmpty(db))) {
       return getMockTutorsForFallback().map((tutor) => tutor.id);
     }
 
@@ -151,6 +179,11 @@ export async function fetchAllTutorIds(): Promise<string[]> {
       .map((docSnap) => docSnap.id);
   } catch (error) {
     console.error("[Aprendiz Bay] Erro ao listar IDs de tutores:", error);
-    return getMockTutorsForFallback().map((tutor) => tutor.id);
+    return useMocks ? getMockTutorsForFallback().map((tutor) => tutor.id) : [];
   }
+}
+
+/** Public tutor IDs for sitemap and SSG. Never includes demo/mock profiles. */
+export async function fetchIndexableTutorIdsForSeo(): Promise<string[]> {
+  return fetchAllTutorIds({ allowMockFallback: false });
 }

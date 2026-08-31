@@ -1,12 +1,22 @@
+import type { Metadata } from "next";
 import { Sparkles } from "lucide-react";
 import HeroSearch from "@/components/home/HeroSearch";
 import ValueProposition from "@/components/home/ValueProposition";
 import CategoryGrid from "@/components/home/CategoryGrid";
 import HowItWorks from "@/components/home/HowItWorks";
+import JsonLd from "@/components/seo/JsonLd";
+import { buildWebsiteJsonLd } from "@/lib/seo/tutor-jsonld";
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: "/",
+  },
+};
 
 export default function Home() {
   return (
     <>
+      <JsonLd data={buildWebsiteJsonLd()} />
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div

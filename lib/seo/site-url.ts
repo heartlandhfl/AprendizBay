@@ -1,10 +1,14 @@
 /**
  * Canonical site origin for metadata, sitemap.xml and robots.txt.
  */
-export function getSiteUrl(): URL {
+export const PRODUCTION_SITE_ORIGIN = "https://www.aprendizbay.com.br";
+
+export function getSiteUrl(
+  env: NodeJS.ProcessEnv = process.env,
+): URL {
   const candidates = [
-    process.env.NEXT_PUBLIC_SITE_URL,
-    process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined,
+    env.NEXT_PUBLIC_SITE_URL,
+    env.VERCEL_URL ? `https://${env.VERCEL_URL}` : undefined,
   ];
 
   for (const value of candidates) {
@@ -14,11 +18,23 @@ export function getSiteUrl(): URL {
     }
   }
 
+  if (env.NODE_ENV === "production") {
+    return new URL(PRODUCTION_SITE_ORIGIN);
+  }
+
   return new URL("http://localhost:3000");
 }
 
-export function getSiteOrigin(): string {
-  return getSiteUrl().origin.replace(/\/$/, "");
+export function getSiteOrigin(env: NodeJS.ProcessEnv = process.env): string {
+  return getSiteUrl(env).origin.replace(/\/$/, "");
+}
+
+export function canonicalPath(path: string): string {
+  if (!path || path === "/") {
+    return "/";
+  }
+  const withSlash = path.startsWith("/") ? path : `/${path}`;
+  return withSlash.replace(/\/+$/, "") || "/";
 }
 
 function tryParseAbsoluteUrl(value: string | undefined): URL | undefined {
@@ -31,7 +47,11 @@ function tryParseAbsoluteUrl(value: string | undefined): URL | undefined {
     const withProtocol = /^[a-zA-Z][a-zA-Z\d+.-]*:/.test(trimmed)
       ? trimmed
       : `https://${trimmed}`;
-    return new URL(withProtocol);
+    const url = new URL(withProtocol);
+    if (url.hostname === "localhost" || url.hostname === "127.0.0.1") {
+      return url;
+    }
+    return url;
   } catch {
     return undefined;
   }
