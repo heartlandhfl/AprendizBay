@@ -1243,4 +1243,263 @@ describe("firestore.rules", () => {
       await assertFails(getDoc(slotRef));
     });
   });
+
+  describe("conversations and messaging moderation", () => {
+    const conversationId = `${STUDENT_ID}_${TUTOR_ID}`;
+
+    async function seedConversation(
+      extras: Record<string, unknown> = {},
+    ) {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await setDoc(doc(context.firestore(), "conversations", conversationId), {
+          studentId: STUDENT_ID,
+          tutorId: TUTOR_ID,
+          participantIds: [STUDENT_ID, TUTOR_ID],
+          studentName: "Ana Souza",
+          tutorName: "Mariana Silva",
+          createdAt: new Date("2026-08-01T12:00:00Z"),
+          updatedAt: new Date("2026-08-01T12:00:00Z"),
+          ...extras,
+        });
+      });
+    }
+
+    async function seedRateLimit(
+      userId: string,
+      extras: { lastSentAt?: Date; windowStartedAt?: Date; windowCount?: number } = {},
+    ) {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await setDoc(doc(context.firestore(), "messageRateLimits", userId), {
+          lastSentAt: extras.lastSentAt ?? new Date(),
+          windowStartedAt: extras.windowStartedAt ?? new Date(),
+          windowCount: extras.windowCount ?? 1,
+        });
+      });
+    }
+
+    async function seedBlock(blockerId: string, blockedId: string) {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await setDoc(doc(context.firestore(), "userBlocks", `${blockerId}_${blockedId}`), {
+          blockerId,
+          blockedId,
+          createdAt: new Date(),
+        });
+      });
+    }
+
+    function messagePayload(senderId: string, text = "Olá, professora!") {
+      return {
+        senderId,
+        text,
+        createdAt: new Date(),
+      };
+    }
+
+    it("denies an unauthorized conversation read", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      await seedConversation();
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await setDoc(doc(context.firestore(), "conversations", conversationId, "messages", "msg-1"), {
+          senderId: STUDENT_ID,
+          text: "Podemos marcar uma aula?",
+          createdAt: new Date(),
+        });
+      });
+
+      await assertSucceeds(getDoc(doc(studentDb(), "conversations", conversationId)));
+      await assertSucceeds(
+        getDoc(doc(studentDb(), "conversations", conversationId, "messages", "msg-1")),
+      );
+      await assertFails(getDoc(doc(studentBDb(), "conversations", conversationId)));
+      await assertFails(
+        getDoc(doc(studentBDb(), "conversations", conversationId, "messages", "msg-1")),
+      );
+    });
+
+    it("does not expose conversations or messages to admins by default", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      await seedConversation();
+
+      await assertFails(getDoc(doc(adminDb(), "conversations", conversationId)));
+      await assertFails(
+        getDocs(collection(adminDb(), "conversations", conversationId, "messages")),
+      );
+    });
+
+    it("denies an unauthorized message send", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      await seedConversation();
+      await seedRateLimit(STUDENT_B_ID);
+
+      await assertFails(
+        addDoc(
+          collection(studentBDb(), "conversations", conversationId, "messages"),
+          messagePayload(STUDENT_B_ID),
+        ),
+      );
+    });
+
+    it("denies sender spoofing", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      await seedConversation();
+      await seedRateLimit(STUDENT_ID);
+
+      await assertFails(
+        addDoc(
+          collection(studentDb(), "conversations", conversationId, "messages"),
+          messagePayload(TUTOR_ID),
+        ),
+      );
+    });
+
+    it("enforces the message length limit", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      await seedConversation();
+      await seedRateLimit(STUDENT_ID);
+
+      await assertFails(
+        addDoc(
+          collection(studentDb(), "conversations", conversationId, "messages"),
+          messagePayload(STUDENT_ID, "x".repeat(2001)),
+        ),
+      );
+
+      await assertSucceeds(
+        addDoc(
+          collection(studentDb(), "conversations", conversationId, "messages"),
+          messagePayload(STUDENT_ID, "x".repeat(2000)),
+        ),
+      );
+    });
+
+    it("denies a blocked user from sending a message", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      await seedConversation();
+      await seedRateLimit(STUDENT_ID);
+      await seedBlock(TUTOR_ID, STUDENT_ID);
+
+      await assertFails(
+        addDoc(
+          collection(studentDb(), "conversations", conversationId, "messages"),
+          messagePayload(STUDENT_ID),
+        ),
+      );
+    });
+
+    it("enforces rate limiting on message sends and send tickets", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      await seedConversation({
+        lastSenderId: TUTOR_ID,
+        lastMessageAt: new Date(Date.now() - 10_000),
+      });
+
+      await assertFails(
+        addDoc(
+          collection(studentDb(), "conversations", conversationId, "messages"),
+          messagePayload(STUDENT_ID, "Sem ticket de envio"),
+        ),
+      );
+
+      await seedRateLimit(STUDENT_ID, {
+        lastSentAt: new Date(Date.now() - 30_000),
+        windowStartedAt: new Date(Date.now() - 30_000),
+        windowCount: 1,
+      });
+
+      await assertFails(
+        addDoc(
+          collection(studentDb(), "conversations", conversationId, "messages"),
+          messagePayload(STUDENT_ID, "Ticket vencido"),
+        ),
+      );
+
+      await seedConversation({
+        lastSenderId: STUDENT_ID,
+        lastMessageAt: new Date(),
+      });
+      await seedRateLimit(STUDENT_ID, {
+        lastSentAt: new Date(),
+        windowStartedAt: new Date(),
+        windowCount: 1,
+      });
+
+      await assertFails(
+        addDoc(
+          collection(studentDb(), "conversations", conversationId, "messages"),
+          messagePayload(STUDENT_ID, "Segunda mensagem imediata"),
+        ),
+      );
+
+      await seedConversation({
+        lastSenderId: TUTOR_ID,
+        lastMessageAt: new Date(Date.now() - 10_000),
+      });
+
+      await assertSucceeds(
+        addDoc(
+          collection(studentDb(), "conversations", conversationId, "messages"),
+          messagePayload(STUDENT_ID, "Aula às 19h, R$ 70"),
+        ),
+      );
+
+      await assertFails(
+        updateDoc(doc(studentDb(), "messageRateLimits", STUDENT_ID), {
+          lastSentAt: new Date(),
+          windowStartedAt: new Date(),
+          windowCount: 2,
+        }),
+      );
+    });
+
+    it("lets a participant report a conversation and keeps reports readable by admins", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      await seedConversation();
+      const reportId = `${conversationId}_${STUDENT_ID}`;
+      const reportPayload = {
+        conversationId,
+        reporterId: STUDENT_ID,
+        reportedUserId: TUTOR_ID,
+        reason: "off_platform",
+        details: "Pediu pagamento por Pix pessoal.",
+        status: "open",
+        createdAt: new Date(),
+      };
+
+      await assertSucceeds(
+        setDoc(doc(studentDb(), "conversationReports", reportId), reportPayload),
+      );
+      await assertSucceeds(getDoc(doc(adminDb(), "conversationReports", reportId)));
+      await assertFails(getDoc(doc(studentBDb(), "conversationReports", reportId)));
+      await assertFails(
+        setDoc(doc(studentBDb(), "conversationReports", `${conversationId}_${STUDENT_B_ID}`), {
+          ...reportPayload,
+          reporterId: STUDENT_B_ID,
+        }),
+      );
+    });
+
+    it("lets a participant create a block and prevents a new conversation afterward", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+
+      await assertSucceeds(
+        setDoc(doc(tutorDb(), "userBlocks", `${TUTOR_ID}_${STUDENT_ID}`), {
+          blockerId: TUTOR_ID,
+          blockedId: STUDENT_ID,
+          createdAt: new Date(),
+        }),
+      );
+
+      await assertFails(
+        setDoc(doc(studentDb(), "conversations", conversationId), {
+          studentId: STUDENT_ID,
+          tutorId: TUTOR_ID,
+          participantIds: [STUDENT_ID, TUTOR_ID],
+          studentName: "Ana Souza",
+          tutorName: "Mariana Silva",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        }),
+      );
+    });
+  });
 });
