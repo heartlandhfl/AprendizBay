@@ -1,6 +1,13 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import AdminNav from "@/components/admin/AdminNav";
 import RequireAuth from "@/components/auth/RequireAuth";
+import { PRIVATE_ROBOTS } from "@/lib/seo/robots-policy";
+
+export const metadata: Metadata = {
+  title: "Administração — Aprendiz Bay",
+  robots: PRIVATE_ROBOTS,
+};
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (

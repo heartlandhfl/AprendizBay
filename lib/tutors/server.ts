@@ -17,6 +17,7 @@ import {
   okTutorList,
   resolveFailedTutorCatalog,
   resolveFailedTutorProfile,
+  tutorsForPublicPages,
   type TutorListResult,
   type TutorProfileResult,
 } from "@/lib/tutors/catalog";
@@ -196,4 +197,14 @@ export async function fetchAllTutorIds(): Promise<TutorListResult<string>> {
       mockItems: getMockTutorsForFallback().map((tutor) => tutor.id),
     });
   }
+}
+
+/** Public tutors for sitemap and SSG. Empty when the catalog failed. */
+export async function fetchIndexableTutorsForSeo(): Promise<Tutor[]> {
+  return tutorsForPublicPages(await fetchVerifiedTutorsServer());
+}
+
+/** Public tutor IDs for sitemap and SSG. Empty when the catalog failed. */
+export async function fetchIndexableTutorIdsForSeo(): Promise<string[]> {
+  return tutorsForPublicPages(await fetchAllTutorIds());
 }

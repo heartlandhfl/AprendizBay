@@ -5,6 +5,7 @@ export const metadata: Metadata = {
   title: "Turma coletiva — Aprendiz Bay",
   description:
     "Entre em uma aula coletiva, reserve sua vaga e pague com segurança na Aprendiz Bay.",
+  robots: { index: false, follow: true },
 };
 
 export default function TurmasPage({

@@ -1,6 +1,13 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import RequireAuth from "@/components/auth/RequireAuth";
 import TutorProfileSettings from "@/components/tutors/TutorProfileSettings";
+import { PRIVATE_ROBOTS } from "@/lib/seo/robots-policy";
+
+export const metadata: Metadata = {
+  title: "Configurações do professor — Aprendiz Bay",
+  robots: PRIVATE_ROBOTS,
+};
 
 export default function TutorSettingsPage() {
   return (

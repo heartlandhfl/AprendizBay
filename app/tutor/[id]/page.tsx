@@ -15,6 +15,7 @@ import ProfileViewTracker from "@/components/observability/ProfileViewTracker";
 import BookingWidget from "@/components/tutor/BookingWidget";
 import SendMessageButton from "@/components/conversations/SendMessageButton";
 import TutorCatalogProblem from "@/components/catalog/TutorCatalogProblem";
+import { INDEX_FOLLOW_ROBOTS, NOINDEX_FOLLOW_ROBOTS } from "@/lib/seo/robots-policy";
 import { buildTutorPersonJsonLd } from "@/lib/seo/tutor-jsonld";
 import { isCatalogProblem, tutorsForPublicPages } from "@/lib/tutors/catalog";
 import { fetchAllTutorIds, fetchTutorProfile } from "@/lib/tutors/server";
@@ -23,6 +24,8 @@ import { offersLessonType } from "@/lib/tutors/profile-display";
 interface TutorPageProps {
   params: { id: string };
 }
+
+export const dynamicParams = true;
 
 export async function generateStaticParams() {
   const catalog = await fetchAllTutorIds();
@@ -33,11 +36,17 @@ export async function generateMetadata({ params }: TutorPageProps): Promise<Meta
   const result = await fetchTutorProfile(params.id);
 
   if (isCatalogProblem(result.state)) {
-    return { title: "Professor — Aprendiz Bay" };
+    return {
+      title: "Professor — Aprendiz Bay",
+      robots: NOINDEX_FOLLOW_ROBOTS,
+    };
   }
 
   if (!result.tutor) {
-    return { title: "Professor não encontrado — Aprendiz Bay" };
+    return {
+      title: "Professor não encontrado — Aprendiz Bay",
+      robots: NOINDEX_FOLLOW_ROBOTS,
+    };
   }
 
   const tutor = result.tutor;
@@ -51,6 +60,10 @@ export async function generateMetadata({ params }: TutorPageProps): Promise<Meta
   return {
     title: `${tutor.name} — ${tutor.subject} | Aprendiz Bay`,
     description,
+    alternates: {
+      canonical: `/tutor/${tutor.id}`,
+    },
+    robots: INDEX_FOLLOW_ROBOTS,
     openGraph: {
       title: `${tutor.name} — ${tutor.subject} | Aprendiz Bay`,
       description,

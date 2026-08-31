@@ -11,6 +11,9 @@ export const metadata: Metadata = {
   title: "Termos de Uso — Aprendiz Bay",
   description:
     "Rascunho dos Termos de Uso da Aprendiz Bay, a plataforma brasileira de tutoria e aulas coletivas. Pendente de revisão jurídica.",
+  alternates: {
+    canonical: "/termos",
+  },
 };
 
 export default function TermosPage() {

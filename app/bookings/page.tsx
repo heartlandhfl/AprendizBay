@@ -1,6 +1,14 @@
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import RequireAuth from "@/components/auth/RequireAuth";
 import StudentBookingsList from "@/components/bookings/StudentBookingsList";
+import { PRIVATE_ROBOTS } from "@/lib/seo/robots-policy";
+
+export const metadata: Metadata = {
+  title: "Minhas reservas — Aprendiz Bay",
+  description: "Acompanhe suas aulas reservadas na Aprendiz Bay.",
+  robots: PRIVATE_ROBOTS,
+};
 
 export default function BookingsPage() {
   return (

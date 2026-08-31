@@ -9,6 +9,7 @@ interface ConversationPageProps {
 export const metadata = {
   title: "Conversa — Aprendiz Bay",
   description: "Acompanhe a conversa entre aluno e professor.",
+  robots: { index: false, follow: false },
 };
 
 export default function ConversationPage({ params }: ConversationPageProps) {

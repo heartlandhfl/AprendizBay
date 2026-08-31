@@ -6,6 +6,7 @@ import AccountSettings from "@/components/settings/AccountSettings";
 export const metadata: Metadata = {
   title: "Configurações — Aprendiz Bay",
   description: "Gerencie sua conta, cookies e a exclusão de dados prevista na LGPD.",
+  robots: { index: false, follow: false },
 };
 
 export default function ConfiguracoesPage() {

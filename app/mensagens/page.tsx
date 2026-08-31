@@ -5,6 +5,7 @@ import ConversationInbox from "@/components/conversations/ConversationInbox";
 export const metadata = {
   title: "Mensagens — Aprendiz Bay",
   description: "Converse com professores e alunos no Aprendiz Bay.",
+  robots: { index: false, follow: false },
 };
 
 export default function MensagensPage() {

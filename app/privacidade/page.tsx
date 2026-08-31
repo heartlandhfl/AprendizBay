@@ -11,6 +11,9 @@ export const metadata: Metadata = {
   title: "Política de Privacidade — Aprendiz Bay",
   description:
     "Rascunho da Política de Privacidade da Aprendiz Bay, com bases legais da LGPD, cookies e direitos do titular. Pendente de revisão jurídica.",
+  alternates: {
+    canonical: "/privacidade",
+  },
 };
 
 export default function PrivacidadePage() {
