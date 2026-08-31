@@ -1,14 +1,12 @@
-"use strict";
-
-const { describe, it } = require("node:test");
-const assert = require("node:assert/strict");
-const {
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import {
   loadTutorOccupiedStarts,
   normalizeTutorId,
   occupancyResponse,
   occupiedStartsFromBookingData,
   parseOccupiedStarts,
-} = require("./occupancy");
+} from "./occupancy";
 
 describe("occupiedStartsFromBookingData", () => {
   it("returns only ISO start times for pending and confirmed bookings", () => {
@@ -69,7 +67,7 @@ describe("parseOccupiedStarts", () => {
     });
 
     assert.equal(starts.length, 1);
-    assert.equal(starts[0].toISOString(), "2026-09-01T19:00:00.000Z");
+    assert.equal(starts[0]?.toISOString(), "2026-09-01T19:00:00.000Z");
   });
 });
 
@@ -84,22 +82,22 @@ describe("normalizeTutorId", () => {
 
 describe("loadTutorOccupiedStarts", () => {
   it("queries occupancy fields without returning private booking data", async () => {
-    let selectedFields;
+    let selectedFields: string[] | undefined;
     const db = {
-      collection(name) {
+      collection(name: string) {
         assert.equal(name, "bookings");
         return {
-          where(field, op, value) {
+          where(field: string, op: string, value: unknown) {
             assert.equal(field, "tutorId");
             assert.equal(op, "==");
             assert.equal(value, "tutor-1");
             return {
-              where(statusField, statusOp, statuses) {
+              where(statusField: string, statusOp: string, statuses: unknown) {
                 assert.equal(statusField, "status");
                 assert.equal(statusOp, "in");
                 assert.deepEqual(statuses, ["pending", "confirmed"]);
                 return {
-                  select(...fields) {
+                  select(...fields: string[]) {
                     selectedFields = fields;
                     return {
                       get: async () => ({
