@@ -2,6 +2,7 @@ const { describe, it } = require("node:test");
 const assert = require("node:assert/strict");
 const {
   mensagensThreadRedirect,
+  turmasDetailRedirect,
   aulasLessonRedirect,
   NOT_FOUND_TEXT,
   NOT_FOUND_JSON,
@@ -19,6 +20,18 @@ describe("mensagensThreadRedirect", () => {
     assert.equal(mensagensThreadRedirect("/mensagens"), null);
     assert.equal(mensagensThreadRedirect("/mensagens/a/b"), null);
     assert.equal(mensagensThreadRedirect("/tutor/1"), null);
+  });
+});
+
+describe("turmasDetailRedirect", () => {
+  it("rewrites a collective class path to the Hostinger query fallback", () => {
+    assert.equal(turmasDetailRedirect("/turmas/hub-m1"), "/turmas?id=hub-m1");
+  });
+
+  it("ignores the turmas index and nested paths", () => {
+    assert.equal(turmasDetailRedirect("/turmas"), null);
+    assert.equal(turmasDetailRedirect("/turmas/a/b"), null);
+    assert.equal(turmasDetailRedirect("/tutor/1"), null);
   });
 });
 

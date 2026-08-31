@@ -10,6 +10,11 @@ export interface CollectiveHub {
   fullPrice: number;
   schedule: string;
   modality: "online" | "presencial";
+  subject?: string;
+  tutorName?: string;
+  scheduledDate?: string;
+  startTime?: string;
+  individualPrice?: number;
 }
 
 export interface TutorProfile extends Tutor {

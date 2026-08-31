@@ -14,7 +14,9 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { trackEvent } from "@/lib/analytics/client";
 import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
 import { createBooking, formatBookingPrice } from "@/lib/bookings/service";
-import { resolveHubScheduledAt } from "@/lib/hubs/schedule";
+import { HUB_JOIN_ERRORS, type HubJoinErrorCode } from "@/lib/hubs/join";
+import { resolveCollectiveClassScheduledAt } from "@/lib/hubs/schedule";
+import { joinCollectiveClassAndBook } from "@/lib/hubs/service";
 import type { CollectiveHubLive } from "@/lib/hubs/types";
 
 interface BookingWidgetProps {
@@ -78,16 +80,23 @@ export default function BookingWidget({ tutor }: BookingWidgetProps) {
       const scheduledAt =
         option === "individual"
           ? selectedSlot!
-          : resolveHubScheduledAt(selectedHub!.schedule);
+          : resolveCollectiveClassScheduledAt(selectedHub!);
 
-      await createBooking(user.uid, {
-        tutorId: tutor.id,
-        type: option,
-        price:
-          option === "individual" ? tutor.individualPrice : selectedHub!.currentPrice,
-        hubId: option === "coletivo" ? selectedHubId : undefined,
-        scheduledAt,
-      });
+      if (option === "coletivo") {
+        await joinCollectiveClassAndBook(user.uid, {
+          hubId: selectedHubId,
+          tutorId: tutor.id,
+          price: selectedHub!.currentPrice,
+          scheduledAt,
+        });
+      } else {
+        await createBooking(user.uid, {
+          tutorId: tutor.id,
+          type: option,
+          price: tutor.individualPrice,
+          scheduledAt,
+        });
+      }
 
       trackEvent(ANALYTICS_EVENTS.bookingStarted, {
         tutor_id: tutor.id,
@@ -98,8 +107,18 @@ export default function BookingWidget({ tutor }: BookingWidgetProps) {
         "Reserva enviada! Depois que o professor confirmar, você pagará a aula em Minhas aulas.",
       );
       setTimeout(() => router.push("/bookings"), 1200);
-    } catch {
-      setError("Não foi possível criar a reserva. Verifique se o professor está verificado.");
+    } catch (bookingError) {
+      const code =
+        bookingError && typeof bookingError === "object" && "code" in bookingError
+          ? String((bookingError as { code?: string }).code)
+          : "";
+      if (code in HUB_JOIN_ERRORS) {
+        setError(HUB_JOIN_ERRORS[code as HubJoinErrorCode]);
+      } else {
+        setError(
+          "Não foi possível criar a reserva. Verifique se o professor está verificado e se ainda há vagas.",
+        );
+      }
     } finally {
       setSubmitting(false);
     }
@@ -182,7 +201,7 @@ export default function BookingWidget({ tutor }: BookingWidgetProps) {
             <CollectiveHubList
               tutorId={tutor.id}
               selectable
-              showJoinButtons
+              showDetailLinks
               selectedHubId={selectedHubId}
               onSelectHub={setSelectedHubId}
               onHubsChange={setHubs}

@@ -81,3 +81,21 @@ export function resolveHubScheduledAt(schedule: string, from: Date = new Date())
 
   return candidate;
 }
+
+export function resolveCollectiveClassScheduledAt(
+  hub: {
+    schedule: string;
+    scheduledDate?: string;
+    startTime?: string;
+  },
+  from: Date = new Date(),
+): Date {
+  if (hub.scheduledDate && hub.startTime) {
+    const candidate = new Date(`${hub.scheduledDate}T${hub.startTime}:00`);
+    if (!Number.isNaN(candidate.getTime())) {
+      return candidate;
+    }
+  }
+
+  return resolveHubScheduledAt(hub.schedule, from);
+}

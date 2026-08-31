@@ -29,6 +29,19 @@ export function removeStudentFromHubIds(
   uid: string,
 ): string[];
 
+export function removeStudentFromHub(
+  data: {
+    confirmedStudentIds?: string[];
+    maxStudents?: number;
+    status?: string;
+  },
+  uid: string,
+): {
+  confirmedStudentIds: string[];
+  confirmedStudentCount: number;
+  status?: string;
+};
+
 export function anonymizeRelatedUserData(
   deps: { db: unknown; FieldValue: { serverTimestamp: () => unknown; delete: () => unknown } },
   uid: string,

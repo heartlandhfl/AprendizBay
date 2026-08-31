@@ -2,9 +2,10 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import SearchResults from "@/components/search/SearchResults";
 
-const { mockTrackEvent, mockFetchVerifiedTutors } = vi.hoisted(() => ({
+const { mockTrackEvent, mockFetchVerifiedTutors, mockFetchOpenCollectiveHubs } = vi.hoisted(() => ({
   mockTrackEvent: vi.fn(),
   mockFetchVerifiedTutors: vi.fn(),
+  mockFetchOpenCollectiveHubs: vi.fn(),
 }));
 
 vi.mock("@/lib/analytics/client", () => ({
@@ -15,11 +16,24 @@ vi.mock("@/lib/tutors/client", () => ({
   fetchVerifiedTutors: mockFetchVerifiedTutors,
 }));
 
+vi.mock("@/lib/hubs/service", () => ({
+  fetchOpenCollectiveHubs: mockFetchOpenCollectiveHubs,
+  formatHubPrice: (price: number) =>
+    price.toLocaleString("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }),
+}));
+
 describe("SearchResults", () => {
   beforeEach(() => {
     mockTrackEvent.mockReset();
     mockFetchVerifiedTutors.mockReset();
+    mockFetchOpenCollectiveHubs.mockReset();
     mockFetchVerifiedTutors.mockResolvedValue([]);
+    mockFetchOpenCollectiveHubs.mockResolvedValue([]);
   });
 
   it("tracks a results search using the query-string filters", async () => {
@@ -36,5 +50,59 @@ describe("SearchResults", () => {
     expect(
       await screen.findByRole("heading", { name: "Resultados da Busca" }),
     ).toBeInTheDocument();
+  });
+
+  it("shows collective class cards next to tutors", async () => {
+    mockFetchVerifiedTutors.mockResolvedValue([
+      {
+        id: "1",
+        name: "Mariana Silva",
+        subject: "Inglês",
+        city: "São Paulo",
+        state: "SP",
+        rating: 4.9,
+        reviewCount: 10,
+        bio: "Professora de inglês.",
+        individualPrice: 70,
+        collectivePrice: 25,
+        modality: "online",
+        lessonTypes: ["individual", "coletivo"],
+        isOnline: true,
+        avatarUrl: "https://example.com/a.png",
+        avatarColor: "bg-emerald-100",
+      },
+    ]);
+    mockFetchOpenCollectiveHubs.mockResolvedValue([
+      {
+        id: "hub-m1",
+        title: "Inglês para Viagem — Primeiros Passos",
+        description: "Frases essenciais.",
+        confirmedStudents: 4,
+        maxStudents: 6,
+        currentPrice: 28,
+        fullPrice: 22,
+        schedule: "Terças, 19h · Online",
+        modality: "online",
+        status: "open",
+        tutorId: "1",
+        isJoined: false,
+        subject: "Inglês",
+        tutorName: "Mariana Silva",
+        scheduledDate: "2026-09-08",
+        startTime: "19:00",
+        individualPrice: 70,
+      },
+    ]);
+
+    render(<SearchResults initialQuery="Inglês" />);
+
+    expect(await screen.findByRole("heading", { name: "Turmas coletivas" })).toBeInTheDocument();
+    expect(screen.getByText("Inglês para Viagem — Primeiros Passos")).toBeInTheDocument();
+    expect(screen.getByText("Vagas disponíveis: 2 de 6")).toBeInTheDocument();
+    expect(screen.getByText(/Economia de 60% versus individual/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ver turma" })).toHaveAttribute(
+      "href",
+      "/turmas/hub-m1",
+    );
   });
 });
