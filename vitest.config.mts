@@ -36,6 +36,7 @@ export default defineConfig({
         test: {
           name: "rules",
           environment: "node",
+          fileParallelism: false,
           include: ["tests/rules/**/*.test.ts"],
           exclude: ["node_modules", "hostinger-next", ".next"],
         },

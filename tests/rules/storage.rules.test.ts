@@ -6,11 +6,11 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { deleteObject, getBytes, ref, uploadBytes } from "firebase/storage";
 import { afterAll, beforeAll, beforeEach, describe, it } from "vitest";
 
-const PROJECT_ID = "demo-aprendiz-bay-storage";
+const PROJECT_ID = "demo-aprendiz-bay";
 const STUDENT_ID = "student-1";
 const TUTOR_ID = "tutor-1";
 const OTHER_TUTOR_ID = "tutor-2";
@@ -49,6 +49,13 @@ async function seedUsers() {
       displayName: "Admin",
       email: "admin@test.com",
     });
+
+    for (const uid of [STUDENT_ID, TUTOR_ID, OTHER_TUTOR_ID, ADMIN_ID]) {
+      const snapshot = await getDoc(doc(db, "users", uid));
+      if (!snapshot.exists()) {
+        throw new Error(`Falha ao gravar o usuário ${uid} no emulador.`);
+      }
+    }
   });
 }
 
@@ -132,12 +139,13 @@ describe("storage.rules credentials", () => {
   });
 
   it("lets the owner tutor replace their own verification document", async () => {
-    await seedCredential();
+    const tutor = storageFor(TUTOR_ID, "mariana@test.com");
 
     await assertSucceeds(
-      uploadBytes(ref(storageFor(TUTOR_ID, "mariana@test.com"), path), PDF_BYTES, {
-        contentType: "application/pdf",
-      }),
+      uploadBytes(ref(tutor, path), PDF_BYTES, { contentType: "application/pdf" }),
+    );
+    await assertSucceeds(
+      uploadBytes(ref(tutor, path), PDF_BYTES, { contentType: "application/pdf" }),
     );
   });
 

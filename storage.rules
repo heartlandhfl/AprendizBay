@@ -140,7 +140,7 @@ service firebase.storage {
 
     match /users/{userId}/{fileName} {
       allow read: if isProfileMediaFile(fileName);
-      allow create, update: if isOwner(userId) && isValidImageUpload() && isProfileMediaFile(fileName);
+      allow write: if isOwner(userId) && isValidImageUpload() && isProfileMediaFile(fileName);
       allow delete: if (isOwner(userId) || isAdmin()) && isProfileMediaFile(fileName);
     }
 
@@ -153,7 +153,7 @@ service firebase.storage {
       allow list: if isOwner(tutorId) || isAdmin();
       // Owner may replace their own file (onboarding + resubmit after reject/changes).
       // isOwner(tutorId) prevents writing into another tutor's folder.
-      allow create, update: if isOwner(tutorId) && isTutor() && isValidCredentialUpload(file);
+      allow write: if isOwner(tutorId) && isTutor() && isValidCredentialUpload(file);
       allow delete: if isOwner(tutorId) || isAdmin();
     }
 
@@ -163,7 +163,7 @@ service firebase.storage {
 
     match /tutors/{tutorId}/verification/{file} {
       allow get, list: if isAdmin();
-      allow create, update: if isAdmin() && isValidCredentialUpload(file);
+      allow write: if isAdmin() && isValidCredentialUpload(file);
       allow delete: if isAdmin();
     }
 
@@ -173,7 +173,7 @@ service firebase.storage {
 
     match /tutors/{tutorId}/portfolio/{file} {
       allow read: if true;
-      allow create, update: if isOwner(tutorId) && isTutor() && isValidImageUpload();
+      allow write: if isOwner(tutorId) && isTutor() && isValidImageUpload();
       allow delete: if isOwner(tutorId) || isAdmin();
     }
 
