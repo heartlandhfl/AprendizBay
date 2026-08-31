@@ -54,12 +54,18 @@ export interface FirestoreCollectiveHubDoc {
   title: string;
   description: string;
   maxStudents: number;
-  confirmedStudentIds: string[];
+  confirmedStudentIds?: string[];
+  confirmedStudentCount?: number;
   currentPrice: number;
   fullPrice: number;
   schedule: string;
   modality: "online" | "presencial";
   status: string;
+  subject?: string;
+  tutorName?: string;
+  scheduledDate?: string;
+  startTime?: string;
+  individualPrice?: number;
 }
 
 export interface FirestoreAvailabilitySlot {

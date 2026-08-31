@@ -302,6 +302,7 @@ async function withFakeAccountDelete() {
 
   const hubUpdate = db.updates.find((item) => item.ref.collectionName === "collectiveHubs");
   assert.deepEqual(hubUpdate.data.confirmedStudentIds, ["x"]);
+  assert.equal(hubUpdate.data.confirmedStudentCount, 1);
 }
 
 async function rejectsPaidActiveBooking() {

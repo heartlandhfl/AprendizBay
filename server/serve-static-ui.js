@@ -41,13 +41,13 @@ function normalizePath(urlPath) {
   return pathname || "/";
 }
 
-function mensagensThreadRedirect(urlPath) {
-  const match = urlPath.match(/^\/mensagens\/([^/]+)$/);
+function turmasDetailRedirect(urlPath) {
+  const match = urlPath.match(/^\/turmas\/([^/]+)$/);
   if (!match) {
     return null;
   }
 
-  return `/mensagens?conversa=${encodeURIComponent(match[1])}`;
+  return `/turmas?id=${encodeURIComponent(match[1])}`;
 }
 
 function resolvePageFile(appOut, urlPath, rsc) {
@@ -191,6 +191,11 @@ function attachStaticUi(app, appDir) {
       res.redirect(302, mensagensRedirect);
       return;
     }
+    const turmasRedirect = turmasDetailRedirect(urlPath);
+    if (turmasRedirect) {
+      res.redirect(302, turmasRedirect);
+      return;
+    }
     const pageFile = resolvePageFile(appOut, urlPath, wantsRsc);
     const contentType = wantsRsc ? "text/x-component" : "html";
 
@@ -220,4 +225,5 @@ module.exports = {
   NOT_FOUND_TEXT,
   NOT_FOUND_JSON,
   mensagensThreadRedirect,
+  turmasDetailRedirect,
 };

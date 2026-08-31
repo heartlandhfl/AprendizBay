@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, Users } from "lucide-react";
+import CollectiveClassCard from "@/components/hubs/CollectiveClassCard";
 import SearchFilters, {
   DEFAULT_FILTERS,
   type SearchFilterState,
@@ -9,6 +10,8 @@ import SearchFilters, {
 import TutorCard from "@/components/search/TutorCard";
 import { trackEvent } from "@/lib/analytics/client";
 import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
+import { fetchOpenCollectiveHubs } from "@/lib/hubs/service";
+import type { CollectiveHubLive } from "@/lib/hubs/types";
 import {
   PRICE_RANGES,
   SUBJECTS,
@@ -34,6 +37,38 @@ function modalityFromQuery(value?: string): FilterModality {
     return value;
   }
   return DEFAULT_FILTERS.modality;
+}
+
+function enrichHub(hub: CollectiveHubLive, tutors: Tutor[]): CollectiveHubLive {
+  const tutor = tutors.find((item) => item.id === hub.tutorId);
+  if (!tutor) {
+    return hub;
+  }
+
+  return {
+    ...hub,
+    subject: hub.subject || tutor.subject,
+    tutorName: hub.tutorName || tutor.name,
+    individualPrice: hub.individualPrice || tutor.individualPrice,
+  };
+}
+
+function hubMatchesFilters(hub: CollectiveHubLive, filters: SearchFilterState): boolean {
+  const priceRange = PRICE_RANGES[filters.priceRangeIndex];
+
+  if (filters.subject !== "Todas as matérias" && hub.subject !== filters.subject) {
+    return false;
+  }
+
+  if (hub.currentPrice < priceRange.min || hub.currentPrice > priceRange.max) {
+    return false;
+  }
+
+  if (filters.modality !== "todos" && hub.modality !== filters.modality) {
+    return false;
+  }
+
+  return hub.status === "open" && hub.confirmedStudents < hub.maxStudents;
 }
 
 function applyClientFilters(tutors: Tutor[], filters: SearchFilterState) {
@@ -92,27 +127,33 @@ export default function SearchResults({
     modality: modalityFromQuery(initialModality),
   });
   const [tutors, setTutors] = useState<Tutor[]>([]);
+  const [hubs, setHubs] = useState<CollectiveHubLive[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadTutors() {
+    async function loadResults() {
       setLoading(true);
 
       try {
-        const fetchedTutors = await fetchVerifiedTutors({
-          subject: filters.subject,
-          modality: filters.modality,
-        });
+        const [fetchedTutors, fetchedHubs] = await Promise.all([
+          fetchVerifiedTutors({
+            subject: filters.subject,
+            modality: filters.modality,
+          }),
+          fetchOpenCollectiveHubs(),
+        ]);
 
         if (!cancelled) {
           setTutors(fetchedTutors);
+          setHubs(fetchedHubs.map((hub) => enrichHub(hub, fetchedTutors)));
         }
       } catch (error) {
         console.error("[Aprendiz Bay] Erro ao buscar tutores:", error);
         if (!cancelled) {
           setTutors([]);
+          setHubs([]);
         }
       } finally {
         if (!cancelled) {
@@ -121,7 +162,7 @@ export default function SearchResults({
       }
     }
 
-    loadTutors();
+    loadResults();
 
     return () => {
       cancelled = true;
@@ -137,10 +178,22 @@ export default function SearchResults({
     });
   }, [filters.lessonType, filters.modality, filters.subject]);
 
-  const results = useMemo(
+  const tutorResults = useMemo(
     () => applyClientFilters(tutors, filters),
     [filters, tutors],
   );
+
+  const classResults = useMemo(() => {
+    if (filters.lessonType === "individual") {
+      return [];
+    }
+
+    return hubs.filter((hub) => hubMatchesFilters(hub, filters));
+  }, [filters, hubs]);
+
+  const showTutors = filters.lessonType !== "coletivo";
+  const visibleTutors = showTutors ? tutorResults : [];
+  const resultCount = visibleTutors.length + classResults.length;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -149,11 +202,12 @@ export default function SearchResults({
           Resultados da Busca
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Encontre o professor ideal e economize com{" "}
+          Encontre professores e{" "}
           <span className="inline-flex items-center gap-1 font-medium text-secondary-600">
             <Users className="h-4 w-4" aria-hidden="true" />
             aulas coletivas
-          </span>
+          </span>{" "}
+          no mesmo lugar.
         </p>
       </div>
 
@@ -161,39 +215,67 @@ export default function SearchResults({
         <SearchFilters
           filters={filters}
           onChange={setFilters}
-          resultCount={results.length}
+          resultCount={resultCount}
         />
 
         <section>
           <div className="mb-6 hidden items-center justify-between lg:flex">
             <p className="text-sm text-muted-foreground">
-              <span className="font-semibold text-foreground">
-                {results.length}
-              </span>{" "}
-              professor{results.length !== 1 ? "es" : ""} encontrado
-              {results.length !== 1 ? "s" : ""}
+              <span className="font-semibold text-foreground">{resultCount}</span>{" "}
+              resultado{resultCount !== 1 ? "s" : ""}
+              {visibleTutors.length > 0 || classResults.length > 0 ? (
+                <>
+                  {" "}
+                  ({visibleTutors.length} professor
+                  {visibleTutors.length !== 1 ? "es" : ""}
+                  {classResults.length > 0
+                    ? ` · ${classResults.length} turma${classResults.length !== 1 ? "s" : ""} coletiva${classResults.length !== 1 ? "s" : ""}`
+                    : ""}
+                  )
+                </>
+              ) : null}
             </p>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary-50 px-3 py-1 text-xs font-semibold text-secondary-700 ring-1 ring-secondary-200">
               <Users className="h-3.5 w-3.5" aria-hidden="true" />
-              Aulas coletivas a partir de R$ 18/h
+              Aulas coletivas na busca
             </span>
           </div>
 
           {loading ? (
             <div className="flex min-h-[240px] items-center justify-center rounded-2xl bg-muted/40">
               <Loader2 className="h-8 w-8 animate-spin text-primary-600" aria-hidden="true" />
-              <span className="sr-only">Carregando professores...</span>
+              <span className="sr-only">Carregando professores e turmas...</span>
             </div>
-          ) : results.length > 0 ? (
-            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-2">
-              {results.map((tutor) => (
-                <TutorCard key={tutor.id} tutor={tutor} />
-              ))}
+          ) : resultCount > 0 ? (
+            <div className="space-y-8">
+              {classResults.length > 0 ? (
+                <div>
+                  <h2 className="mb-4 text-lg font-bold text-foreground">Turmas coletivas</h2>
+                  <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-2">
+                    {classResults.map((hub) => (
+                      <CollectiveClassCard key={hub.id} hub={hub} />
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {visibleTutors.length > 0 ? (
+                <div>
+                  {classResults.length > 0 ? (
+                    <h2 className="mb-4 text-lg font-bold text-foreground">Professores</h2>
+                  ) : null}
+                  <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-2">
+                    {visibleTutors.map((tutor) => (
+                      <TutorCard key={tutor.id} tutor={tutor} />
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="rounded-2xl bg-muted/60 px-6 py-16 text-center">
               <p className="text-lg font-semibold text-foreground">
-                Nenhum professor encontrado
+                Nenhum professor ou turma encontrada
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
                 Tente ajustar os filtros para ver mais resultados.

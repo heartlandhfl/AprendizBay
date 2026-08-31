@@ -1,4 +1,5 @@
 import type { Tutor } from "@/lib/mock-tutors";
+import { toPublicCollectiveHub } from "@/lib/hubs/public";
 import type { CollectiveHub, TutorProfile } from "@/lib/tutor-profiles";
 import type {
   AdminTutorApplication,
@@ -38,16 +39,23 @@ export function mapFirestoreCollectiveHubDoc(
   id: string,
   data: FirestoreCollectiveHubDoc,
 ): CollectiveHub {
+  const publicHub = toPublicCollectiveHub(id, data as Record<string, unknown>);
+
   return {
-    id,
-    title: data.title,
-    description: data.description,
-    confirmedStudents: data.confirmedStudentIds.length,
-    maxStudents: data.maxStudents,
-    currentPrice: data.currentPrice,
-    fullPrice: data.fullPrice,
-    schedule: data.schedule,
-    modality: data.modality,
+    id: publicHub.id,
+    title: publicHub.title,
+    description: publicHub.description,
+    confirmedStudents: publicHub.confirmedStudents,
+    maxStudents: publicHub.maxStudents,
+    currentPrice: publicHub.currentPrice,
+    fullPrice: publicHub.fullPrice,
+    schedule: publicHub.schedule,
+    modality: publicHub.modality,
+    subject: publicHub.subject || undefined,
+    tutorName: publicHub.tutorName || undefined,
+    scheduledDate: publicHub.scheduledDate || undefined,
+    startTime: publicHub.startTime || undefined,
+    individualPrice: publicHub.individualPrice || undefined,
   };
 }
 
