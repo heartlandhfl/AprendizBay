@@ -9,12 +9,14 @@ import { getTutorProfile } from "@/lib/tutor-profiles";
 const {
   mockUseAuth,
   mockCreateBooking,
+  mockJoinCollectiveClassAndBook,
   mockPush,
   mockTrackEvent,
   mockHubs,
 } = vi.hoisted(() => ({
   mockUseAuth: vi.fn(),
   mockCreateBooking: vi.fn(),
+  mockJoinCollectiveClassAndBook: vi.fn(),
   mockPush: vi.fn(),
   mockTrackEvent: vi.fn(),
   mockHubs: [
@@ -28,9 +30,12 @@ const {
       fullPrice: 22,
       schedule: "Terças, 19h · Online",
       modality: "online",
-      confirmedStudentIds: ["other-student"],
       status: "open",
       tutorId: "1",
+      isJoined: false,
+      subject: "Inglês",
+      tutorName: "Mariana Silva",
+      individualPrice: 70,
     },
   ] satisfies CollectiveHubLive[],
 }));
@@ -46,6 +51,10 @@ vi.mock("@/lib/auth/AuthContext", () => ({
 
 vi.mock("@/lib/analytics/client", () => ({
   trackEvent: mockTrackEvent,
+}));
+
+vi.mock("@/lib/hubs/service", () => ({
+  joinCollectiveClassAndBook: mockJoinCollectiveClassAndBook,
 }));
 
 vi.mock("@/lib/bookings/service", async (importOriginal) => {
@@ -105,10 +114,12 @@ describe("BookingWidget", () => {
   beforeEach(() => {
     mockUseAuth.mockReset();
     mockCreateBooking.mockReset();
+    mockJoinCollectiveClassAndBook.mockReset();
     mockPush.mockReset();
     mockTrackEvent.mockReset();
     mockUseAuth.mockReturnValue(studentAuth());
     mockCreateBooking.mockResolvedValue("booking-1");
+    mockJoinCollectiveClassAndBook.mockResolvedValue("booking-1");
   });
 
   it("renders the booking card and collective option by default", async () => {
@@ -202,16 +213,16 @@ describe("BookingWidget", () => {
     await user.click(screen.getByRole("button", { name: "Agendar aula" }));
 
     await waitFor(() => {
-      expect(mockCreateBooking).toHaveBeenCalledWith(
+      expect(mockJoinCollectiveClassAndBook).toHaveBeenCalledWith(
         "student-1",
         expect.objectContaining({
           tutorId: "1",
-          type: "coletivo",
           price: 28,
           hubId: "hub-1",
         }),
       );
     });
+    expect(mockCreateBooking).not.toHaveBeenCalled();
     expect(await screen.findByRole("status")).toHaveTextContent(
       "Reserva enviada! Depois que o professor confirmar",
     );
@@ -261,7 +272,7 @@ describe("BookingWidget", () => {
   });
 
   it("explains when the booking cannot be created", async () => {
-    mockCreateBooking.mockRejectedValue(new Error("permission-denied"));
+    mockJoinCollectiveClassAndBook.mockRejectedValue(Object.assign(new Error("full"), { code: "full" }));
     const user = userEvent.setup();
     render(<BookingWidget tutor={tutor} />);
 
@@ -272,7 +283,7 @@ describe("BookingWidget", () => {
     await user.click(screen.getByRole("button", { name: "Agendar aula" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Não foi possível criar a reserva. Verifique se o professor está verificado.",
+      "Esta turma não tem mais vagas.",
     );
   });
 });

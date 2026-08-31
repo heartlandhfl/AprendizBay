@@ -10,12 +10,13 @@ export const metadata: Metadata = {
 export default function SearchPage({
   searchParams,
 }: {
-  searchParams: { q?: string; subject?: string; modality?: string };
+  searchParams: { q?: string; subject?: string; modality?: string; city?: string };
 }) {
   return (
     <SearchResults
       initialQuery={searchParams.q ?? searchParams.subject ?? ""}
       initialModality={searchParams.modality}
+      initialCity={searchParams.city}
     />
   );
 }

@@ -1,4 +1,5 @@
 import type { LessonType, Tutor } from "@/lib/mock-tutors";
+import { toPublicCollectiveHub } from "@/lib/hubs/public";
 import type { CollectiveHub, TutorProfile } from "@/lib/tutor-profiles";
 import type {
   AdminTutorApplication,
@@ -38,8 +39,15 @@ function resolveLessonTypes(data: FirestoreTutorDoc): LessonType[] {
   return types;
 }
 
+const PRIVATE_TUTOR_FIELDS = [
+  "credentialFileName",
+  "reviewedBy",
+  "reviewedAt",
+  "verificationReason",
+] as const;
+
 export function mapFirestoreTutorDoc(id: string, data: FirestoreTutorDoc): Tutor {
-  return {
+  const tutor: Tutor = {
     id,
     name: data.name,
     subject: data.subject,
@@ -55,23 +63,52 @@ export function mapFirestoreTutorDoc(id: string, data: FirestoreTutorDoc): Tutor
     isOnline: data.isOnline === true,
     avatarUrl: trimToUndefined(data.avatarUrl) ?? "",
     avatarColor: data.avatarColor ?? "bg-emerald-100",
+    isVerified: isMarketplaceVisible(data),
   };
+
+  if (typeof data.hoursTaught === "number") {
+    tutor.hoursTaught = data.hoursTaught;
+  }
+  if (typeof data.yearsOfExperience === "number") {
+    tutor.yearsOfExperience = data.yearsOfExperience;
+  }
+  if (Array.isArray(data.educationLevels) && data.educationLevels.length > 0) {
+    tutor.educationLevels = data.educationLevels.filter(
+      (level): level is string => typeof level === "string" && level.trim().length > 0,
+    );
+  }
+  if (typeof data.hasAvailability === "boolean") {
+    tutor.hasAvailability = data.hasAvailability;
+  }
+
+  for (const field of PRIVATE_TUTOR_FIELDS) {
+    delete (tutor as Record<string, unknown>)[field];
+  }
+
+  return tutor;
 }
 
 export function mapFirestoreCollectiveHubDoc(
   id: string,
   data: FirestoreCollectiveHubDoc,
 ): CollectiveHub {
+  const publicHub = toPublicCollectiveHub(id, data as Record<string, unknown>);
+
   return {
-    id,
-    title: data.title,
-    description: data.description,
-    confirmedStudents: data.confirmedStudentIds.length,
-    maxStudents: data.maxStudents,
-    currentPrice: data.currentPrice,
-    fullPrice: data.fullPrice,
-    schedule: data.schedule,
-    modality: data.modality,
+    id: publicHub.id,
+    title: publicHub.title,
+    description: publicHub.description,
+    confirmedStudents: publicHub.confirmedStudents,
+    maxStudents: publicHub.maxStudents,
+    currentPrice: publicHub.currentPrice,
+    fullPrice: publicHub.fullPrice,
+    schedule: publicHub.schedule,
+    modality: publicHub.modality,
+    subject: publicHub.subject || undefined,
+    tutorName: publicHub.tutorName || undefined,
+    scheduledDate: publicHub.scheduledDate || undefined,
+    startTime: publicHub.startTime || undefined,
+    individualPrice: publicHub.individualPrice || undefined,
   };
 }
 
@@ -95,7 +132,7 @@ export function mapFirestoreTutorProfile(
     experience: trimToUndefined(data.experience),
     qualifications: qualifications.length > 0 ? qualifications : undefined,
     subjects: subjects.length > 0 ? subjects : undefined,
-    levels: optionalList(data.levels),
+    levels: optionalList(data.levels) ?? optionalList(data.educationLevels),
     languages: optionalList(data.languages),
     specialties: optionalList(data.specialties),
     responseTime: trimToUndefined(data.responseTime),

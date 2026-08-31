@@ -19,6 +19,11 @@ export interface Tutor {
   isOnline: boolean;
   avatarUrl: string;
   avatarColor: string;
+  isVerified?: boolean;
+  hoursTaught?: number;
+  yearsOfExperience?: number;
+  educationLevels?: string[];
+  hasAvailability?: boolean;
 }
 
 export const MOCK_TUTORS: Tutor[] = [
@@ -38,6 +43,11 @@ export const MOCK_TUTORS: Tutor[] = [
     isOnline: true,
     avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Mariana&backgroundColor=d1fae5",
     avatarColor: "bg-emerald-100",
+    isVerified: true,
+    hoursTaught: 1240,
+    yearsOfExperience: 8,
+    educationLevels: ["Idiomas", "Graduação"],
+    hasAvailability: true,
   },
   {
     id: "2",
@@ -55,6 +65,11 @@ export const MOCK_TUTORS: Tutor[] = [
     isOnline: true,
     avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Lucas&backgroundColor=ccfbf1",
     avatarColor: "bg-teal-100",
+    isVerified: true,
+    hoursTaught: 980,
+    yearsOfExperience: 10,
+    educationLevels: ["Graduação", "Profissionalizante"],
+    hasAvailability: true,
   },
   {
     id: "3",
@@ -72,6 +87,11 @@ export const MOCK_TUTORS: Tutor[] = [
     isOnline: false,
     avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Rodrigo&backgroundColor=fef3c7",
     avatarColor: "bg-amber-100",
+    isVerified: true,
+    hoursTaught: 760,
+    yearsOfExperience: 12,
+    educationLevels: ["Ensino fundamental", "Ensino médio"],
+    hasAvailability: true,
   },
   {
     id: "4",
@@ -89,6 +109,11 @@ export const MOCK_TUTORS: Tutor[] = [
     isOnline: true,
     avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Fernanda&backgroundColor=e0e7ff",
     avatarColor: "bg-indigo-100",
+    isVerified: true,
+    hoursTaught: 1580,
+    yearsOfExperience: 8,
+    educationLevels: ["Ensino médio", "Pré-vestibular / ENEM"],
+    hasAvailability: true,
   },
   {
     id: "5",
@@ -106,6 +131,11 @@ export const MOCK_TUTORS: Tutor[] = [
     isOnline: false,
     avatarUrl: "https://api.dicebear.com/7.x/avataaars/svg?seed=Andre&backgroundColor=fce7f3",
     avatarColor: "bg-rose-100",
+    isVerified: true,
+    hoursTaught: 540,
+    yearsOfExperience: 15,
+    educationLevels: ["Idiomas"],
+    hasAvailability: true,
   },
 ];
 

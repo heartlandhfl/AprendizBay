@@ -27,3 +27,23 @@ export const BRAZILIAN_STATES = [
   { uf: "SE", name: "Sergipe" },
   { uf: "TO", name: "Tocantins" },
 ] as const;
+
+export const SEARCH_CITIES = [
+  "São Paulo",
+  "Rio de Janeiro",
+  "Belo Horizonte",
+  "Curitiba",
+  "Porto Alegre",
+  "Brasília",
+  "Salvador",
+  "Fortaleza",
+  "Recife",
+  "Manaus",
+  "Belém",
+  "Goiânia",
+  "Florianópolis",
+  "Campinas",
+  "Vitória",
+  "Natal",
+  "Maceió",
+] as const;

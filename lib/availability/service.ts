@@ -9,6 +9,7 @@ import { db, requireFirebaseApp, whenFirebaseReady } from "@/lib/firebase/client
 import { AVAILABILITY_DOC_ID, WEEKDAY_LABELS } from "@/lib/availability/constants";
 import type { AvailabilitySlot, TutorAvailability } from "@/lib/availability/types";
 import type { FirestoreAvailabilityDoc } from "@/lib/tutors/firestore-types";
+import { setTutorHasAvailability } from "@/lib/tutors/service";
 
 const TIME_PATTERN = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
 
@@ -135,6 +136,7 @@ export async function saveTutorAvailability(
     },
     { merge: true },
   );
+  await setTutorHasAvailability(tutorId, slots.length > 0);
 }
 
 export function formatAvailabilitySummary(slots: AvailabilitySlot[]): string {

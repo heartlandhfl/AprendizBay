@@ -1,5 +1,5 @@
 import type { TutorProfile } from "@/lib/tutor-profiles";
-import { hasTeachingDetails, teachingSubjects } from "@/lib/tutors/profile-display";
+import { hasTeachingDetails, teachingLevels, teachingSubjects } from "@/lib/tutors/profile-display";
 
 interface TutorTeachingProps {
   tutor: TutorProfile;
@@ -26,6 +26,7 @@ export default function TutorTeaching({ tutor }: TutorTeachingProps) {
   }
 
   const subjects = teachingSubjects(tutor);
+  const levels = teachingLevels(tutor);
 
   return (
     <section className="rounded-2xl bg-surface p-5 shadow-card ring-1 ring-border/50 sm:p-8">
@@ -41,12 +42,12 @@ export default function TutorTeaching({ tutor }: TutorTeachingProps) {
           </div>
         ) : null}
 
-        {tutor.levels && tutor.levels.length > 0 ? (
+        {levels.length > 0 ? (
           <div>
             <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Níveis
             </h3>
-            <ChipList items={tutor.levels} />
+            <ChipList items={levels} />
           </div>
         ) : null}
 

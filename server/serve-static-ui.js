@@ -50,6 +50,15 @@ function mensagensThreadRedirect(urlPath) {
   return `/mensagens?conversa=${encodeURIComponent(match[1])}`;
 }
 
+function turmasDetailRedirect(urlPath) {
+  const match = urlPath.match(/^\/turmas\/([^/]+)$/);
+  if (!match) {
+    return null;
+  }
+
+  return `/turmas?id=${encodeURIComponent(match[1])}`;
+}
+
 function aulasLessonRedirect(urlPath) {
   const match = urlPath.match(/^\/aulas\/([^/]+)$/);
   if (!match) {
@@ -200,6 +209,11 @@ function attachStaticUi(app, appDir) {
       res.redirect(302, mensagensRedirect);
       return;
     }
+    const turmasRedirect = turmasDetailRedirect(urlPath);
+    if (turmasRedirect) {
+      res.redirect(302, turmasRedirect);
+      return;
+    }
     const aulasRedirect = aulasLessonRedirect(urlPath);
     if (aulasRedirect) {
       res.redirect(302, aulasRedirect);
@@ -234,5 +248,6 @@ module.exports = {
   NOT_FOUND_TEXT,
   NOT_FOUND_JSON,
   mensagensThreadRedirect,
+  turmasDetailRedirect,
   aulasLessonRedirect,
 };

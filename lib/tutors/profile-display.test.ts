@@ -7,6 +7,7 @@ import {
   hasPublicRating,
   offeredLessonTypes,
   presentationText,
+  teachingLevels,
   teachingSubjects,
 } from "@/lib/tutors/profile-display";
 
@@ -66,5 +67,9 @@ describe("profile display guards", () => {
       "Inglês",
       "TOEFL",
     ]);
+    expect(teachingLevels({ ...baseTutor, educationLevels: ["Idiomas"] })).toEqual([
+      "Idiomas",
+    ]);
   });
 });
+

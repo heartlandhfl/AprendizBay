@@ -67,12 +67,22 @@ export function hasExperienceSection(
   );
 }
 
+export function teachingLevels(
+  tutor: Pick<TutorProfile, "levels" | "educationLevels">,
+): string[] {
+  if (tutor.levels && tutor.levels.length > 0) {
+    return tutor.levels;
+  }
+
+  return tutor.educationLevels ?? [];
+}
+
 export function hasTeachingDetails(
-  tutor: Pick<TutorProfile, "subjects" | "subject" | "levels" | "languages" | "specialties">,
+  tutor: Pick<TutorProfile, "subjects" | "subject" | "levels" | "educationLevels" | "languages" | "specialties">,
 ): boolean {
   return (
     teachingSubjects(tutor).length > 0 ||
-    (tutor.levels?.length ?? 0) > 0 ||
+    teachingLevels(tutor).length > 0 ||
     (tutor.languages?.length ?? 0) > 0 ||
     (tutor.specialties?.length ?? 0) > 0
   );

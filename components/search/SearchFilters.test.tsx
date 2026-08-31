@@ -30,10 +30,13 @@ describe("SearchFilters", () => {
 
     expect(screen.getAllByText("Filtros").length).toBeGreaterThan(0);
     expect(screen.getByText("3 resultados")).toBeInTheDocument();
-    expect(screen.getAllByLabelText("Matéria")[0]).toBeInTheDocument();
-    expect(screen.getAllByLabelText("Faixa de Preço")[0]).toBeInTheDocument();
+    expect(screen.getAllByLabelText("Disciplina")[0]).toBeInTheDocument();
+    expect(screen.getAllByLabelText("Cidade")[0]).toBeInTheDocument();
+    expect(screen.getAllByLabelText("Faixa de preço")[0]).toBeInTheDocument();
+    expect(screen.getAllByLabelText("Avaliação mínima")[0]).toBeInTheDocument();
     expect(screen.getAllByText("Modalidade")[0]).toBeInTheDocument();
-    expect(screen.getAllByText("Tipo de Aula")[0]).toBeInTheDocument();
+    expect(screen.getAllByText("Tipo de aula")[0]).toBeInTheDocument();
+    expect(screen.getAllByLabelText("Professor verificado")[0]).toBeInTheDocument();
   });
 
   it("uses the singular label when there is one result", () => {
@@ -46,7 +49,7 @@ describe("SearchFilters", () => {
     const user = userEvent.setup();
     const { onChange } = renderFilters();
 
-    await user.selectOptions(screen.getAllByLabelText("Matéria")[0], "Inglês");
+    await user.selectOptions(screen.getAllByLabelText("Disciplina")[0], "Inglês");
 
     expect(onChange).toHaveBeenCalledWith({
       ...DEFAULT_FILTERS,
@@ -54,11 +57,23 @@ describe("SearchFilters", () => {
     });
   });
 
+  it("notifies the parent when the city changes", async () => {
+    const user = userEvent.setup();
+    const { onChange } = renderFilters();
+
+    await user.selectOptions(screen.getAllByLabelText("Cidade")[0], "São Paulo");
+
+    expect(onChange).toHaveBeenCalledWith({
+      ...DEFAULT_FILTERS,
+      city: "São Paulo",
+    });
+  });
+
   it("notifies the parent when the price range changes", async () => {
     const user = userEvent.setup();
     const { onChange } = renderFilters();
 
-    await user.selectOptions(screen.getAllByLabelText("Faixa de Preço")[0], "2");
+    await user.selectOptions(screen.getAllByLabelText("Faixa de preço")[0], "2");
 
     expect(onChange).toHaveBeenCalledWith({
       ...DEFAULT_FILTERS,
@@ -76,7 +91,7 @@ describe("SearchFilters", () => {
       modality: "online",
     });
 
-    await user.click(screen.getAllByRole("button", { name: "Coletivo" })[0]);
+    await user.click(screen.getAllByRole("button", { name: "Aula coletiva" })[0]);
     expect(onChange).toHaveBeenCalledWith({
       ...DEFAULT_FILTERS,
       lessonType: "coletivo",
@@ -87,12 +102,13 @@ describe("SearchFilters", () => {
     const user = userEvent.setup();
     const { onChange } = renderFilters({
       subject: "Python",
+      city: "Curitiba",
       priceRangeIndex: 3,
       modality: "presencial",
       lessonType: "individual",
     });
 
-    await user.click(screen.getByRole("button", { name: "Limpar filtros" }));
+    await user.click(screen.getAllByRole("button", { name: "Limpar filtros" })[0]);
 
     expect(onChange).toHaveBeenCalledWith(DEFAULT_FILTERS);
   });

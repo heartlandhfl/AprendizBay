@@ -25,7 +25,7 @@ export default function TutorCollectiveClasses({ tutor }: TutorCollectiveClasses
       <div className="mt-5">
         <CollectiveHubList
           tutorId={tutor.id}
-          showJoinButtons
+          showDetailLinks
           initialHubs={tutor.collectiveHubs}
         />
       </div>

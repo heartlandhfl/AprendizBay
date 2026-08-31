@@ -46,11 +46,60 @@ describe("mapFirestoreTutorDoc", () => {
 
     expect(tutor.lessonTypes).toEqual(["individual"]);
   });
+
+  it("maps public search fields and omits private verification data", () => {
+    const data = {
+      userId: "tutor-1",
+      name: "Mariana Silva",
+      subject: "Inglês",
+      city: "São Paulo",
+      state: "SP",
+      bio: "Professora de inglês.",
+      individualPrice: 70,
+      collectivePrice: 25,
+      modality: "ambos",
+      isVerified: true,
+      verificationStatus: "approved",
+      isOnline: true,
+      rating: 4.9,
+      reviewCount: 10,
+      credentialFileName: "rg.pdf",
+      reviewedBy: "admin-1",
+      verificationReason: "Documento ok",
+      educationLevels: ["Idiomas"],
+      yearsOfExperience: 8,
+      hasAvailability: true,
+      hoursTaught: 1240,
+    } as FirestoreTutorDoc;
+
+    const tutor = mapFirestoreTutorDoc("tutor-1", data);
+
+    expect(tutor).toMatchObject({
+      id: "tutor-1",
+      name: "Mariana Silva",
+      subject: "Inglês",
+      city: "São Paulo",
+      isVerified: true,
+      educationLevels: ["Idiomas"],
+      yearsOfExperience: 8,
+      hasAvailability: true,
+      hoursTaught: 1240,
+    });
+    expect(tutor).not.toHaveProperty("credentialFileName");
+    expect(tutor).not.toHaveProperty("reviewedBy");
+    expect(tutor).not.toHaveProperty("reviewedAt");
+    expect(tutor).not.toHaveProperty("verificationReason");
+    expect(tutor).not.toHaveProperty("userId");
+  });
 });
 
 describe("mapFirestoreTutorProfile", () => {
   it("only marks the tutor as verified when marketplace visibility is approved", () => {
-    const pending = mapFirestoreTutorProfile("tutor-1", baseDoc({ isVerified: true, verificationStatus: "pending" }), []);
+    const pending = mapFirestoreTutorProfile(
+      "tutor-1",
+      baseDoc({ isVerified: true, verificationStatus: "pending" }),
+      [],
+    );
     const approved = mapFirestoreTutorProfile(
       "tutor-1",
       baseDoc({ isVerified: true, verificationStatus: "approved" }),
@@ -119,5 +168,15 @@ describe("mapFirestoreTutorProfile", () => {
     expect(profile.studentsServed).toBe(40);
     expect(profile.rating).toBe(4.8);
     expect(profile.reviewCount).toBe(12);
+  });
+
+  it("uses stored education levels as teaching levels when levels are absent", () => {
+    const profile = mapFirestoreTutorProfile(
+      "tutor-1",
+      baseDoc({ educationLevels: ["Idiomas"] }),
+      [],
+    );
+
+    expect(profile.levels).toEqual(["Idiomas"]);
   });
 });
