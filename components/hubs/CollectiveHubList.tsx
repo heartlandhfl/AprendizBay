@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import HubSlotCard from "@/components/hubs/HubSlotCard";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { ensureFirebaseApp } from "@/lib/firebase/client";
 import type { CollectiveHubLive } from "@/lib/hubs/types";
 import { subscribeToTutorCollectiveHubs } from "@/lib/hubs/service";
-import { useAuth } from "@/lib/auth/AuthContext";
+import type { CollectiveHub } from "@/lib/tutor-profiles";
 
 interface CollectiveHubListProps {
   tutorId: string;
@@ -14,6 +16,17 @@ interface CollectiveHubListProps {
   onHubsChange?: (hubs: CollectiveHubLive[]) => void;
   selectable?: boolean;
   showDetailLinks?: boolean;
+  initialHubs?: CollectiveHub[];
+}
+
+function toLiveHubs(tutorId: string, hubs: CollectiveHub[]): CollectiveHubLive[] {
+  return hubs.map((hub) => ({
+    ...hub,
+    tutorId,
+    confirmedStudentIds: [],
+    status: "open",
+    isJoined: false,
+  }));
 }
 
 export default function CollectiveHubList({
@@ -23,11 +36,18 @@ export default function CollectiveHubList({
   onHubsChange,
   selectable = false,
   showDetailLinks = false,
+  initialHubs = [],
 }: CollectiveHubListProps) {
   const { user } = useAuth();
-  const [hubs, setHubs] = useState<CollectiveHubLive[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [hubs, setHubs] = useState<CollectiveHubLive[]>(() => toLiveHubs(tutorId, initialHubs));
+  const [loading, setLoading] = useState(initialHubs.length === 0);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialHubs.length > 0) {
+      onHubsChange?.(toLiveHubs(tutorId, initialHubs));
+    }
+  }, [initialHubs, onHubsChange, tutorId]);
 
   useEffect(() => {
     const unsubscribe = subscribeToTutorCollectiveHubs(
@@ -43,6 +63,12 @@ export default function CollectiveHubList({
       },
       user?.uid,
     );
+
+    void ensureFirebaseApp().then((app) => {
+      if (!app) {
+        setLoading(false);
+      }
+    });
 
     return unsubscribe;
   }, [onHubsChange, tutorId, user?.uid]);
