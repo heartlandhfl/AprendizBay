@@ -6,6 +6,7 @@ export type CreateBookingErrorCode =
   | "INVALID_TUTOR"
   | "INVALID_SLOT"
   | "SLOT_IN_PAST"
+  | "SLOT_NOT_OFFERED"
   | "INVALID_PRICE"
   | "TUTOR_UNAVAILABLE"
   | "COLLECTIVE_PATH"
@@ -15,6 +16,11 @@ export const CREATE_BOOKING_ERRORS: Record<CreateBookingErrorCode, string>;
 export const CREATE_BOOKING_ERROR_STATUS: Record<CreateBookingErrorCode, number>;
 
 export function individualLessonSlotKey(tutorId: unknown, scheduledAt: unknown): string;
+
+export function isOfferedIndividualSlot(
+  scheduledAt: Date,
+  availabilitySlots: Array<{ weekday: number; startTime: string; endTime: string }>,
+): boolean;
 
 export function evaluateIndividualSlotClaim(input: {
   tutorId: unknown;
