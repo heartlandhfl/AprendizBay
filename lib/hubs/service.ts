@@ -39,7 +39,7 @@ function mapLiveHub(
   data: FirestoreCollectiveHubDoc,
   extras: { isJoined?: boolean } = {},
 ): CollectiveHubLive {
-  const publicHub = toPublicCollectiveHub(id, data as Record<string, unknown>, undefined, extras);
+  const publicHub = toPublicCollectiveHub(id, data, undefined, extras);
   const hub = mapFirestoreCollectiveHubDoc(id, data);
 
   return {

@@ -21,6 +21,11 @@ const SELECT_CLASS =
   "w-full rounded-2xl border border-border bg-muted/40 px-3 py-2.5 text-sm text-foreground focus:border-primary-300 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary-200";
 
 const TUTOR_SUBJECTS = SUBJECTS.filter((subject) => subject !== "Todas as matérias");
+type TutorSubject = (typeof TUTOR_SUBJECTS)[number];
+
+function isTutorSubject(value: string): value is TutorSubject {
+  return TUTOR_SUBJECTS.some((subject) => subject === value);
+}
 
 const STEPS = [
   { title: "Matéria", description: "O que você ensina?" },
@@ -190,7 +195,11 @@ export default function TutorOnboardingWizard() {
             <select
               id="onboarding-subject"
               value={subject}
-              onChange={(event) => setSubject(event.target.value)}
+              onChange={(event) => {
+                if (isTutorSubject(event.target.value)) {
+                  setSubject(event.target.value);
+                }
+              }}
               className={SELECT_CLASS}
             >
               {TUTOR_SUBJECTS.map((option) => (

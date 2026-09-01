@@ -72,6 +72,7 @@ export function createIndividualBookingForStudent(
     price?: unknown;
     platformFee?: unknown;
     tutorAmount?: unknown;
+    [extra: string]: unknown;
   },
   deps?: { timestamp?: unknown; now?: Date },
 ): Promise<{ bookingId: string; slotKey: string }>;

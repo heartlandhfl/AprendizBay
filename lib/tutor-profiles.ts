@@ -36,10 +36,31 @@ export interface TutorProfile extends Tutor {
   collectiveHubs: CollectiveHub[];
 }
 
-export const TUTOR_PROFILE_DETAILS: Record<
-  string,
-  Omit<TutorProfile, keyof Tutor>
-> = {
+/**
+ * Profile extras stored beside the marketplace Tutor card.
+ * `isVerified` and `hoursTaught` also exist on Tutor as optional, so they
+ * cannot be expressed as `Omit<TutorProfile, keyof Tutor>`.
+ */
+export type TutorProfileDetails = {
+  headline?: string;
+  isVerified: boolean;
+  hoursTaught?: number;
+  studentsServed?: number;
+  about?: string;
+  methodology?: string;
+  experience?: string;
+  qualifications?: string[];
+  subjects?: string[];
+  levels?: string[];
+  languages?: string[];
+  specialties?: string[];
+  responseTime?: string;
+  firstLessonPrice?: number;
+  offersFreeTrial?: boolean;
+  collectiveHubs: CollectiveHub[];
+};
+
+export const TUTOR_PROFILE_DETAILS: Record<string, TutorProfileDetails> = {
   "1": {
     headline: "Inglês para viagens, carreira e fluência no dia a dia",
     isVerified: true,
@@ -198,7 +219,7 @@ export function getTutorProfile(id: string): TutorProfile | undefined {
   const details = TUTOR_PROFILE_DETAILS[id];
   if (!details) return undefined;
 
-  return { ...base, ...details };
+  return { ...base, ...details, isVerified: details.isVerified };
 }
 
 /** Development/test fixture IDs. Do not use to generate production routes. */

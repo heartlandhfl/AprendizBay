@@ -1,3 +1,5 @@
+import type { EnvRecord } from "@/lib/env";
+
 export const DEFAULT_PLAUSIBLE_SRC = "https://plausible.io/js/script.manual.js";
 export const DEFAULT_PLAUSIBLE_API_HOST = "https://plausible.io";
 
@@ -13,7 +15,7 @@ export function trimConfigValue(value: unknown): string {
 }
 
 export function publicObservabilityConfigFromEnv(
-  env: NodeJS.ProcessEnv = process.env,
+  env: EnvRecord = process.env,
 ): PublicObservabilityConfig {
   return {
     sentryDsn: trimConfigValue(env.NEXT_PUBLIC_SENTRY_DSN),
@@ -41,15 +43,15 @@ export function parsePublicObservabilityConfig(
   };
 }
 
-export function serverSentryDsn(env: NodeJS.ProcessEnv = process.env): string {
+export function serverSentryDsn(env: EnvRecord = process.env): string {
   return trimConfigValue(env.SENTRY_DSN || env.NEXT_PUBLIC_SENTRY_DSN);
 }
 
-export function serverPlausibleDomain(env: NodeJS.ProcessEnv = process.env): string {
+export function serverPlausibleDomain(env: EnvRecord = process.env): string {
   return trimConfigValue(env.PLAUSIBLE_DOMAIN || env.NEXT_PUBLIC_PLAUSIBLE_DOMAIN);
 }
 
-export function serverPlausibleApiHost(env: NodeJS.ProcessEnv = process.env): string {
+export function serverPlausibleApiHost(env: EnvRecord = process.env): string {
   return (
     trimConfigValue(env.PLAUSIBLE_API_HOST) || DEFAULT_PLAUSIBLE_API_HOST
   ).replace(/\/$/, "");

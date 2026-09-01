@@ -5,6 +5,7 @@ import {
   CHECKOUT_ERRORS,
   createBookingCheckout,
   createMemoryCheckoutStore,
+  type CreateBookingCheckoutDeps,
 } from "@/lib/payments/create-checkout";
 
 const CUSTOMER: AsaasCustomerData = {
@@ -47,8 +48,8 @@ async function runCheckout(
   booking: BookingRecord,
   options: {
     uid?: string;
-    createCheckout?: ReturnType<typeof vi.fn>;
-    inspectCheckout?: ReturnType<typeof vi.fn>;
+    createCheckout?: CreateBookingCheckoutDeps["createCheckout"];
+    inspectCheckout?: CreateBookingCheckoutDeps["inspectCheckout"];
     requireAsaasConfigured?: () => void;
     tutorVerified?: boolean;
     now?: Date;
@@ -58,10 +59,10 @@ async function runCheckout(
     new Map([[booking.id, booking]]),
     new Map([["tutor-1", { isVerified: options.tutorVerified ?? true }]]),
   );
-  const createCheckout =
-    options.createCheckout ??
-    vi.fn(async () => createdCheckout());
-  const inspectCheckout = options.inspectCheckout ?? vi.fn(async () => null);
+  const createCheckout = vi.fn(
+    options.createCheckout ?? (async () => createdCheckout()),
+  );
+  const inspectCheckout = vi.fn(options.inspectCheckout ?? (async () => null));
   const result = await createBookingCheckout(
     {
       uid: options.uid ?? "student-1",

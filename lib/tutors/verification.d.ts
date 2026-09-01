@@ -68,7 +68,7 @@ export function applyAdminVerificationReview(
       collection: (name: string) => {
         doc: (id: string) => {
           get: () => Promise<{ exists: boolean; data: () => Record<string, unknown> | undefined }>;
-          update: (data: Record<string, unknown>) => Promise<void>;
+          update: (data: Record<string, unknown>) => Promise<unknown>;
         };
       };
     };
@@ -92,7 +92,7 @@ export function applyTutorVerificationResubmit(
       collection: (name: string) => {
         doc: (id: string) => {
           get: () => Promise<{ exists: boolean; data: () => Record<string, unknown> | undefined }>;
-          update: (data: Record<string, unknown>) => Promise<void>;
+          update: (data: Record<string, unknown>) => Promise<unknown>;
         };
       };
     };

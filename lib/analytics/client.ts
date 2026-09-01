@@ -20,9 +20,11 @@ export function installPlausibleStub(): void {
     return;
   }
 
-  const plausible: PlausibleFn = function plausible(...args: PlausibleArgs) {
-    (plausible.q = plausible.q || []).push(args);
+  const queue: PlausibleArgs[] = [];
+  const plausible: PlausibleFn = (...args: PlausibleArgs) => {
+    queue.push(args);
   };
+  plausible.q = queue;
   window.plausible = plausible;
 }
 

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   authorizeAsaasWebhook,
   isAsaasAlreadyRefundedError,
@@ -108,8 +108,6 @@ describe("Asaas refund responses", () => {
 });
 
 describe("authorizeAsaasWebhook", () => {
-  const originalToken = process.env.ASAAS_WEBHOOK_TOKEN;
-  const originalNodeEnv = process.env.NODE_ENV;
   const secret = "test-asaas-webhook-token";
 
   function headersWith(token?: string): Headers {
@@ -121,16 +119,11 @@ describe("authorizeAsaasWebhook", () => {
   }
 
   beforeEach(() => {
-    process.env.ASAAS_WEBHOOK_TOKEN = secret;
+    vi.stubEnv("ASAAS_WEBHOOK_TOKEN", secret);
   });
 
   afterEach(() => {
-    if (originalToken === undefined) {
-      delete process.env.ASAAS_WEBHOOK_TOKEN;
-    } else {
-      process.env.ASAAS_WEBHOOK_TOKEN = originalToken;
-    }
-    process.env.NODE_ENV = originalNodeEnv;
+    vi.unstubAllEnvs();
   });
 
   it("rejects a missing server token with 503 and never authorizes", () => {
@@ -209,8 +202,8 @@ describe("authorizeAsaasWebhook", () => {
   });
 
   it("does not bypass a missing token when NODE_ENV is test", () => {
-    process.env.NODE_ENV = "test";
-    delete process.env.ASAAS_WEBHOOK_TOKEN;
+    vi.stubEnv("NODE_ENV", "test");
+    vi.stubEnv("ASAAS_WEBHOOK_TOKEN", "");
 
     const result = authorizeAsaasWebhook(headersWith(secret));
 
@@ -221,8 +214,8 @@ describe("authorizeAsaasWebhook", () => {
   });
 
   it("does not bypass a missing token when NODE_ENV is production", () => {
-    process.env.NODE_ENV = "production";
-    delete process.env.ASAAS_WEBHOOK_TOKEN;
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("ASAAS_WEBHOOK_TOKEN", "");
 
     const result = authorizeAsaasWebhook(headersWith(secret));
 
