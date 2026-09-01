@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   assertCanCreateReview,
   computeTutorRatingFromRatings,
+  createReviewAndRefreshTutorRating,
   createReviewForStudent,
   planReviewIdMigration,
   ratingsFromReviewDocs,
+  recomputeTutorRating,
   reviewDocumentId,
   statusFromCreateReviewError,
   studentReviewAction,
@@ -308,6 +310,197 @@ describe("createReviewForStudent", () => {
     } as typeof input & { studentId: string });
 
     expect(created[0]?.data.studentId).toBe("student-1");
+  });
+});
+
+function createRatingFakeDb(options: {
+  booking?: Record<string, unknown> | null;
+  existingReviews?: Array<{ id: string; data: Record<string, unknown> }>;
+} = {}) {
+  const reviews = new Map<string, Record<string, unknown>>(
+    (options.existingReviews ?? []).map((item) => [item.id, item.data]),
+  );
+  let tutorUpdate: { id: string; payload: Record<string, unknown> } | null = null;
+
+  const db = {
+    collection(name: string) {
+      if (name === "bookings") {
+        return {
+          doc(id: string) {
+            return {
+              id,
+              async get() {
+                return {
+                  exists: options.booking != null,
+                  id,
+                  data: () => options.booking ?? null,
+                };
+              },
+            };
+          },
+        };
+      }
+      if (name === "reviews") {
+        return {
+          doc(id: string) {
+            return {
+              id,
+              async get() {
+                const data = reviews.get(id) ?? null;
+                return {
+                  exists: Boolean(data),
+                  id,
+                  data: () => data,
+                };
+              },
+            };
+          },
+          where(field: string, _op: string, value: string) {
+            const docs = Array.from(reviews.entries())
+              .filter(([, data]) => data[field] === value)
+              .map(([id, data]) => ({ id, data: () => data }));
+            return {
+              limit() {
+                return {
+                  async get() {
+                    return { empty: docs.length === 0, docs: docs.slice(0, 1) };
+                  },
+                };
+              },
+              async get() {
+                return { docs };
+              },
+            };
+          },
+        };
+      }
+      if (name === "tutors") {
+        return {
+          doc(id: string) {
+            return {
+              async update(payload: Record<string, unknown>) {
+                tutorUpdate = { id, payload };
+              },
+            };
+          },
+        };
+      }
+      throw new Error(`unexpected collection ${name}`);
+    },
+    async runTransaction(
+      fn: (tx: {
+        get: (ref: { get: () => Promise<unknown> }) => Promise<unknown>;
+        create: (ref: { id?: string }, data: Record<string, unknown>) => void;
+      }) => Promise<unknown>,
+    ) {
+      return fn({
+        get: (ref) => ref.get(),
+        create(ref, data) {
+          reviews.set(typeof ref.id === "string" ? ref.id : "booking-1", data);
+        },
+      });
+    },
+  };
+
+  return {
+    db,
+    getTutorUpdate: () => tutorUpdate,
+    getReviews: () => reviews,
+  };
+}
+
+describe("createReviewAndRefreshTutorRating", () => {
+  const input = {
+    actorUid: "student-1",
+    bookingId: "booking-1",
+    tutorId: "tutor-1",
+    rating: 5,
+    comment: "Aula excelente.",
+  };
+
+  it("creates a legitimate review and updates the tutor rating from that review", async () => {
+    const { db, getTutorUpdate, getReviews } = createRatingFakeDb({
+      booking: COMPLETED_BOOKING,
+    });
+
+    const result = await createReviewAndRefreshTutorRating(db, input, { timestamp: "TS" });
+
+    expect(result).toMatchObject({
+      reviewId: "booking-1",
+      tutorId: "tutor-1",
+      bookingId: "booking-1",
+      rating: 5,
+      reviewCount: 1,
+    });
+    expect(getReviews().get("booking-1")).toMatchObject({
+      tutorId: "tutor-1",
+      studentId: "student-1",
+      rating: 5,
+    });
+    expect(getTutorUpdate()).toEqual({
+      id: "tutor-1",
+      payload: { rating: 5, reviewCount: 1, updatedAt: "TS" },
+    });
+  });
+
+  it("computes a deterministic average from existing legitimate reviews", async () => {
+    const { db, getTutorUpdate } = createRatingFakeDb({
+      booking: COMPLETED_BOOKING,
+      existingReviews: [
+        {
+          id: "booking-0",
+          data: { bookingId: "booking-0", tutorId: "tutor-1", rating: 4 },
+        },
+      ],
+    });
+
+    const result = await createReviewAndRefreshTutorRating(db, input, { timestamp: "TS" });
+
+    expect(result.rating).toBe(4.5);
+    expect(result.reviewCount).toBe(2);
+    expect(getTutorUpdate()?.payload).toMatchObject({ rating: 4.5, reviewCount: 2 });
+  });
+
+  it("refuses a duplicate review and does not change the tutor rating", async () => {
+    const { db, getTutorUpdate } = createRatingFakeDb({
+      booking: COMPLETED_BOOKING,
+      existingReviews: [
+        {
+          id: "booking-1",
+          data: { bookingId: "booking-1", tutorId: "tutor-1", rating: 4 },
+        },
+      ],
+    });
+
+    await expect(createReviewAndRefreshTutorRating(db, input)).rejects.toMatchObject({
+      code: "DUPLICATE_REVIEW",
+    });
+    expect(getTutorUpdate()).toBeNull();
+  });
+
+  it("writes the booking tutorId even when the client sends a matching tutorId", async () => {
+    const { db, getTutorUpdate } = createRatingFakeDb({
+      booking: { ...COMPLETED_BOOKING, tutorId: "tutor-1" },
+    });
+
+    await createReviewAndRefreshTutorRating(db, input, { timestamp: "TS" });
+    expect(getTutorUpdate()?.id).toBe("tutor-1");
+  });
+});
+
+describe("recomputeTutorRating", () => {
+  it("ignores leftover docs for the same booking and uses the canonical rating", async () => {
+    const { db, getTutorUpdate } = createRatingFakeDb({
+      existingReviews: [
+        { id: "legacy-1", data: { bookingId: "booking-1", tutorId: "tutor-1", rating: 2 } },
+        { id: "booking-1", data: { bookingId: "booking-1", tutorId: "tutor-1", rating: 5 } },
+        { id: "booking-2", data: { bookingId: "booking-2", tutorId: "tutor-1", rating: 4 } },
+      ],
+    });
+
+    const stats = await recomputeTutorRating(db, "tutor-1", { timestamp: "TS" });
+    expect(stats).toEqual({ rating: 4.5, reviewCount: 2, tutorId: "tutor-1" });
+    expect(getTutorUpdate()?.payload).toMatchObject({ rating: 4.5, reviewCount: 2 });
   });
 });
 

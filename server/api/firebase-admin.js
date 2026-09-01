@@ -4,7 +4,7 @@
  * Lazy Firebase Admin bootstrap for Express (`server/api/` only).
  *
  * Hostinger production now loads firebase-admin when a route here needs it
- * (review rating recompute). Next.js server modules under lib/ still must not
+ * (review create and admin rating recompute). Next.js server modules under lib/ still must not
  * be required from Express — this file is the Express-safe entry.
  */
 

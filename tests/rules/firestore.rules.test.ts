@@ -669,6 +669,34 @@ describe("firestore.rules", () => {
         setDoc(doc(guestDb(), "reviews", "booking-done"), reviewPayload("booking-done")),
       );
     });
+
+    it("denies a student or tutor deleting a review to manipulate scores", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      await seedBooking("booking-done", "completed");
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await setDoc(
+          doc(context.firestore(), "reviews", "booking-done"),
+          reviewPayload("booking-done"),
+        );
+      });
+
+      await assertFails(deleteDoc(doc(studentDb(), "reviews", "booking-done")));
+      await assertFails(deleteDoc(doc(studentBDb(), "reviews", "booking-done")));
+      await assertFails(deleteDoc(doc(tutorDb(), "reviews", "booking-done")));
+    });
+
+    it("allows an admin to delete a review during moderation", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      await seedBooking("booking-done", "completed");
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await setDoc(
+          doc(context.firestore(), "reviews", "booking-done"),
+          reviewPayload("booking-done"),
+        );
+      });
+
+      await assertSucceeds(deleteDoc(doc(adminDb(), "reviews", "booking-done")));
+    });
   });
 
   describe("users", () => {
@@ -1017,6 +1045,16 @@ describe("firestore.rules", () => {
       );
       await assertFails(updateDoc(doc(tutorDb(), "tutors", TUTOR_ID), { rating: 5 }));
       await assertFails(updateDoc(doc(tutorDb(), "tutors", TUTOR_ID), { reviewCount: 99 }));
+    });
+
+    it("denies a student changing a tutor rating or reviewCount", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+
+      await assertFails(updateDoc(doc(studentDb(), "tutors", TUTOR_ID), { rating: 5 }));
+      await assertFails(updateDoc(doc(studentDb(), "tutors", TUTOR_ID), { reviewCount: 99 }));
+      await assertFails(
+        updateDoc(doc(studentDb(), "tutors", TUTOR_ID), { rating: 5, reviewCount: 99 }),
+      );
     });
 
     it("denies a tutor changing hoursTaught, studentsServed, or administrative status", async () => {
