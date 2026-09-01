@@ -39,13 +39,6 @@ function resolveLessonTypes(data: FirestoreTutorDoc): LessonType[] {
   return types;
 }
 
-const PRIVATE_TUTOR_FIELDS = [
-  "credentialFileName",
-  "reviewedBy",
-  "reviewedAt",
-  "verificationReason",
-] as const;
-
 export function mapFirestoreTutorDoc(id: string, data: FirestoreTutorDoc): Tutor {
   const tutor: Tutor = {
     id,
@@ -81,10 +74,6 @@ export function mapFirestoreTutorDoc(id: string, data: FirestoreTutorDoc): Tutor
     tutor.hasAvailability = data.hasAvailability;
   }
 
-  for (const field of PRIVATE_TUTOR_FIELDS) {
-    delete (tutor as Record<string, unknown>)[field];
-  }
-
   return tutor;
 }
 
@@ -92,7 +81,7 @@ export function mapFirestoreCollectiveHubDoc(
   id: string,
   data: FirestoreCollectiveHubDoc,
 ): CollectiveHub {
-  const publicHub = toPublicCollectiveHub(id, data as Record<string, unknown>);
+  const publicHub = toPublicCollectiveHub(id, data);
 
   return {
     id: publicHub.id,

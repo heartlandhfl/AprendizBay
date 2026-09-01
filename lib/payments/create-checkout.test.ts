@@ -1,10 +1,15 @@
 import { describe, expect, it, vi } from "vitest";
 import type { BookingRecord } from "@/lib/bookings/server";
-import type { AsaasCheckoutResult, AsaasCustomerData } from "@/lib/payments/asaas";
+import type {
+  AsaasCheckoutResult,
+  AsaasCustomerData,
+  CreateAsaasCheckoutInput,
+} from "@/lib/payments/asaas";
 import {
   CHECKOUT_ERRORS,
   createBookingCheckout,
   createMemoryCheckoutStore,
+  type CreateBookingCheckoutDeps,
 } from "@/lib/payments/create-checkout";
 
 const CUSTOMER: AsaasCustomerData = {
@@ -47,8 +52,8 @@ async function runCheckout(
   booking: BookingRecord,
   options: {
     uid?: string;
-    createCheckout?: ReturnType<typeof vi.fn>;
-    inspectCheckout?: ReturnType<typeof vi.fn>;
+    createCheckout?: CreateBookingCheckoutDeps["createCheckout"];
+    inspectCheckout?: CreateBookingCheckoutDeps["inspectCheckout"];
     requireAsaasConfigured?: () => void;
     tutorVerified?: boolean;
     now?: Date;
@@ -58,10 +63,13 @@ async function runCheckout(
     new Map([[booking.id, booking]]),
     new Map([["tutor-1", { isVerified: options.tutorVerified ?? true }]]),
   );
-  const createCheckout =
+  const createCheckout = vi.fn(
     options.createCheckout ??
-    vi.fn(async () => createdCheckout());
-  const inspectCheckout = options.inspectCheckout ?? vi.fn(async () => null);
+      (async (_input: CreateAsaasCheckoutInput) => createdCheckout()),
+  );
+  const inspectCheckout = vi.fn(
+    options.inspectCheckout ?? (async (_checkoutId: string) => null),
+  );
   const result = await createBookingCheckout(
     {
       uid: options.uid ?? "student-1",
@@ -129,7 +137,7 @@ describe("createBookingCheckout", () => {
       {
         store,
         createCheckout: vi.fn(),
-        inspectCheckout: vi.fn(async () => null),
+        inspectCheckout: vi.fn(async (_checkoutId: string) => null),
         requireAsaasConfigured: () => undefined,
       },
     );
@@ -262,7 +270,7 @@ describe("createBookingCheckout", () => {
       }),
       {
         createCheckout,
-        inspectCheckout: vi.fn(async () => null),
+        inspectCheckout: vi.fn(async (_checkoutId: string) => null),
         now: new Date("2026-09-01T12:00:00Z"),
       },
     );
@@ -293,7 +301,7 @@ describe("createBookingCheckout", () => {
       }),
       {
         createCheckout,
-        inspectCheckout: vi.fn(async () => null),
+        inspectCheckout: vi.fn(async (_checkoutId: string) => null),
       },
     );
 
@@ -343,7 +351,7 @@ describe("createBookingCheckout", () => {
       {
         store,
         createCheckout,
-        inspectCheckout: vi.fn(async () => null),
+        inspectCheckout: vi.fn(async (_checkoutId: string) => null),
         requireAsaasConfigured: () => undefined,
         now: () => new Date("2026-09-01T12:00:00Z"),
       },
@@ -375,7 +383,7 @@ describe("createBookingCheckout", () => {
     const deps = {
       store,
       createCheckout,
-      inspectCheckout: vi.fn(async () => null),
+      inspectCheckout: vi.fn(async (_checkoutId: string) => null),
       requireAsaasConfigured: () => undefined,
     };
 

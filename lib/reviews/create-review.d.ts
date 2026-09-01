@@ -112,7 +112,7 @@ export function recomputeTutorRating(
 export function createReviewAndRefreshTutorRating(
   db: {
     collection: (name: string) => unknown;
-    runTransaction: (fn: (tx: unknown) => Promise<CreateReviewResult>) => Promise<CreateReviewResult>;
+    runTransaction: (fn: (tx: unknown) => Promise<unknown>) => Promise<unknown>;
   },
   input: {
     actorUid?: unknown;
@@ -127,7 +127,7 @@ export function createReviewAndRefreshTutorRating(
 export function createReviewForStudent(
   db: {
     collection: (name: string) => unknown;
-    runTransaction: (fn: (tx: unknown) => Promise<CreateReviewResult>) => Promise<CreateReviewResult>;
+    runTransaction: (fn: (tx: unknown) => Promise<unknown>) => Promise<unknown>;
   },
   input: {
     actorUid?: unknown;

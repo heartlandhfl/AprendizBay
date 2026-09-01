@@ -33,7 +33,7 @@ export function formatHubScheduleDisplay(hub?: {
 
 export function toPublicCollectiveHub(
   id: string,
-  data?: Record<string, unknown> | null,
+  data?: object | null,
   viewerId?: string,
   extras?: { isJoined?: boolean },
 ): PublicCollectiveHub;

@@ -89,7 +89,7 @@ export function hasTeachingDetails(
 }
 
 export function hasFirstLessonOffer(
-  tutor: Pick<TutorProfile, "firstLessonPrice" | "offersFreeTrial">,
+  tutor: Partial<Pick<TutorProfile, "firstLessonPrice" | "offersFreeTrial">>,
 ): boolean {
   return tutor.offersFreeTrial === true || (tutor.firstLessonPrice ?? 0) > 0;
 }

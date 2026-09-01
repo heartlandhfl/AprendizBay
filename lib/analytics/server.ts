@@ -1,3 +1,4 @@
+import type { EnvRecord } from "@/lib/env";
 import type { AnalyticsProps } from "@/lib/analytics/events";
 import {
   serverPlausibleApiHost,
@@ -13,7 +14,7 @@ export interface TrackServerEventInput {
 
 export function buildPlausibleEventPayload(
   input: TrackServerEventInput,
-  env: NodeJS.ProcessEnv = process.env,
+  env: EnvRecord = process.env,
 ): { endpoint: string; body: Record<string, unknown> } | null {
   const domain = serverPlausibleDomain(env);
   if (!domain) {

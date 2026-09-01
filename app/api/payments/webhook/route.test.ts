@@ -98,8 +98,7 @@ describe("POST /api/payments/webhook", () => {
   });
 
   it("still rejects a missing token when NODE_ENV is test", async () => {
-    const originalNodeEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = "test";
+    vi.stubEnv("NODE_ENV", "test");
     delete process.env.ASAAS_WEBHOOK_TOKEN;
 
     try {
@@ -110,7 +109,7 @@ describe("POST /api/payments/webhook", () => {
       expect(payload.error).toBe(WEBHOOK_UNCONFIGURED_MESSAGE);
       expect(mockProcessAsaasPaymentWebhook).not.toHaveBeenCalled();
     } finally {
-      process.env.NODE_ENV = originalNodeEnv;
+      vi.unstubAllEnvs();
     }
   });
 

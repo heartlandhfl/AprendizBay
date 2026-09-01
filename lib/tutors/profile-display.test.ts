@@ -11,7 +11,7 @@ import {
   teachingSubjects,
 } from "@/lib/tutors/profile-display";
 
-const baseTutor = {
+const baseTutor: TutorProfile = {
   id: "1",
   name: "Ana",
   subject: "Inglês",
@@ -29,7 +29,7 @@ const baseTutor = {
   avatarColor: "bg-emerald-100",
   isVerified: false,
   collectiveHubs: [],
-} satisfies TutorProfile;
+};
 
 describe("profile display guards", () => {
   it("never treats an unverified tutor as verified", () => {

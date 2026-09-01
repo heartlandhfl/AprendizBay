@@ -41,6 +41,9 @@ export function createCollectiveBookingForStudent(
     tutorId?: unknown;
     price?: unknown;
     scheduledAt?: unknown;
+    platformFee?: unknown;
+    tutorAmount?: unknown;
+    [extra: string]: unknown;
   },
-  deps?: { timestamp?: unknown; now?: Date },
+  deps?: { timestamp?: unknown; now?: Date; deleteField?: unknown },
 ): Promise<{ bookingId: string; hubId: string; price: number }>;

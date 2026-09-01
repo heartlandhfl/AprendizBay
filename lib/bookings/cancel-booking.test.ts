@@ -11,6 +11,7 @@ import {
 import {
   createMemoryCancelStore,
   executeCancelBooking,
+  type CancelBookingDeps,
 } from "@/lib/bookings/cancel-booking";
 
 const NOW = new Date("2026-08-30T12:00:00.000Z");
@@ -45,20 +46,24 @@ async function cancel(
   record: BookingRecord,
   options: {
     uid?: string;
-    refundPayment?: ReturnType<typeof vi.fn>;
-    findPaymentId?: ReturnType<typeof vi.fn>;
+    refundPayment?: CancelBookingDeps["refundPayment"];
+    findPaymentId?: CancelBookingDeps["findPaymentId"];
     now?: Date;
   } = {},
 ) {
   const store = createMemoryCancelStore(new Map([[record.id, record]]));
   const refundPayment =
-    options.refundPayment ?? vi.fn(async () => successfulRefund());
+    options.refundPayment ??
+    vi.fn(async (_input: { paymentId: string; description?: string; value?: number }) =>
+      successfulRefund(),
+    );
   const result = await executeCancelBooking(
     { bookingId: record.id, actorUid: options.uid ?? "student-1" },
     {
       store,
       refundPayment,
-      findPaymentId: options.findPaymentId ?? vi.fn(async () => undefined),
+      findPaymentId:
+        options.findPaymentId ?? vi.fn(async (_externalReference: string) => undefined),
       now: () => options.now ?? NOW,
     },
   );
