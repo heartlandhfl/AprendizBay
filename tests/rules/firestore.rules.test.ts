@@ -78,6 +78,26 @@ async function seedBaseDocs(options: {
       email: "admin@test.com",
       createdAt: new Date(),
     });
+    await setDoc(doc(db, "users", STUDENT_ID, "public", "profile"), {
+      displayName: "Ana Souza",
+      photoUrl: null,
+      updatedAt: new Date(),
+    });
+    await setDoc(doc(db, "users", STUDENT_B_ID, "public", "profile"), {
+      displayName: "Bruno Lima",
+      photoUrl: null,
+      updatedAt: new Date(),
+    });
+    await setDoc(doc(db, "users", TUTOR_ID, "public", "profile"), {
+      displayName: "Mariana Silva",
+      photoUrl: null,
+      updatedAt: new Date(),
+    });
+    await setDoc(doc(db, "users", TUTOR_B_ID, "public", "profile"), {
+      displayName: "Carlos Mendes",
+      photoUrl: null,
+      updatedAt: new Date(),
+    });
     await setDoc(doc(db, "tutors", TUTOR_ID), {
       userId: TUTOR_ID,
       name: "Mariana Silva",
@@ -752,17 +772,101 @@ describe("firestore.rules", () => {
       await assertFails(getDocs(collection(tutorDb(), "users")));
     });
 
-    it("allows an authenticated user to read a counterpart profile by id", async () => {
+    it("Student A → users/StudentB → DENIED", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertFails(getDoc(doc(studentDb(), "users", STUDENT_B_ID)));
+    });
+
+    it("Tutor A → users/TutorB → DENIED", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertFails(getDoc(doc(tutorDb(), "users", TUTOR_B_ID)));
+    });
+
+    it("User → own users document → ALLOWED", async () => {
       await seedBaseDocs({ tutorVerified: false });
 
       await assertSucceeds(getDoc(doc(studentDb(), "users", STUDENT_ID)));
-      await assertSucceeds(getDoc(doc(tutorDb(), "users", STUDENT_ID)));
+      await assertSucceeds(getDoc(doc(tutorDb(), "users", TUTOR_ID)));
+    });
+
+    it("Admin → legitimate user access → ALLOWED", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertSucceeds(getDoc(doc(adminDb(), "users", STUDENT_ID)));
+      await assertSucceeds(getDoc(doc(adminDb(), "users", TUTOR_ID)));
+      await assertSucceeds(getDoc(doc(adminDb(), "users", STUDENT_B_ID)));
+    });
+
+    it("denies a student reading a tutor private account document", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertFails(getDoc(doc(studentDb(), "users", TUTOR_ID)));
+    });
+
+    it("denies a tutor reading a student private account document", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertFails(getDoc(doc(tutorDb(), "users", STUDENT_ID)));
+    });
+
+    it("allows an authenticated user to read another user's public profile only", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertSucceeds(
+        getDoc(doc(studentDb(), "users", STUDENT_B_ID, "public", "profile")),
+      );
+      await assertSucceeds(
+        getDoc(doc(tutorDb(), "users", TUTOR_B_ID, "public", "profile")),
+      );
+      await assertSucceeds(
+        getDoc(doc(studentDb(), "users", TUTOR_ID, "public", "profile")),
+      );
+    });
+
+    it("denies writing email or role into a public profile", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertFails(
+        setDoc(doc(studentDb(), "users", STUDENT_ID, "public", "profile"), {
+          displayName: "Ana Souza",
+          email: "ana@test.com",
+          role: "admin",
+        }),
+      );
+    });
+
+    it("allows the owner to write their public profile", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertSucceeds(
+        setDoc(doc(studentDb(), "users", STUDENT_ID, "public", "profile"), {
+          displayName: "Ana Souza",
+          photoUrl: "https://example.com/ana.jpg",
+          updatedAt: new Date(),
+        }),
+      );
+    });
+
+    it("denies a student writing another user's public profile", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertFails(
+        setDoc(doc(studentDb(), "users", STUDENT_B_ID, "public", "profile"), {
+          displayName: "Nome invadido",
+          updatedAt: new Date(),
+        }),
+      );
     });
 
     it("denies unauthenticated reads of user documents", async () => {
       await seedBaseDocs({ tutorVerified: false });
 
       await assertFails(getDoc(doc(guestDb(), "users", STUDENT_ID)));
+      await assertFails(
+        getDoc(doc(guestDb(), "users", STUDENT_ID, "public", "profile")),
+      );
     });
 
     it("allows an admin to change a user's role and to list users", async () => {

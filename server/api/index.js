@@ -10,6 +10,7 @@ const { publicConfigRouter } = require("./public-config");
 const { reviewsRouter } = require("./reviews");
 const { notificationsRouter } = require("./notifications");
 const { tutorsRouter } = require("./tutors");
+const { usersRouter } = require("./users");
 
 /**
  * Express API for this app. Add routers here — they are mounted at `/api`
@@ -31,5 +32,6 @@ apiRouter.use("/public-config", publicConfigRouter);
 apiRouter.use("/reviews", reviewsRouter);
 apiRouter.use("/notifications", notificationsRouter);
 apiRouter.use("/tutors", tutorsRouter);
+apiRouter.use("/users", usersRouter);
 
 module.exports = { apiRouter };

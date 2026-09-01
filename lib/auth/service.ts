@@ -10,6 +10,7 @@ import {
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db, requireFirebaseApp } from "@/lib/firebase/client";
 import type { SignupRole } from "@/lib/auth/types";
+import { writeOwnPublicProfile } from "@/lib/users/public-profile";
 
 const googleProvider = new GoogleAuthProvider();
 
@@ -32,6 +33,7 @@ async function createUserDocument(
     ...(photoUrl ? { photoUrl } : {}),
     createdAt: serverTimestamp(),
   });
+  await writeOwnPublicProfile(uid, { displayName, photoUrl });
 }
 
 export async function signUpWithEmail(

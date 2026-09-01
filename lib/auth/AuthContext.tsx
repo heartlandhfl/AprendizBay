@@ -12,6 +12,7 @@ import { getAuth, onAuthStateChanged, type User } from "firebase/auth";
 import { doc, getFirestore, onSnapshot } from "firebase/firestore";
 import { ensureFirebaseApp } from "@/lib/firebase/client";
 import type { UserDoc } from "@/lib/auth/types";
+import { ensureOwnPublicProfile } from "@/lib/users/public-profile";
 
 interface AuthContextValue {
   user: User | null;
@@ -80,8 +81,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       unsubscribeProfile = onSnapshot(
         userRef,
         (snapshot) => {
-          setUserDoc(snapshot.exists() ? (snapshot.data() as UserDoc) : null);
+          const nextDoc = snapshot.exists() ? (snapshot.data() as UserDoc) : null;
+          setUserDoc(nextDoc);
           setProfileLoading(false);
+
+          if (nextDoc) {
+            void ensureOwnPublicProfile(user.uid, {
+              displayName: nextDoc.displayName,
+              photoUrl: nextDoc.photoUrl,
+            }).catch(() => {
+              // Existing accounts get a public profile on the next successful write.
+            });
+          }
         },
         () => {
           setUserDoc(null);

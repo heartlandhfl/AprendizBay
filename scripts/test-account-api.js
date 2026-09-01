@@ -113,6 +113,26 @@ function createFakeDb(seed) {
         const rows = record?.subs?.[subName] || [];
         const subCollectionName = `${collectionName}/${id}/${subName}`;
         return {
+          doc(subId) {
+            return {
+              id: subId,
+              collectionName: subCollectionName,
+              path: `${subCollectionName}/${subId}`,
+              set: async (data) => {
+                updates.push({
+                  ref: { collectionName: subCollectionName, id: subId },
+                  data,
+                });
+              },
+              delete: async () => {
+                deletes.push({ collection: subCollectionName, id: subId });
+              },
+              get: async () => {
+                const row = rows.find((item) => item.id === subId);
+                return { exists: Boolean(row), data: () => row?.data };
+              },
+            };
+          },
           get: async () =>
             wrapDocs(rows.map((row) => makeDoc(row.id, row.data, subCollectionName))),
           where(field, _op, value) {
@@ -275,6 +295,11 @@ async function withFakeAccountDelete() {
   assert.equal(result.reviews, 1);
   assert.equal(deletedAuth, "aluno-1");
   assert.ok(db.deletes.some((item) => item.collection === "users" && item.id === "aluno-1"));
+  const publicProfile = db.updates.find(
+    (item) => item.ref.collectionName === "users/aluno-1/public" && item.ref.id === "profile",
+  );
+  assert.equal(publicProfile.data.displayName, ANONYMIZED_DISPLAY_NAME);
+  assert.equal(publicProfile.data.photoUrl, null);
 
   const bookingUpdates = db.updates.filter((item) => item.ref.collectionName === "bookings");
   assert.equal(bookingUpdates.length, 2);
