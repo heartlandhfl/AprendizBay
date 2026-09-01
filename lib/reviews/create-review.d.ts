@@ -95,6 +95,35 @@ export function findExistingReviewForBooking(
   bookingId: string,
 ): Promise<{ id: string; data: unknown } | null>;
 
+export interface TutorRatingStats {
+  rating: number;
+  reviewCount: number;
+  tutorId: string;
+}
+
+export function recomputeTutorRating(
+  db: {
+    collection: (name: string) => unknown;
+  },
+  tutorId: unknown,
+  deps?: { timestamp?: unknown },
+): Promise<TutorRatingStats>;
+
+export function createReviewAndRefreshTutorRating(
+  db: {
+    collection: (name: string) => unknown;
+    runTransaction: (fn: (tx: unknown) => Promise<CreateReviewResult>) => Promise<CreateReviewResult>;
+  },
+  input: {
+    actorUid?: unknown;
+    bookingId?: unknown;
+    tutorId?: unknown;
+    rating?: unknown;
+    comment?: unknown;
+  },
+  deps?: { timestamp?: unknown; onRecomputeError?: (error: unknown) => void },
+): Promise<CreateReviewResult & Partial<Pick<TutorRatingStats, "rating" | "reviewCount">>>;
+
 export function createReviewForStudent(
   db: {
     collection: (name: string) => unknown;

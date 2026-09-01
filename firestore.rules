@@ -150,8 +150,10 @@ rules_version = '2';
 //        Vercel / next start: app/api/reviews + lib/reviews/server.ts
 //        Client: lib/reviews/client.ts (never writes reviews from the browser)
 // MATCH  reviews create              → hardened rules (completed booking, student + tutor match)
-// ADMIN  tutors rating/reviewCount   → POST /api/reviews after create, or /recompute-rating
-//        Server Action lib/reviews/actions.ts remains for Next hosts only
+// ADMIN  tutors rating/reviewCount   → POST /api/reviews after a valid create
+//        (server uses the booking tutorId). Admin-only POST /recompute-rating
+//        for moderation/recalculation. Students and tutors cannot set rating
+//        or reviewCount, delete reviews, or recompute another tutor.
 // ADMIN  account delete + anonymize  → POST /api/account/delete (LGPD art. 18)
 //        Deletes users/{uid}; anonymizes bookings/reviews (keeps docs for integrity)
 //        Hostinger Express: server/api/account.js

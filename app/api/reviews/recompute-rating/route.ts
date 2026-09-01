@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { verifyUserIdToken } from "@/lib/auth/admin-server";
+import { statusFromAdminError } from "@/lib/admin/authorize";
+import { verifyAdminIdToken } from "@/lib/auth/admin-server";
 import { recomputeTutorRating } from "@/lib/reviews/server";
 
 export const runtime = "nodejs";
@@ -12,12 +13,13 @@ function readBearerToken(request: Request): string {
 
 /**
  * Vercel / next start counterpart to POST /api/reviews/recompute-rating
- * (server/api/reviews.js on Hostinger Express). Same contract so the
- * client can call one URL on either host.
+ * (server/api/reviews.js on Hostinger Express). Admin-only moderation
+ * recalculation. Regular users never recompute another tutor's rating.
+ * After a valid review, POST /api/reviews updates the tutor from the booking.
  */
 export async function POST(request: Request) {
   try {
-    await verifyUserIdToken(readBearerToken(request));
+    await verifyAdminIdToken(readBearerToken(request));
     const body = (await request.json()) as { tutorId?: string };
     const tutorId = body.tutorId?.trim() ?? "";
     if (!tutorId) {
@@ -34,12 +36,9 @@ export async function POST(request: Request) {
       error instanceof Error
         ? error.message
         : "Não foi possível atualizar a nota do professor.";
-    const status =
-      message.includes("Token") || message.includes("autenticação")
-        ? 401
-        : message.includes("Firebase Admin")
-          ? 503
-          : 500;
-    return NextResponse.json({ error: message }, { status });
+    return NextResponse.json(
+      { error: message },
+      { status: statusFromAdminError(error) },
+    );
   }
 }
