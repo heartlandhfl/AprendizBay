@@ -6,6 +6,7 @@ import {
 } from "@/lib/seo/subject-city";
 import { buildTutorPersonJsonLd } from "@/lib/seo/tutor-jsonld";
 import {
+  okTutorList,
   resolveFailedHubItem,
   resolveFailedTutorCatalog,
   resolveFailedTutorProfile,
@@ -58,6 +59,16 @@ describe("tutorsForPublicPages", () => {
     expect(tutors).toEqual([]);
     expect(getPopularSubjectCityPairs(tutors)).toEqual([]);
     expect(resolveSubjectCity(tutors, "ingles", "sao-paulo")).toBeUndefined();
+  });
+
+  it("strips known mock identities from SEO pages in production", () => {
+    const tutors = tutorsForPublicPages(okTutorList(MOCK_TUTORS), PRODUCTION_ENV);
+
+    expect(tutors).toEqual([]);
+    expect(getPopularSubjectCityPairs(tutors)).toEqual([]);
+    expect(tutorsForPublicPages(okTutorList(["1", "real-tutor"]), PRODUCTION_ENV)).toEqual([
+      "real-tutor",
+    ]);
   });
 
   it("does not emit structured data for a failed catalog", () => {

@@ -7,14 +7,15 @@
   },
   "scripts": {
     "dev": "NODE_ENV=development node server.js",
-    "build": "next build",
-    "build:hostinger": "HOSTINGER_BUILD=1 next build",
+    "build": "next build && node scripts/assert-no-mock-tutors-in-build.js .next",
+    "build:hostinger": "HOSTINGER_BUILD=1 next build && node scripts/assert-no-mock-tutors-in-build.js hostinger-next",
+    "assert:no-mock-tutors": "node scripts/assert-no-mock-tutors-in-build.js",
     "start": "NODE_ENV=production node server.js",
     "lint": "next lint",
     "test": "npm run test:unit && npm run test:rules && npm run test:node",
     "test:unit": "vitest run --project unit",
     "test:rules": "firebase emulators:exec --only firestore,storage --project demo-aprendiz-bay \"vitest run --project rules\"",
-    "test:node": "tsx --test lib/conversations/ids.test.ts lib/legal/cookie-consent.test.ts && node --test server/serve-static-ui.test.js server/api/public-config.test.js && npx tsx scripts/test-seo-pages.ts && node scripts/test-account-api.js && node scripts/test-reviews-api.js && node scripts/test-tutors-api.js && node scripts/test-bookings-api.js && node scripts/test-admin-api.js",
+    "test:node": "tsx --test lib/conversations/ids.test.ts lib/legal/cookie-consent.test.ts && node --test server/serve-static-ui.test.js server/api/public-config.test.js && npx tsx scripts/test-seo-pages.ts && node scripts/test-account-api.js && node scripts/test-reviews-api.js && node scripts/test-tutors-api.js && node scripts/test-bookings-api.js && node scripts/test-admin-api.js && node scripts/assert-no-mock-tutors-in-build.js hostinger-next",
     "test:watch": "vitest"
   },
   "dependencies": {

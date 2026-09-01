@@ -27,6 +27,12 @@ describe("/professores/[materia]/[cidade]", () => {
     fetchVerifiedTutorsServerMock.mockResolvedValue(okTutorList(MOCK_TUTORS));
   });
 
+  it("does not prerender subject-city pages when Firebase is empty", async () => {
+    fetchVerifiedTutorsServerMock.mockResolvedValue(okTutorList([]));
+
+    await expect(generateStaticParams()).resolves.toEqual([]);
+  });
+
   it("prerenders only pairs with local inventory", async () => {
     const params = await generateStaticParams();
     const keys = params.map((item) => `${item.materia}/${item.cidade}`);

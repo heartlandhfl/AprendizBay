@@ -20,7 +20,6 @@ import {
 } from "@/lib/hubs/join";
 import { toPublicCollectiveHub } from "@/lib/hubs/public";
 import { requestNotification } from "@/lib/notifications/client";
-import { getTutorProfile } from "@/lib/tutor-profiles";
 import {
   okTutorList,
   resolveFailedHubItem,
@@ -28,7 +27,8 @@ import {
   type HubItemResult,
   type HubListResult,
 } from "@/lib/tutors/catalog";
-import { areMockTutorsEnabled } from "@/lib/tutors/mock-gate";
+import { isKnownMockInventoryItem, rejectMockTutorInventory } from "@/lib/tutors/mock-identities";
+import { areMockTutorsEnabled, isProductionNodeEnv } from "@/lib/tutors/mock-gate";
 import type { FirestoreCollectiveHubDoc } from "@/lib/tutors/firestore-types";
 import { mapFirestoreCollectiveHubDoc } from "@/lib/tutors/map";
 import type {
@@ -62,29 +62,13 @@ function throwJoinError(code: HubJoinErrorCode): never {
   throw createHubJoinError(code);
 }
 
-function getMockOpenHubs(): CollectiveHubLive[] {
-  if (!areMockTutorsEnabled()) {
+async function getMockOpenHubs(): Promise<CollectiveHubLive[]> {
+  if (process.env.NODE_ENV === "production" || !areMockTutorsEnabled()) {
     return [];
   }
 
-  return ["1", "2", "3", "4", "5"].flatMap((tutorId) => {
-    const profile = getTutorProfile(tutorId);
-    if (!profile) {
-      return [];
-    }
-
-    return profile.collectiveHubs
-      .filter((hub) => hub.confirmedStudents < hub.maxStudents)
-      .map((hub) => ({
-        ...hub,
-        subject: hub.subject || profile.subject,
-        tutorName: hub.tutorName || profile.name,
-        individualPrice: hub.individualPrice || profile.individualPrice,
-        tutorId: profile.id,
-        status: "open",
-        isJoined: false,
-      }));
-  });
+  const { loadMockOpenHubs } = await import("./mock-hubs");
+  return loadMockOpenHubs();
 }
 
 export async function createCollectiveHub(
@@ -182,7 +166,7 @@ export async function fetchOpenCollectiveHubs(): Promise<HubListResult<Collectiv
   if (!app) {
     return resolveFailedHubList("unavailable", {
       mocksEnabled: areMockTutorsEnabled(),
-      mockItems: getMockOpenHubs(),
+      mockItems: await getMockOpenHubs(),
     });
   }
 
@@ -194,7 +178,7 @@ export async function fetchOpenCollectiveHubs(): Promise<HubListResult<Collectiv
     if (snapshot.empty) {
       const anyHubs = await getDocs(collection(db, "collectiveHubs"));
       if (anyHubs.empty && areMockTutorsEnabled()) {
-        return okTutorList(getMockOpenHubs());
+        return okTutorList(await getMockOpenHubs());
       }
       return okTutorList([]);
     }
@@ -205,12 +189,12 @@ export async function fetchOpenCollectiveHubs(): Promise<HubListResult<Collectiv
       )
       .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
 
-    return okTutorList(hubs);
+    return okTutorList(rejectMockTutorInventory(hubs));
   } catch (error) {
     console.error("[Aprendiz Bay] Erro ao buscar turmas coletivas:", error);
     return resolveFailedHubList("error", {
       mocksEnabled: areMockTutorsEnabled(),
-      mockItems: getMockOpenHubs(),
+      mockItems: await getMockOpenHubs(),
     });
   }
 }
@@ -223,7 +207,7 @@ export async function fetchCollectiveHubById(
   if (!app) {
     return resolveFailedHubItem("unavailable", {
       mocksEnabled: areMockTutorsEnabled(),
-      mockHub: getMockOpenHubs().find((hub) => hub.id === hubId) ?? null,
+      mockHub: (await getMockOpenHubs()).find((hub) => hub.id === hubId) ?? null,
     });
   }
 
@@ -233,15 +217,20 @@ export async function fetchCollectiveHubById(
       return { state: "not_found", hub: null };
     }
 
+    const hub = mapLiveHub(snapshot.id, snapshot.data() as FirestoreCollectiveHubDoc, viewerId);
+    if (isProductionNodeEnv() && isKnownMockInventoryItem(hub)) {
+      return { state: "not_found", hub: null };
+    }
+
     return {
       state: "ok",
-      hub: mapLiveHub(snapshot.id, snapshot.data() as FirestoreCollectiveHubDoc, viewerId),
+      hub,
     };
   } catch (error) {
     console.error("[Aprendiz Bay] Erro ao buscar turma coletiva:", error);
     return resolveFailedHubItem("error", {
       mocksEnabled: areMockTutorsEnabled(),
-      mockHub: getMockOpenHubs().find((hub) => hub.id === hubId) ?? null,
+      mockHub: (await getMockOpenHubs()).find((hub) => hub.id === hubId) ?? null,
     });
   }
 }

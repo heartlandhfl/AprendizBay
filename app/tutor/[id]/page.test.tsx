@@ -48,6 +48,14 @@ describe("/tutor/[id]", () => {
     await expect(generateStaticParams()).resolves.toEqual([{ id: "real-tutor" }]);
   });
 
+  it("does not prerender mock tutor pages when Firebase is empty or unavailable", async () => {
+    fetchAllTutorIdsMock.mockResolvedValue({ state: "empty", items: [] });
+    await expect(generateStaticParams()).resolves.toEqual([]);
+
+    fetchAllTutorIdsMock.mockResolvedValue({ state: "unavailable", items: [] });
+    await expect(generateStaticParams()).resolves.toEqual([]);
+  });
+
   it("builds Portuguese metadata and a canonical URL for a real tutor", async () => {
     const tutor = getTutorProfile("1")!;
     fetchTutorProfileMock.mockResolvedValue({ state: "ok", tutor });
