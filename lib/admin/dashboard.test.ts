@@ -70,10 +70,8 @@ function createMemoryDb(collections: Record<string, MemoryDoc[]>) {
           return {
             docs: rows.map((row) => ({
               id: row.id,
-              data: () => {
-                const { id: _id, ...data } = row;
-                return data;
-              },
+              data: () =>
+                Object.fromEntries(Object.entries(row).filter(([key]) => key !== "id")),
             })),
           };
         },

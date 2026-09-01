@@ -1,10 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { BookingRecord } from "@/lib/bookings/server";
-import type {
-  AsaasCheckoutResult,
-  AsaasCustomerData,
-  CreateAsaasCheckoutInput,
-} from "@/lib/payments/asaas";
+import type { AsaasCheckoutResult, AsaasCustomerData } from "@/lib/payments/asaas";
 import {
   CHECKOUT_ERRORS,
   createBookingCheckout,
@@ -64,12 +60,9 @@ async function runCheckout(
     new Map([["tutor-1", { isVerified: options.tutorVerified ?? true }]]),
   );
   const createCheckout = vi.fn(
-    options.createCheckout ??
-      (async (_input: CreateAsaasCheckoutInput) => createdCheckout()),
+    options.createCheckout ?? (async () => createdCheckout()),
   );
-  const inspectCheckout = vi.fn(
-    options.inspectCheckout ?? (async (_checkoutId: string) => null),
-  );
+  const inspectCheckout = vi.fn(options.inspectCheckout ?? (async () => null));
   const result = await createBookingCheckout(
     {
       uid: options.uid ?? "student-1",
@@ -137,7 +130,7 @@ describe("createBookingCheckout", () => {
       {
         store,
         createCheckout: vi.fn(),
-        inspectCheckout: vi.fn(async (_checkoutId: string) => null),
+        inspectCheckout: vi.fn(async () => null),
         requireAsaasConfigured: () => undefined,
       },
     );
@@ -270,7 +263,7 @@ describe("createBookingCheckout", () => {
       }),
       {
         createCheckout,
-        inspectCheckout: vi.fn(async (_checkoutId: string) => null),
+        inspectCheckout: vi.fn(async () => null),
         now: new Date("2026-09-01T12:00:00Z"),
       },
     );
@@ -301,7 +294,7 @@ describe("createBookingCheckout", () => {
       }),
       {
         createCheckout,
-        inspectCheckout: vi.fn(async (_checkoutId: string) => null),
+        inspectCheckout: vi.fn(async () => null),
       },
     );
 
@@ -351,7 +344,7 @@ describe("createBookingCheckout", () => {
       {
         store,
         createCheckout,
-        inspectCheckout: vi.fn(async (_checkoutId: string) => null),
+        inspectCheckout: vi.fn(async () => null),
         requireAsaasConfigured: () => undefined,
         now: () => new Date("2026-09-01T12:00:00Z"),
       },
@@ -383,7 +376,7 @@ describe("createBookingCheckout", () => {
     const deps = {
       store,
       createCheckout,
-      inspectCheckout: vi.fn(async (_checkoutId: string) => null),
+      inspectCheckout: vi.fn(async () => null),
       requireAsaasConfigured: () => undefined,
     };
 

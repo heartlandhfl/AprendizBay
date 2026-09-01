@@ -54,16 +54,14 @@ async function cancel(
   const store = createMemoryCancelStore(new Map([[record.id, record]]));
   const refundPayment =
     options.refundPayment ??
-    vi.fn(async (_input: { paymentId: string; description?: string; value?: number }) =>
-      successfulRefund(),
-    );
+    vi.fn(async () => successfulRefund());
   const result = await executeCancelBooking(
     { bookingId: record.id, actorUid: options.uid ?? "student-1" },
     {
       store,
       refundPayment,
       findPaymentId:
-        options.findPaymentId ?? vi.fn(async (_externalReference: string) => undefined),
+        options.findPaymentId ?? vi.fn(async () => undefined),
       now: () => options.now ?? NOW,
     },
   );
