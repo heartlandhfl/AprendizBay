@@ -23,7 +23,7 @@ hubsRouter.post("/join", async (req, res) => {
         actorUid: uid,
         hubId: req.body?.hubId,
       },
-      { timestamp: FieldValue.serverTimestamp() },
+      { timestamp: FieldValue.serverTimestamp(), deleteField: FieldValue.delete() },
     );
     res.json({ ok: true, ...result });
   } catch (error) {

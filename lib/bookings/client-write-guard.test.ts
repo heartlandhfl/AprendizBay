@@ -42,5 +42,7 @@ describe("client booking writes", () => {
     expect(source).toMatch(/fetch\(\s*["']\/api\/hubs\/join["']/);
     expect(source).toMatch(/joinCollectiveClassAndBook/);
     expect(source).not.toMatch(/collection\(\s*db\s*,\s*["']bookings["']/);
+    expect(source).not.toMatch(/runTransaction/);
+    expect(source).not.toMatch(/confirmedStudentIds/);
   });
 });

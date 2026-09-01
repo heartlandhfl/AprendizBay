@@ -30,14 +30,18 @@ rules_version = '2';
 //   tutors/{tutorId}/availability/{docId}  // weekly schedule (docId usually "weekly")
 //     slots[]: { weekday: 0-6, startTime: "HH:mm", endTime: "HH:mm" }, updatedAt
 //
-//   collectiveHubs/{hubId}
-//     tutorId, title, description, maxStudents, confirmedStudentIds[]
-//     confirmedStudentCount, currentPrice, fullPrice, schedule, modality
+//   collectiveHubs/{hubId}              // PUBLIC marketplace document
+//     tutorId, title, description, maxStudents, confirmedStudentCount
+//     currentPrice, fullPrice, schedule, modality
 //     status: open | full | closed | cancelled
 //     subject?, tutorName?, scheduledDate?, startTime?, individualPrice?
 //     createdAt, updatedAt
-//     Public UI/APIs never return confirmedStudentIds — only confirmedStudentCount
-//     ("Vagas disponíveis"). Client join uses a transaction + studentJoiningHub().
+//     Occupancy is the count only ("Vagas disponíveis"). No student roster.
+//
+//   collectiveHubs/{hubId}/participants/{studentId}  // PRIVATE roster
+//     studentId, joinedAt
+//     Readable by that student, the hub tutor, or an admin.
+//     Writes are Admin SDK only (POST /api/hubs/join).
 //
 //   bookings/{bookingId}
 //     studentId, tutorId, hubId?, type: "individual" | "coletivo"
@@ -124,8 +128,13 @@ rules_version = '2';
 //        Vercel / next start: app/api/bookings/complete + lib/bookings/server.ts
 //        Only the booking tutor or an admin; confirmed + paid only; sets completedAt
 // MATCH  bookings tutor complete       → hardened rules (same transition as the API)
-// MATCH  collectiveHubs create         → lib/hubs/service.ts (approved tutor dashboard)
-// MATCH  collectiveHubs student join   → lib/hubs/service.ts (transaction: roster + count + status)
+// MATCH  collectiveHubs create         → lib/hubs/service.ts (approved tutor dashboard; no roster)
+// ADMIN  collectiveHubs student join   → POST /api/hubs/join (participant doc + count)
+//        Hostinger Express: server/api/hubs.js
+//        Vercel / next start: app/api/hubs/join + lib/hubs/join-and-book.js
+// DENY   collectiveHubs student update → clients cannot add themselves or edit price/roster
+// READ   collectiveHubs                → public marketplace fields + occupancy count
+// READ   collectiveHubs/.../participants → student self, owning tutor, or admin
 // MATCH  tutors/{tutorId}/availability  → lib/availability/service.ts (tutor dashboard)
 // READ   bookings (own records only)    → students: studentId == uid; tutors: tutorId == uid; admin: all
 // ADMIN  bookings occupancy             → GET /api/bookings/occupancy (slot picker; ISO start times only)
@@ -229,31 +238,10 @@ service cloud.firestore {
       return request.resource.data[field] == resource.data[field];
     }
 
-    function hubStudentIds(data) {
-      return data.confirmedStudentIds;
-    }
-
-    function studentJoiningHub() {
-      let before = hubStudentIds(resource.data);
-      let after = hubStudentIds(request.resource.data);
-      let nextCount = request.resource.data.confirmedStudentCount;
-      let nextStatus = request.resource.data.status;
-
-      return isStudent()
-        && resource.data.status == "open"
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(["confirmedStudentIds", "confirmedStudentCount", "updatedAt", "status"])
-        && unchanged("tutorId")
-        && unchanged("maxStudents")
-        && unchanged("title")
-        && after.size() == before.size() + 1
-        && after.size() <= resource.data.maxStudents
-        && nextCount == after.size()
-        && request.auth.uid in after
-        && !(request.auth.uid in before)
-        && (after.size() < resource.data.maxStudents
-          ? nextStatus == "open"
-          : nextStatus == "full");
+    function hubOccupancy(data) {
+      return data.confirmedStudentCount is number
+        ? data.confirmedStudentCount
+        : 0;
     }
 
     function tutorOwnsHub() {
@@ -262,14 +250,26 @@ service cloud.firestore {
         && tutorOwnedByAuth(resource.data.tutorId);
     }
 
+    function tutorOwnsParentHub(hubId) {
+      return isAuthenticated()
+        && exists(/databases/$(database)/documents/collectiveHubs/$(hubId))
+        && get(/databases/$(database)/documents/collectiveHubs/$(hubId)).data.tutorId
+          == request.auth.uid
+        && tutorOwnedByAuth(
+          get(/databases/$(database)/documents/collectiveHubs/$(hubId)).data.tutorId
+        );
+    }
+
     function tutorUpdatingOwnHub() {
       return tutorOwnsHub()
         && unchanged("tutorId")
-        && unchanged("confirmedStudentIds")
+        && unchanged("confirmedStudentCount")
+        && (!("confirmedStudentIds" in request.resource.data)
+          || unchanged("confirmedStudentIds"))
         && request.resource.data.maxStudents is int
         && request.resource.data.maxStudents >= 2
         && request.resource.data.maxStudents <= 20
-        && request.resource.data.maxStudents >= hubStudentIds(resource.data).size()
+        && request.resource.data.maxStudents >= hubOccupancy(resource.data)
         && request.resource.data.status in ["open", "full", "closed", "cancelled"]
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly([
@@ -288,8 +288,8 @@ service cloud.firestore {
         && data.maxStudents is int
         && data.maxStudents >= 2
         && data.maxStudents <= 20
-        && data.confirmedStudentIds.size() == 0
         && data.confirmedStudentCount == 0
+        && !("confirmedStudentIds" in data)
         && data.status == "open"
         && data.currentPrice is number
         && data.currentPrice > 0
@@ -574,17 +574,21 @@ service cloud.firestore {
     // -------------------------------------------------------------------------
 
     match /collectiveHubs/{hubId} {
-      // Marketplace listing needs public reads. confirmedStudentIds stay on the
-      // document for atomic joins; app mappers must omit the roster from UI.
+      // Public marketplace: title, tutor, schedule, price, occupancy count.
+      // Student ids live only under /participants.
       allow read: if true;
 
       allow create: if approvedTutorCreatingHub();
 
-      allow update: if tutorUpdatingOwnHub()
-        || studentJoiningHub()
-        || isAdmin();
+      allow update: if tutorUpdatingOwnHub() || isAdmin();
 
       allow delete: if tutorOwnsHub() || isAdmin();
+
+      match /participants/{studentId} {
+        allow get: if isOwner(studentId) || tutorOwnsParentHub(hubId) || isAdmin();
+        allow list: if tutorOwnsParentHub(hubId) || isAdmin();
+        allow create, update, delete: if false;
+      }
     }
 
     // -------------------------------------------------------------------------

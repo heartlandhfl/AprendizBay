@@ -35,6 +35,7 @@ export function toPublicCollectiveHub(
   id: string,
   data?: Record<string, unknown> | null,
   viewerId?: string,
+  extras?: { isJoined?: boolean },
 ): PublicCollectiveHub;
 
 export function publicHubOmitsStudentIds(hub: object | null | undefined): boolean;

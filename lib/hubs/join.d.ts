@@ -29,6 +29,7 @@ export interface HubJoinSuccess {
   ok: true;
   nextIds: string[];
   nextCount: number;
+  nextStudentId: string;
   nextStatus: HubStatus;
 }
 
@@ -53,6 +54,7 @@ export function hubAcceptsNewStudents(hub?: HubJoinSnapshot | null): boolean;
 export function evaluateHubJoin(
   hub: HubJoinSnapshot | null | undefined,
   studentId: string,
+  extras?: { alreadyJoined?: boolean; confirmedCount?: number },
 ): HubJoinDecision;
 
 export function applyHubJoin<T extends HubJoinSnapshot>(
@@ -80,7 +82,6 @@ export function hubJoinWrite(
   decision: HubJoinSuccess,
   timestamp: unknown,
 ): {
-  confirmedStudentIds: string[];
   confirmedStudentCount: number;
   status: HubStatus;
   updatedAt: unknown;

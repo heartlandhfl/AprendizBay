@@ -12,7 +12,6 @@ function openHub(overrides: Record<string, unknown> = {}) {
     tutorId: TUTOR_ID,
     title: "Inglês para Viagem",
     maxStudents: 6,
-    confirmedStudentIds: [],
     confirmedStudentCount: 0,
     currentPrice: 28,
     status: "open",
@@ -28,9 +27,39 @@ function createMemoryJoinStore(seed: {
 } = {}) {
   const users = { ...(seed.users ?? {}) };
   const hubs = { ...(seed.hubs ?? {}) };
+  const participants = new Map<string, Record<string, unknown>>();
   const bookings = new Map<string, Record<string, unknown>>();
   let seq = 0;
   let queue = Promise.resolve();
+
+  function hubDoc(id: string) {
+    return {
+      id,
+      path: `collectiveHubs/${id}`,
+      async get() {
+        const data = hubs[id];
+        return { exists: Boolean(data), id, data: () => data };
+      },
+      collection(subName: string) {
+        if (subName !== "participants") {
+          throw new Error(`unexpected subcollection ${subName}`);
+        }
+        return {
+          doc(studentId: string) {
+            const path = `collectiveHubs/${id}/participants/${studentId}`;
+            return {
+              id: studentId,
+              path,
+              async get() {
+                const data = participants.get(path);
+                return { exists: Boolean(data), id: studentId, data: () => data };
+              },
+            };
+          },
+        };
+      },
+    };
+  }
 
   const db = {
     collection(name: string) {
@@ -49,16 +78,7 @@ function createMemoryJoinStore(seed: {
 
       if (name === "collectiveHubs") {
         return {
-          doc(id: string) {
-            return {
-              id,
-              path: `collectiveHubs/${id}`,
-              async get() {
-                const data = hubs[id];
-                return { exists: Boolean(data), id, data: () => data };
-              },
-            };
-          },
+          doc: hubDoc,
         };
       }
 
@@ -91,13 +111,21 @@ function createMemoryJoinStore(seed: {
           },
           set(ref, data) {
             writes.push(() => {
+              if (ref.path.includes("/participants/")) {
+                participants.set(ref.path, { id: ref.id, ...data });
+                return;
+              }
               bookings.set(ref.id, { id: ref.id, ...data });
             });
           },
           update(ref, data) {
             writes.push(() => {
-              if (ref.path.startsWith("collectiveHubs/")) {
-                hubs[ref.id] = { ...hubs[ref.id], ...data };
+              if (ref.path.startsWith("collectiveHubs/") && !ref.path.includes("/participants/")) {
+                const next = { ...hubs[ref.id], ...data };
+                if (data.confirmedStudentIds && typeof data.confirmedStudentIds === "object") {
+                  delete next.confirmedStudentIds;
+                }
+                hubs[ref.id] = next;
               }
             });
           },
@@ -115,7 +143,7 @@ function createMemoryJoinStore(seed: {
     },
   };
 
-  return { db, bookings, hubs };
+  return { db, bookings, hubs, participants };
 }
 
 describe("createCollectiveBookingForStudent", () => {
@@ -150,7 +178,30 @@ describe("createCollectiveBookingForStudent", () => {
       tutorAmount: 25.2,
       hubId: HUB_ID,
     });
-    expect(store.hubs[HUB_ID]?.confirmedStudentIds).toEqual(["student-a"]);
+    expect(store.hubs[HUB_ID]?.confirmedStudentCount).toBe(1);
+    expect(store.hubs[HUB_ID]).not.toHaveProperty("confirmedStudentIds");
+    expect(store.participants.get(`collectiveHubs/${HUB_ID}/participants/student-a`)).toMatchObject({
+      studentId: "student-a",
+    });
+  });
+
+  it("rejects a second join from the same student using the private roster", async () => {
+    const store = createMemoryJoinStore({
+      users: { "student-a": { role: "student" } },
+      hubs: { [HUB_ID]: openHub({ confirmedStudentCount: 1 }) },
+    });
+    store.participants.set(`collectiveHubs/${HUB_ID}/participants/student-a`, {
+      studentId: "student-a",
+    });
+
+    await expect(
+      createCollectiveBookingForStudent(
+        store.db,
+        { actorUid: "student-a", hubId: HUB_ID },
+        deps,
+      ),
+    ).rejects.toMatchObject({ code: "already_joined" });
+    expect(store.bookings.size).toBe(0);
   });
 
   it("rejects a join when the hub has no valid currentPrice", async () => {

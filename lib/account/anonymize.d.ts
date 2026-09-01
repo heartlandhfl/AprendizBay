@@ -32,12 +32,14 @@ export function removeStudentFromHubIds(
 export function removeStudentFromHub(
   data: {
     confirmedStudentIds?: string[];
+    confirmedStudentCount?: number;
     maxStudents?: number;
     status?: string;
   },
   uid: string,
+  options?: { decrement?: boolean },
 ): {
-  confirmedStudentIds: string[];
+  confirmedStudentIds?: string[];
   confirmedStudentCount: number;
   status?: string;
 };
