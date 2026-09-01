@@ -22,6 +22,7 @@ import { CREATE_BOOKING_ERRORS } from "@/lib/bookings/create-booking";
 import { parseOccupiedStarts } from "@/lib/bookings/occupancy";
 import type { Modality } from "@/lib/mock-tutors";
 import { requestNotification } from "@/lib/notifications/client";
+import { fetchPublicDisplayName } from "@/lib/users/public-profile";
 
 function readOptionalMoney(value: unknown): number | undefined {
   if (typeof value !== "number" || !Number.isFinite(value)) {
@@ -329,13 +330,7 @@ export function subscribeToBooking(
 }
 
 export async function fetchUserDisplayName(userId: string): Promise<string> {
-  await requireFirebaseApp();
-  const snapshot = await getDoc(doc(db, "users", userId));
-  if (!snapshot.exists()) {
-    return "Conta encerrada";
-  }
-
-  return (snapshot.data().displayName as string) || "Usuário";
+  return fetchPublicDisplayName(userId);
 }
 
 export async function fetchTutorName(tutorId: string): Promise<string> {

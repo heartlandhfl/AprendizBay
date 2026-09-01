@@ -5,8 +5,9 @@ import {
   uploadBytes,
   type UploadMetadata,
 } from "firebase/storage";
-import { doc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { doc, getDoc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { auth, db, requireFirebaseApp, storage } from "@/lib/firebase/client";
+import { writeOwnPublicProfile } from "@/lib/users/public-profile";
 import { tutorCredentialPath, userAvatarPath } from "@/lib/storage/paths";
 import {
   sanitizeCredentialFileName,
@@ -41,6 +42,12 @@ export async function uploadUserAvatar(userId: string, file: File): Promise<stri
     photoUrl: downloadUrl,
     updatedAt: serverTimestamp(),
   });
+
+  const userSnap = await getDoc(doc(db, "users", userId));
+  const account = userSnap.exists() ? userSnap.data() : undefined;
+  const displayName =
+    typeof account?.displayName === "string" ? account.displayName : "Usuário";
+  await writeOwnPublicProfile(userId, { displayName, photoUrl: downloadUrl });
 
   return downloadUrl;
 }
