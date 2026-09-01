@@ -5,6 +5,8 @@ export const ASAAS_WEBHOOK_RECEIPTS_COLLECTION = "asaasWebhookReceipts";
 
 export const WEBHOOK_ALREADY_PROCESSED_MESSAGE = "Evento já processado.";
 export const WEBHOOK_UNAUTHORIZED_MESSAGE = "Webhook não autorizado.";
+export const WEBHOOK_UNCONFIGURED_MESSAGE =
+  "A configuração do webhook de pagamento não está disponível.";
 export const WEBHOOK_INVALID_MESSAGE = "Webhook inválido.";
 export const WEBHOOK_CONFIRMED_MESSAGE = "Pagamento confirmado.";
 export const WEBHOOK_FAILED_MESSAGE = "Pagamento recusado.";

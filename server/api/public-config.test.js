@@ -33,6 +33,29 @@ describe("publicObservabilityConfig", () => {
   });
 });
 
+describe("public config secrets", () => {
+  it("never exposes the Asaas webhook token to the browser", () => {
+    const previous = process.env.ASAAS_WEBHOOK_TOKEN;
+    process.env.ASAAS_WEBHOOK_TOKEN = "asaas-webhook-secret-must-stay-server-only";
+
+    try {
+      const firebase = publicFirebaseConfig();
+      const observability = publicObservabilityConfig();
+      const serialized = JSON.stringify({ firebase, observability });
+
+      assert.equal(serialized.includes("asaas-webhook-secret-must-stay-server-only"), false);
+      assert.equal(Object.prototype.hasOwnProperty.call(firebase, "asaasWebhookToken"), false);
+      assert.equal(Object.prototype.hasOwnProperty.call(observability, "asaasWebhookToken"), false);
+    } finally {
+      if (previous == null) {
+        delete process.env.ASAAS_WEBHOOK_TOKEN;
+      } else {
+        process.env.ASAAS_WEBHOOK_TOKEN = previous;
+      }
+    }
+  });
+});
+
 describe("publicFirebaseConfig", () => {
   it("never exposes Firebase Admin credentials to the browser", () => {
     const previous = {

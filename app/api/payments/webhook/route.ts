@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
 import { captureServerException } from "@/lib/observability/sentry-server";
 import {
-  isAuthorizedAsaasWebhook,
+  authorizeAsaasWebhook,
   isMalformedAsaasWebhookPayload,
   parseAsaasWebhook,
 } from "@/lib/payments/asaas";
 import { processAsaasPaymentWebhook } from "@/lib/payments/process-webhook";
-import {
-  WEBHOOK_INVALID_MESSAGE,
-  WEBHOOK_UNAUTHORIZED_MESSAGE,
-} from "@/lib/payments/webhook-receipts";
+import { WEBHOOK_INVALID_MESSAGE } from "@/lib/payments/webhook-receipts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,8 +21,9 @@ function webhookErrorStatus(error: unknown): number {
 
 export async function POST(request: Request) {
   try {
-    if (!isAuthorizedAsaasWebhook(request.headers)) {
-      return NextResponse.json({ error: WEBHOOK_UNAUTHORIZED_MESSAGE }, { status: 401 });
+    const auth = authorizeAsaasWebhook(request.headers);
+    if (!auth.ok) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
     let payload: unknown;

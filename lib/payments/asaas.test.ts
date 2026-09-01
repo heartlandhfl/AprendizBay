@@ -1,10 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  authorizeAsaasWebhook,
   isAsaasAlreadyRefundedError,
+  isAuthorizedAsaasWebhook,
   parseAsaasRefund,
   parseAsaasWebhook,
   resolveAsaasWebhookOutcome,
 } from "@/lib/payments/asaas";
+import {
+  WEBHOOK_UNAUTHORIZED_MESSAGE,
+  WEBHOOK_UNCONFIGURED_MESSAGE,
+} from "@/lib/payments/webhook-receipts";
 
 describe("Asaas webhook outcomes", () => {
   it("maps confirmed and received events to a successful payment", () => {
@@ -89,5 +95,131 @@ describe("Asaas refund responses", () => {
         errors: [{ description: "Payment already refunded." }],
       }),
     ).toBe(true);
+  });
+});
+
+describe("authorizeAsaasWebhook", () => {
+  const originalToken = process.env.ASAAS_WEBHOOK_TOKEN;
+  const originalNodeEnv = process.env.NODE_ENV;
+  const secret = "test-asaas-webhook-token";
+
+  function headersWith(token?: string): Headers {
+    const headers = new Headers();
+    if (token !== undefined) {
+      headers.set("asaas-access-token", token);
+    }
+    return headers;
+  }
+
+  beforeEach(() => {
+    process.env.ASAAS_WEBHOOK_TOKEN = secret;
+  });
+
+  afterEach(() => {
+    if (originalToken === undefined) {
+      delete process.env.ASAAS_WEBHOOK_TOKEN;
+    } else {
+      process.env.ASAAS_WEBHOOK_TOKEN = originalToken;
+    }
+    process.env.NODE_ENV = originalNodeEnv;
+  });
+
+  it("rejects a missing server token with 503 and never authorizes", () => {
+    delete process.env.ASAAS_WEBHOOK_TOKEN;
+
+    const result = authorizeAsaasWebhook(headersWith(secret));
+
+    expect(result).toEqual({
+      ok: false,
+      status: 503,
+      error: WEBHOOK_UNCONFIGURED_MESSAGE,
+    });
+    expect(isAuthorizedAsaasWebhook(headersWith(secret))).toBe(false);
+    expect(JSON.stringify(result)).not.toContain(secret);
+  });
+
+  it("rejects a blank server token with 503", () => {
+    process.env.ASAAS_WEBHOOK_TOKEN = "   ";
+
+    const result = authorizeAsaasWebhook(headersWith(secret));
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(503);
+      expect(result.error).toBe(WEBHOOK_UNCONFIGURED_MESSAGE);
+    }
+  });
+
+  it("rejects an incorrect request token with 401", () => {
+    const result = authorizeAsaasWebhook(headersWith("wrong-token"));
+
+    expect(result).toEqual({
+      ok: false,
+      status: 401,
+      error: WEBHOOK_UNAUTHORIZED_MESSAGE,
+    });
+    expect(JSON.stringify(result)).not.toContain(secret);
+    expect(JSON.stringify(result)).not.toContain("wrong-token");
+  });
+
+  it("rejects a request that omits the access token header", () => {
+    const result = authorizeAsaasWebhook(headersWith());
+
+    expect(result).toEqual({
+      ok: false,
+      status: 401,
+      error: WEBHOOK_UNAUTHORIZED_MESSAGE,
+    });
+  });
+
+  it("accepts the correct request token", () => {
+    expect(authorizeAsaasWebhook(headersWith(secret))).toEqual({ ok: true });
+    expect(isAuthorizedAsaasWebhook(headersWith(secret))).toBe(true);
+  });
+
+  it("accepts an explicitly injected test token when env is empty", () => {
+    delete process.env.ASAAS_WEBHOOK_TOKEN;
+    const injected = "injected-test-token";
+
+    expect(
+      authorizeAsaasWebhook(headersWith(injected), { expectedToken: injected }),
+    ).toEqual({ ok: true });
+    expect(
+      authorizeAsaasWebhook(headersWith("wrong-token"), { expectedToken: injected }),
+    ).toMatchObject({ ok: false, status: 401 });
+  });
+
+  it("fails closed when an empty token is injected even if env has a value", () => {
+    const result = authorizeAsaasWebhook(headersWith(secret), { expectedToken: "" });
+
+    expect(result).toEqual({
+      ok: false,
+      status: 503,
+      error: WEBHOOK_UNCONFIGURED_MESSAGE,
+    });
+  });
+
+  it("does not bypass a missing token when NODE_ENV is test", () => {
+    process.env.NODE_ENV = "test";
+    delete process.env.ASAAS_WEBHOOK_TOKEN;
+
+    const result = authorizeAsaasWebhook(headersWith(secret));
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(503);
+    }
+  });
+
+  it("does not bypass a missing token when NODE_ENV is production", () => {
+    process.env.NODE_ENV = "production";
+    delete process.env.ASAAS_WEBHOOK_TOKEN;
+
+    const result = authorizeAsaasWebhook(headersWith(secret));
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(503);
+    }
   });
 });

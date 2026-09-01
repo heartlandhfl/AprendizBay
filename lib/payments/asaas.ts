@@ -1,3 +1,9 @@
+import { timingSafeEqual } from "node:crypto";
+import {
+  WEBHOOK_UNAUTHORIZED_MESSAGE,
+  WEBHOOK_UNCONFIGURED_MESSAGE,
+} from "@/lib/payments/webhook-receipts";
+
 export const ASAAS_SANDBOX_API_URL = "https://api-sandbox.asaas.com/v3";
 export const ASAAS_PRODUCTION_API_URL = "https://api.asaas.com/v3";
 export const ASAAS_CHECKOUT_PAGE_URL = "https://asaas.com/checkoutSession/show";
@@ -442,6 +448,39 @@ export function parseAsaasWebhook(payload: unknown): AsaasWebhookMatch {
   };
 }
 
+export interface AsaasWebhookAuthOptions {
+  /**
+   * Explicit expected token for tests. Production always uses
+   * `ASAAS_WEBHOOK_TOKEN`. An empty injected value still fails closed.
+   */
+  expectedToken?: string;
+}
+
+export type AsaasWebhookAuthResult =
+  | { ok: true }
+  | { ok: false; status: 401 | 503; error: string };
+
+function readConfiguredWebhookToken(): string {
+  return process.env.ASAAS_WEBHOOK_TOKEN?.trim() ?? "";
+}
+
+function resolveExpectedWebhookToken(options?: AsaasWebhookAuthOptions): string {
+  if (options && Object.prototype.hasOwnProperty.call(options, "expectedToken")) {
+    return options.expectedToken?.trim() ?? "";
+  }
+  return readConfiguredWebhookToken();
+}
+
+function webhookTokensMatch(provided: string, expected: string): boolean {
+  const actual = Buffer.from(provided);
+  const required = Buffer.from(expected);
+  if (actual.length !== required.length) {
+    timingSafeEqual(required, required);
+    return false;
+  }
+  return timingSafeEqual(actual, required);
+}
+
 export function getAsaasWebhookToken(headers: Headers): string | undefined {
   return (
     headers.get("asaas-access-token") ??
@@ -451,10 +490,26 @@ export function getAsaasWebhookToken(headers: Headers): string | undefined {
   )?.trim();
 }
 
-export function isAuthorizedAsaasWebhook(headers: Headers): boolean {
-  const expected = process.env.ASAAS_WEBHOOK_TOKEN?.trim();
+export function authorizeAsaasWebhook(
+  headers: Headers,
+  options?: AsaasWebhookAuthOptions,
+): AsaasWebhookAuthResult {
+  const expected = resolveExpectedWebhookToken(options);
   if (!expected) {
-    return true;
+    return { ok: false, status: 503, error: WEBHOOK_UNCONFIGURED_MESSAGE };
   }
-  return getAsaasWebhookToken(headers) === expected;
+
+  const provided = getAsaasWebhookToken(headers);
+  if (!provided || !webhookTokensMatch(provided, expected)) {
+    return { ok: false, status: 401, error: WEBHOOK_UNAUTHORIZED_MESSAGE };
+  }
+
+  return { ok: true };
+}
+
+export function isAuthorizedAsaasWebhook(
+  headers: Headers,
+  options?: AsaasWebhookAuthOptions,
+): boolean {
+  return authorizeAsaasWebhook(headers, options).ok;
 }
