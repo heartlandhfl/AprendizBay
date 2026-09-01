@@ -79,33 +79,35 @@ async function seed() {
       );
 
     for (const hub of profile.collectiveHubs) {
-      await db
-        .collection("collectiveHubs")
-        .doc(hub.id)
-        .set(
-          {
-            tutorId: tutor.id,
-            title: hub.title,
-            description: hub.description,
-            maxStudents: hub.maxStudents,
-            confirmedStudentIds: Array.from(
-              { length: hub.confirmedStudents },
-              (_, index) => `seed-${hub.id}-student-${index + 1}`,
-            ),
-            confirmedStudentCount: hub.confirmedStudents,
-            currentPrice: hub.currentPrice,
-            fullPrice: hub.fullPrice,
-            schedule: hub.schedule,
-            modality: hub.modality,
-            status: hub.confirmedStudents >= hub.maxStudents ? "full" : "open",
-            subject: tutor.subject,
-            tutorName: tutor.name,
-            individualPrice: tutor.individualPrice,
-            createdAt: FieldValue.serverTimestamp(),
-            updatedAt: FieldValue.serverTimestamp(),
-          },
-          { merge: true },
-        );
+      const hubRef = db.collection("collectiveHubs").doc(hub.id);
+      await hubRef.set(
+        {
+          tutorId: tutor.id,
+          title: hub.title,
+          description: hub.description,
+          maxStudents: hub.maxStudents,
+          confirmedStudentCount: hub.confirmedStudents,
+          currentPrice: hub.currentPrice,
+          fullPrice: hub.fullPrice,
+          schedule: hub.schedule,
+          modality: hub.modality,
+          status: hub.confirmedStudents >= hub.maxStudents ? "full" : "open",
+          subject: tutor.subject,
+          tutorName: tutor.name,
+          individualPrice: tutor.individualPrice,
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+
+      for (let index = 0; index < hub.confirmedStudents; index += 1) {
+        const studentId = `seed-${hub.id}-student-${index + 1}`;
+        await hubRef.collection("participants").doc(studentId).set({
+          studentId,
+          joinedAt: FieldValue.serverTimestamp(),
+        });
+      }
     }
 
     console.log(`Seed concluído para ${tutor.name} (${tutor.id})`);

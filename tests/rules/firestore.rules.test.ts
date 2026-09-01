@@ -1155,7 +1155,6 @@ describe("firestore.rules", () => {
         title: "Inglês para Viagem",
         description: "Frases essenciais para aeroporto e hotel.",
         maxStudents: 2,
-        confirmedStudentIds: [],
         confirmedStudentCount: 0,
         currentPrice: 25,
         fullPrice: 18,
@@ -1179,24 +1178,57 @@ describe("firestore.rules", () => {
       });
     }
 
-    function joinWrite(
-      beforeIds: string[],
-      studentId: string,
-      maxStudents = 2,
-    ) {
-      const nextIds = [...beforeIds, studentId];
-      return {
-        confirmedStudentIds: nextIds,
-        confirmedStudentCount: nextIds.length,
-        status: nextIds.length >= maxStudents ? "full" : "open",
-        updatedAt: new Date(),
-      };
+    async function seedParticipant(hubId: string, studentId: string) {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await setDoc(doc(context.firestore(), "collectiveHubs", hubId, "participants", studentId), {
+          studentId,
+          joinedAt: new Date(),
+        });
+      });
     }
 
-    it("lets an approved tutor create a public collective class", async () => {
+    it("public hub read", async () => {
+      await seedBaseDocs({ tutorVerified: true, verificationStatus: "approved" });
+      await seedHub("hub-public");
+
+      await assertSucceeds(getDoc(doc(guestDb(), "collectiveHubs", "hub-public")));
+      await assertSucceeds(getDoc(doc(studentDb(), "collectiveHubs", "hub-public")));
+    });
+
+    it("private participant data read", async () => {
+      await seedBaseDocs({ tutorVerified: true, verificationStatus: "approved" });
+      await seedHub("hub-roster");
+      await seedParticipant("hub-roster", STUDENT_ID);
+
+      await assertFails(
+        getDoc(doc(guestDb(), "collectiveHubs", "hub-roster", "participants", STUDENT_ID)),
+      );
+      await assertFails(
+        getDoc(doc(studentBDb(), "collectiveHubs", "hub-roster", "participants", STUDENT_ID)),
+      );
+      await assertFails(
+        getDocs(collection(studentDb(), "collectiveHubs", "hub-roster", "participants")),
+      );
+      await assertSucceeds(
+        getDoc(doc(studentDb(), "collectiveHubs", "hub-roster", "participants", STUDENT_ID)),
+      );
+    });
+
+    it("lets an approved tutor create a public collective class without a roster", async () => {
       await seedBaseDocs({ tutorVerified: true, verificationStatus: "approved" });
 
       await assertSucceeds(addDoc(collection(tutorDb(), "collectiveHubs"), hubPayload()));
+    });
+
+    it("denies creating a hub that embeds confirmedStudentIds", async () => {
+      await seedBaseDocs({ tutorVerified: true, verificationStatus: "approved" });
+
+      await assertFails(
+        addDoc(
+          collection(tutorDb(), "collectiveHubs"),
+          hubPayload({ confirmedStudentIds: [] }),
+        ),
+      );
     });
 
     it("denies an unverified tutor from offering a public class", async () => {
@@ -1205,167 +1237,108 @@ describe("firestore.rules", () => {
       await assertFails(addDoc(collection(tutorDb(), "collectiveHubs"), hubPayload()));
     });
 
-    it("lets the first student join an open class", async () => {
+    it("unauthorized participant modification", async () => {
       await seedBaseDocs({ tutorVerified: true, verificationStatus: "approved" });
-      await seedHub("hub-first");
-
-      await assertSucceeds(
-        updateDoc(doc(studentDb(), "collectiveHubs", "hub-first"), joinWrite([], STUDENT_ID, 6)),
-      );
-    });
-
-    it("denies a student changing currentPrice, fullPrice, or individualPrice while joining", async () => {
-      await seedBaseDocs({ tutorVerified: true, verificationStatus: "approved" });
-      await seedHub("hub-price-lock");
+      await seedHub("hub-join");
 
       await assertFails(
-        updateDoc(doc(studentDb(), "collectiveHubs", "hub-price-lock"), {
-          ...joinWrite([], STUDENT_ID, 6),
-          currentPrice: 1,
-          fullPrice: 1,
-          individualPrice: 1,
+        setDoc(doc(studentDb(), "collectiveHubs", "hub-join", "participants", STUDENT_ID), {
+          studentId: STUDENT_ID,
+          joinedAt: new Date(),
         }),
       );
-    });
-
-    it("lets a student take the final vacancy and marks the class full", async () => {
-      await seedBaseDocs({ tutorVerified: true, verificationStatus: "approved" });
-      await seedHub("hub-last", {
-        confirmedStudentIds: [STUDENT_ID],
-        confirmedStudentCount: 1,
-        maxStudents: 2,
-      });
-
-      await assertSucceeds(
-        updateDoc(
-          doc(studentBDb(), "collectiveHubs", "hub-last"),
-          joinWrite([STUDENT_ID], STUDENT_B_ID, 2),
-        ),
-      );
-    });
-
-    it("rejects the second student when two try to take the last seat", async () => {
-      await seedBaseDocs({ tutorVerified: true, verificationStatus: "approved" });
-      await seedHub("hub-race", {
-        confirmedStudentIds: [STUDENT_ID],
-        confirmedStudentCount: 1,
-        maxStudents: 2,
-      });
-
-      await assertSucceeds(
-        updateDoc(
-          doc(studentBDb(), "collectiveHubs", "hub-race"),
-          joinWrite([STUDENT_ID], STUDENT_B_ID, 2),
-        ),
-      );
-
-      const lateStudent = testEnv
-        .authenticatedContext(NEW_STUDENT_ID, { email: "nova@test.com" })
-        .firestore();
-      await testEnv.withSecurityRulesDisabled(async (context) => {
-        await setDoc(doc(context.firestore(), "users", NEW_STUDENT_ID), {
-          role: "student",
-          displayName: "Nova",
-          email: "nova@test.com",
-          createdAt: new Date(),
-        });
-      });
-
       await assertFails(
-        updateDoc(
-          doc(lateStudent, "collectiveHubs", "hub-race"),
-          joinWrite([STUDENT_ID], NEW_STUDENT_ID, 2),
-        ),
-      );
-    });
-
-    it("rejects a join when the class is already full", async () => {
-      await seedBaseDocs({ tutorVerified: true, verificationStatus: "approved" });
-      await seedHub("hub-full", {
-        status: "full",
-        confirmedStudentIds: [STUDENT_ID, STUDENT_B_ID],
-        confirmedStudentCount: 2,
-      });
-
-      await testEnv.withSecurityRulesDisabled(async (context) => {
-        await setDoc(doc(context.firestore(), "users", NEW_STUDENT_ID), {
-          role: "student",
-          displayName: "Nova",
-          email: "nova@test.com",
-          createdAt: new Date(),
-        });
-      });
-
-      const lateStudent = testEnv
-        .authenticatedContext(NEW_STUDENT_ID, { email: "nova@test.com" })
-        .firestore();
-      await assertFails(
-        updateDoc(
-          doc(lateStudent, "collectiveHubs", "hub-full"),
-          joinWrite([STUDENT_ID, STUDENT_B_ID], NEW_STUDENT_ID, 2),
-        ),
-      );
-    });
-
-    it("rejects a join when the class is cancelled", async () => {
-      await seedBaseDocs({ tutorVerified: true, verificationStatus: "approved" });
-      await seedHub("hub-cancelled", { status: "cancelled" });
-
-      await assertFails(
-        updateDoc(doc(studentDb(), "collectiveHubs", "hub-cancelled"), joinWrite([], STUDENT_ID, 2)),
-      );
-    });
-
-    it("rejects a join when the class is closed", async () => {
-      await seedBaseDocs({ tutorVerified: true, verificationStatus: "approved" });
-      await seedHub("hub-closed", { status: "closed" });
-
-      await assertFails(
-        updateDoc(doc(studentDb(), "collectiveHubs", "hub-closed"), joinWrite([], STUDENT_ID, 2)),
-      );
-    });
-
-    it("denies a student adding or removing another student", async () => {
-      await seedBaseDocs({ tutorVerified: true, verificationStatus: "approved" });
-      await seedHub("hub-other", {
-        confirmedStudentIds: [],
-        confirmedStudentCount: 0,
-        maxStudents: 6,
-      });
-
-      await assertFails(
-        updateDoc(doc(studentDb(), "collectiveHubs", "hub-other"), {
-          confirmedStudentIds: [STUDENT_B_ID],
+        updateDoc(doc(studentDb(), "collectiveHubs", "hub-join"), {
           confirmedStudentCount: 1,
           status: "open",
           updatedAt: new Date(),
         }),
       );
-
-      await seedHub("hub-remove", {
-        confirmedStudentIds: [STUDENT_ID, STUDENT_B_ID],
-        confirmedStudentCount: 2,
-        maxStudents: 6,
-      });
-
       await assertFails(
-        updateDoc(doc(studentDb(), "collectiveHubs", "hub-remove"), {
-          confirmedStudentIds: [STUDENT_ID],
-          confirmedStudentCount: 1,
+        updateDoc(doc(studentDb(), "collectiveHubs", "hub-join"), {
+          currentPrice: 1,
+          fullPrice: 1,
+          individualPrice: 1,
+          updatedAt: new Date(),
+        }),
+      );
+      await assertFails(
+        updateDoc(doc(studentDb(), "collectiveHubs", "hub-join"), {
+          maxStudents: 20,
+          updatedAt: new Date(),
+        }),
+      );
+      await assertFails(
+        updateDoc(doc(studentDb(), "collectiveHubs", "hub-join"), {
+          tutorId: STUDENT_ID,
           updatedAt: new Date(),
         }),
       );
     });
 
-    it("lets the owner tutor update their hub and blocks the other tutor", async () => {
+    it("denies a student adding or removing another student", async () => {
+      await seedBaseDocs({ tutorVerified: true, verificationStatus: "approved" });
+      await seedHub("hub-other", { confirmedStudentCount: 0, maxStudents: 6 });
+      await seedParticipant("hub-other", STUDENT_B_ID);
+
+      await assertFails(
+        setDoc(doc(studentDb(), "collectiveHubs", "hub-other", "participants", STUDENT_B_ID), {
+          studentId: STUDENT_B_ID,
+          joinedAt: new Date(),
+        }),
+      );
+      await assertFails(
+        deleteDoc(doc(studentDb(), "collectiveHubs", "hub-other", "participants", STUDENT_B_ID)),
+      );
+      await assertFails(
+        updateDoc(doc(studentDb(), "collectiveHubs", "hub-other"), {
+          confirmedStudentCount: 0,
+          updatedAt: new Date(),
+        }),
+      );
+    });
+
+    it("full-class protection", async () => {
+      await seedBaseDocs({ tutorVerified: true, verificationStatus: "approved" });
+      await seedHub("hub-full", {
+        status: "full",
+        confirmedStudentCount: 2,
+        maxStudents: 2,
+      });
+      await seedParticipant("hub-full", STUDENT_ID);
+      await seedParticipant("hub-full", STUDENT_B_ID);
+
+      await assertFails(
+        setDoc(doc(studentDb(), "collectiveHubs", "hub-full", "participants", STUDENT_ID), {
+          studentId: STUDENT_ID,
+          joinedAt: new Date(),
+        }),
+      );
+      await assertFails(
+        updateDoc(doc(studentBDb(), "collectiveHubs", "hub-full"), {
+          confirmedStudentCount: 3,
+          status: "full",
+          updatedAt: new Date(),
+        }),
+      );
+    });
+
+    it("tutor ownership", async () => {
       await seedBaseDocs({ tutorVerified: true, verificationStatus: "approved" });
       await seedHub("hub-owned");
+      await seedParticipant("hub-owned", STUDENT_ID);
 
       await assertSucceeds(
         updateDoc(doc(tutorDb(), "collectiveHubs", "hub-owned"), {
           title: "Inglês para Viagem — Turma da noite",
           updatedAt: new Date(),
         }),
+      );
+      await assertSucceeds(
+        getDoc(doc(tutorDb(), "collectiveHubs", "hub-owned", "participants", STUDENT_ID)),
+      );
+      await assertSucceeds(
+        getDocs(collection(tutorDb(), "collectiveHubs", "hub-owned", "participants")),
       );
 
       await assertFails(
@@ -1374,26 +1347,33 @@ describe("firestore.rules", () => {
           updatedAt: new Date(),
         }),
       );
-
       await assertFails(
         updateDoc(doc(tutorBDb(), "collectiveHubs", "hub-owned"), {
           status: "cancelled",
           updatedAt: new Date(),
         }),
       );
+      await assertFails(
+        getDoc(doc(tutorBDb(), "collectiveHubs", "hub-owned", "participants", STUDENT_ID)),
+      );
+      await assertFails(
+        getDocs(collection(tutorBDb(), "collectiveHubs", "hub-owned", "participants")),
+      );
     });
 
-    it("denies the owner tutor from rewriting another student's seat", async () => {
+    it("denies the owner tutor from rewriting occupancy or embedding a roster", async () => {
       await seedBaseDocs({ tutorVerified: true, verificationStatus: "approved" });
-      await seedHub("hub-roster", {
-        confirmedStudentIds: [STUDENT_ID],
-        confirmedStudentCount: 1,
-      });
+      await seedHub("hub-roster", { confirmedStudentCount: 1 });
 
       await assertFails(
         updateDoc(doc(tutorDb(), "collectiveHubs", "hub-roster"), {
+          confirmedStudentCount: 0,
+          updatedAt: new Date(),
+        }),
+      );
+      await assertFails(
+        updateDoc(doc(tutorDb(), "collectiveHubs", "hub-roster"), {
           confirmedStudentIds: [STUDENT_B_ID],
-          confirmedStudentCount: 1,
           updatedAt: new Date(),
         }),
       );

@@ -281,6 +281,7 @@ export async function createCollectiveBookingAsStudent(input: {
   const db = requireAdminFirestore();
   return createCollectiveBookingForStudent(db, input, {
     timestamp: FieldValue.serverTimestamp(),
+    deleteField: FieldValue.delete(),
   });
 }
 

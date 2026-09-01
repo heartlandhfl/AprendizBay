@@ -27,6 +27,7 @@ describe("toPublicCollectiveHub", () => {
         individualPrice: 70,
       },
       "secret-student-1",
+      { isJoined: true },
     );
 
     expect(publicHubOmitsStudentIds(hub)).toBe(true);

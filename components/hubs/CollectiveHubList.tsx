@@ -23,7 +23,6 @@ function toLiveHubs(tutorId: string, hubs: CollectiveHub[]): CollectiveHubLive[]
   return hubs.map((hub) => ({
     ...hub,
     tutorId,
-    confirmedStudentIds: [],
     status: "open",
     isJoined: false,
   }));

@@ -6,7 +6,6 @@ import {
   getDocs,
   onSnapshot,
   query,
-  runTransaction,
   serverTimestamp,
   where,
   type Unsubscribe,
@@ -14,8 +13,6 @@ import {
 import { auth, db, ensureFirebaseApp, requireFirebaseApp, whenFirebaseReady } from "@/lib/firebase/client";
 import {
   createHubJoinError,
-  evaluateHubJoin,
-  hubJoinWrite,
   type HubJoinErrorCode,
 } from "@/lib/hubs/join";
 import { toPublicCollectiveHub } from "@/lib/hubs/public";
@@ -40,9 +37,9 @@ import type {
 function mapLiveHub(
   id: string,
   data: FirestoreCollectiveHubDoc,
-  viewerId?: string,
+  extras: { isJoined?: boolean } = {},
 ): CollectiveHubLive {
-  const publicHub = toPublicCollectiveHub(id, data as Record<string, unknown>, viewerId);
+  const publicHub = toPublicCollectiveHub(id, data as Record<string, unknown>, undefined, extras);
   const hub = mapFirestoreCollectiveHubDoc(id, data);
 
   return {
@@ -56,6 +53,19 @@ function mapLiveHub(
     individualPrice: publicHub.individualPrice || hub.individualPrice,
     isJoined: publicHub.isJoined,
   };
+}
+
+async function viewerHasJoinedHub(hubId: string, viewerId?: string): Promise<boolean> {
+  if (!viewerId) {
+    return false;
+  }
+
+  try {
+    const snapshot = await getDoc(doc(db, "collectiveHubs", hubId, "participants", viewerId));
+    return snapshot.exists();
+  } catch {
+    return false;
+  }
 }
 
 function throwJoinError(code: HubJoinErrorCode): never {
@@ -81,7 +91,6 @@ export async function createCollectiveHub(
     title: input.title.trim(),
     description: input.description.trim(),
     maxStudents: input.maxStudents,
-    confirmedStudentIds: [],
     confirmedStudentCount: 0,
     currentPrice: input.currentPrice,
     fullPrice: input.fullPrice,
@@ -98,25 +107,6 @@ export async function createCollectiveHub(
   });
 
   return docRef.id;
-}
-
-export async function joinCollectiveHub(hubId: string, studentId: string): Promise<void> {
-  await requireFirebaseApp();
-  const hubRef = doc(db, "collectiveHubs", hubId);
-
-  await runTransaction(db, async (transaction) => {
-    const snapshot = await transaction.get(hubRef);
-    if (!snapshot.exists()) {
-      throwJoinError("not_found");
-    }
-
-    const decision = evaluateHubJoin(snapshot.data() as FirestoreCollectiveHubDoc, studentId);
-    if (!decision.ok) {
-      throwJoinError(decision.code);
-    }
-
-    transaction.update(hubRef, hubJoinWrite(decision, serverTimestamp()));
-  });
 }
 
 export async function joinCollectiveClassAndBook(
@@ -185,7 +175,9 @@ export async function fetchOpenCollectiveHubs(): Promise<HubListResult<Collectiv
 
     const hubs = snapshot.docs
       .map((docSnap) =>
-        mapLiveHub(docSnap.id, docSnap.data() as FirestoreCollectiveHubDoc),
+        mapLiveHub(docSnap.id, docSnap.data() as FirestoreCollectiveHubDoc, {
+          isJoined: false,
+        }),
       )
       .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
 
@@ -217,7 +209,12 @@ export async function fetchCollectiveHubById(
       return { state: "not_found", hub: null };
     }
 
-    const hub = mapLiveHub(snapshot.id, snapshot.data() as FirestoreCollectiveHubDoc, viewerId);
+    const isJoined = await viewerHasJoinedHub(hubId, viewerId);
+    const hub = mapLiveHub(
+      snapshot.id,
+      snapshot.data() as FirestoreCollectiveHubDoc,
+      { isJoined },
+    );
     if (isProductionNodeEnv() && isKnownMockInventoryItem(hub)) {
       return { state: "not_found", hub: null };
     }
@@ -257,17 +254,18 @@ export function subscribeToTutorCollectiveHubs(
       return onSnapshot(
         hubsQuery,
         (snapshot) => {
-          const hubs = snapshot.docs
-            .map((docSnap) =>
-              mapLiveHub(
+          void Promise.all(
+            snapshot.docs.map(async (docSnap) => {
+              const isJoined = await viewerHasJoinedHub(docSnap.id, viewerId);
+              return mapLiveHub(
                 docSnap.id,
                 docSnap.data() as FirestoreCollectiveHubDoc,
-                viewerId,
-              ),
-            )
-            .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
-
-          onChange(hubs);
+                { isJoined },
+              );
+            }),
+          ).then((hubs) => {
+            onChange(hubs.sort((a, b) => a.title.localeCompare(b.title, "pt-BR")));
+          });
         },
         (error) => onError?.(error),
       );

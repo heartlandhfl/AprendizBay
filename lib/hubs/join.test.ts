@@ -26,6 +26,7 @@ describe("evaluateHubJoin", () => {
       ok: true,
       nextIds: ["student-1"],
       nextCount: 1,
+      nextStudentId: "student-1",
       nextStatus: "open",
     });
   });
@@ -43,6 +44,7 @@ describe("evaluateHubJoin", () => {
       ok: true,
       nextIds: ["student-1", "student-2"],
       nextCount: 2,
+      nextStudentId: "student-2",
       nextStatus: "full",
     });
   });
@@ -102,14 +104,32 @@ describe("evaluateHubJoin", () => {
   it("does not let a student join twice", () => {
     const decision = evaluateHubJoin(
       openHub({
-        confirmedStudentIds: ["student-1"],
         confirmedStudentCount: 1,
         maxStudents: 6,
       }),
       "student-1",
+      { alreadyJoined: true },
     );
 
     expect(decision).toMatchObject({ ok: false, code: "already_joined" });
+  });
+
+  it("uses occupancy count without a public roster", () => {
+    const decision = evaluateHubJoin(
+      openHub({
+        confirmedStudentCount: 1,
+        maxStudents: 2,
+      }),
+      "student-2",
+      { alreadyJoined: false, confirmedCount: 1 },
+    );
+
+    expect(decision).toMatchObject({
+      ok: true,
+      nextCount: 2,
+      nextStudentId: "student-2",
+      nextStatus: "full",
+    });
   });
 
   it("throws when applyHubJoin is called on a full class", () => {
