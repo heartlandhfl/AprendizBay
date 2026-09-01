@@ -261,11 +261,62 @@ describe("firestore.rules", () => {
       await assertFails(addDoc(collection(studentDb(), "bookings"), pendingBookingPayload()));
     });
 
-    it("allows a student to book a verified tutor", async () => {
+    it("denies a student creating a booking even for a verified tutor", async () => {
       await seedBaseDocs({ tutorVerified: true, verificationStatus: "approved" });
 
-      await assertSucceeds(
+      await assertFails(
         addDoc(collection(studentDb(), "bookings"), pendingBookingPayload()),
+      );
+    });
+
+    it("denies a student creating a booking with an arbitrary low price", async () => {
+      await seedBaseDocs({ tutorVerified: true, verificationStatus: "approved" });
+
+      await assertFails(
+        addDoc(collection(studentDb(), "bookings"), {
+          ...pendingBookingPayload(),
+          price: 1,
+          platformFee: 0,
+          tutorAmount: 1,
+        }),
+      );
+    });
+
+    it("denies a student creating a collective booking with a client-chosen price", async () => {
+      await seedBaseDocs({ tutorVerified: true, verificationStatus: "approved" });
+
+      await assertFails(
+        addDoc(collection(studentDb(), "bookings"), {
+          ...pendingBookingPayload(),
+          type: "coletivo",
+          hubId: "hub-1",
+          price: 1,
+        }),
+      );
+    });
+
+    it("denies a student changing price, platformFee, or tutorAmount on an existing booking", async () => {
+      await seedBaseDocs({ tutorVerified: true, verificationStatus: "approved" });
+      await seedBooking("booking-price-lock", "pending", { paymentStatus: "unpaid" });
+
+      await assertFails(
+        updateDoc(doc(studentDb(), "bookings", "booking-price-lock"), {
+          price: 1,
+          platformFee: 0,
+          tutorAmount: 1,
+        }),
+      );
+    });
+
+    it("denies a student changing the price while cancelling an unpaid booking", async () => {
+      await seedBaseDocs({ tutorVerified: true, verificationStatus: "approved" });
+      await seedBooking("booking-cancel-price", "pending", { paymentStatus: "unpaid" });
+
+      await assertFails(
+        updateDoc(doc(studentDb(), "bookings", "booking-cancel-price"), {
+          status: "cancelled",
+          price: 1,
+        }),
       );
     });
 
@@ -1021,6 +1072,20 @@ describe("firestore.rules", () => {
 
       await assertSucceeds(
         updateDoc(doc(studentDb(), "collectiveHubs", "hub-first"), joinWrite([], STUDENT_ID, 6)),
+      );
+    });
+
+    it("denies a student changing currentPrice, fullPrice, or individualPrice while joining", async () => {
+      await seedBaseDocs({ tutorVerified: true, verificationStatus: "approved" });
+      await seedHub("hub-price-lock");
+
+      await assertFails(
+        updateDoc(doc(studentDb(), "collectiveHubs", "hub-price-lock"), {
+          ...joinWrite([], STUDENT_ID, 6),
+          currentPrice: 1,
+          fullPrice: 1,
+          individualPrice: 1,
+        }),
       );
     });
 

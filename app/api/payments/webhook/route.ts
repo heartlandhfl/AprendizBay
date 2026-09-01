@@ -57,6 +57,7 @@ export async function POST(request: Request) {
       ...(result.ignored ? { ignored: result.ignored } : {}),
       ...(result.kind === "failed" ? { failed: true } : {}),
       ...(result.kind === "expired" ? { expired: true } : {}),
+      ...(result.kind === "amount_mismatch" ? { amountMismatch: true } : {}),
     });
   } catch (error) {
     captureServerException(error);

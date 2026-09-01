@@ -17,7 +17,6 @@ import { trackEvent } from "@/lib/analytics/client";
 import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
 import { HUB_JOIN_ERRORS, type HubJoinErrorCode } from "@/lib/hubs/join";
 import { collectiveSavingsPercent, formatVacancyLabel } from "@/lib/hubs/public";
-import { resolveCollectiveClassScheduledAt } from "@/lib/hubs/schedule";
 import CatalogLoadState from "@/components/catalog/CatalogLoadState";
 import {
   fetchCollectiveHubById,
@@ -113,9 +112,6 @@ export default function CollectiveClassDetail({ hubId }: CollectiveClassDetailPr
     try {
       await joinCollectiveClassAndBook(user.uid, {
         hubId: hub.id,
-        tutorId: hub.tutorId,
-        price: hub.currentPrice,
-        scheduledAt: resolveCollectiveClassScheduledAt(hub),
       });
 
       trackEvent(ANALYTICS_EVENTS.bookingStarted, {

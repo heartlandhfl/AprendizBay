@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockCreateIndividualBookingAsStudent, mockVerifyUserIdToken, mockGetUserProfile } =
+const { mockCreateCollectiveBookingAsStudent, mockVerifyUserIdToken, mockGetUserProfile } =
   vi.hoisted(() => ({
-    mockCreateIndividualBookingAsStudent: vi.fn(),
+    mockCreateCollectiveBookingAsStudent: vi.fn(),
     mockVerifyUserIdToken: vi.fn(),
     mockGetUserProfile: vi.fn(),
   }));
 
 vi.mock("@/lib/bookings/server", () => ({
-  createIndividualBookingAsStudent: mockCreateIndividualBookingAsStudent,
+  createCollectiveBookingAsStudent: mockCreateCollectiveBookingAsStudent,
 }));
 
 vi.mock("@/lib/auth/admin-server", () => ({
@@ -16,11 +16,11 @@ vi.mock("@/lib/auth/admin-server", () => ({
   getUserProfile: mockGetUserProfile,
 }));
 
-import { POST } from "@/app/api/bookings/route";
-import { CREATE_BOOKING_ERRORS } from "@/lib/bookings/create-booking";
+import { POST } from "@/app/api/hubs/join/route";
+import { JOIN_AND_BOOK_ERRORS } from "@/lib/hubs/join-and-book";
 
 function jsonRequest(body: unknown, headers: Record<string, string> = {}): Request {
-  return new Request("http://localhost/api/bookings", {
+  return new Request("http://localhost/api/hubs/join", {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -30,9 +30,9 @@ function jsonRequest(body: unknown, headers: Record<string, string> = {}): Reque
   });
 }
 
-describe("POST /api/bookings", () => {
+describe("POST /api/hubs/join", () => {
   beforeEach(() => {
-    mockCreateIndividualBookingAsStudent.mockReset();
+    mockCreateCollectiveBookingAsStudent.mockReset();
     mockVerifyUserIdToken.mockReset();
     mockGetUserProfile.mockReset();
     mockVerifyUserIdToken.mockResolvedValue({ uid: "student-1" });
@@ -43,19 +43,21 @@ describe("POST /api/bookings", () => {
     vi.clearAllMocks();
   });
 
-  it("creates from the authenticated uid", async () => {
-    mockCreateIndividualBookingAsStudent.mockResolvedValue({
+  it("joins from the authenticated uid and ignores client financial fields", async () => {
+    mockCreateCollectiveBookingAsStudent.mockResolvedValue({
       bookingId: "booking-1",
-      slotKey: "tutor-1_2026-09-08T19:00:00.000Z",
+      hubId: "hub-1",
+      price: 28,
     });
 
     const response = await POST(
       jsonRequest(
         {
-          tutorId: "tutor-1",
-          type: "individual",
-          scheduledAt: "2026-09-08T19:00:00.000Z",
-          price: 70,
+          hubId: "hub-1",
+          tutorId: "other-tutor",
+          price: 1,
+          platformFee: 0,
+          tutorAmount: 1,
         },
         { authorization: "Bearer token" },
       ),
@@ -64,49 +66,36 @@ describe("POST /api/bookings", () => {
 
     expect(response.status).toBe(200);
     expect(payload.ok).toBe(true);
-    expect(mockCreateIndividualBookingAsStudent).toHaveBeenCalledWith({
+    expect(mockCreateCollectiveBookingAsStudent).toHaveBeenCalledWith({
       actorUid: "student-1",
       actorRole: "student",
-      tutorId: "tutor-1",
-      type: "individual",
-      scheduledAt: "2026-09-08T19:00:00.000Z",
+      hubId: "hub-1",
     });
   });
 
   it("rejects an unauthenticated request", async () => {
     mockVerifyUserIdToken.mockRejectedValue(new Error("Token de autenticação ausente."));
 
-    const response = await POST(jsonRequest({ tutorId: "tutor-1" }));
+    const response = await POST(jsonRequest({ hubId: "hub-1" }));
     const payload = (await response.json()) as Record<string, unknown>;
 
     expect(response.status).toBe(401);
     expect(String(payload.error)).toMatch(/Token|autenticação/i);
-    expect(mockCreateIndividualBookingAsStudent).not.toHaveBeenCalled();
+    expect(mockCreateCollectiveBookingAsStudent).not.toHaveBeenCalled();
   });
 
-  it("returns the Portuguese slot-taken message on a race", async () => {
-    const error = new Error(CREATE_BOOKING_ERRORS.SLOT_TAKEN);
-    (error as Error & { code: string; httpStatus: number }).code = "SLOT_TAKEN";
+  it("returns the Portuguese invalid-price message", async () => {
+    const error = new Error(JOIN_AND_BOOK_ERRORS.INVALID_PRICE);
+    (error as Error & { code: string; httpStatus: number }).code = "INVALID_PRICE";
     (error as Error & { code: string; httpStatus: number }).httpStatus = 409;
-    mockCreateIndividualBookingAsStudent.mockRejectedValue(error);
+    mockCreateCollectiveBookingAsStudent.mockRejectedValue(error);
 
     const response = await POST(
-      jsonRequest(
-        {
-          tutorId: "tutor-1",
-          type: "individual",
-          scheduledAt: "2026-09-08T19:00:00.000Z",
-          price: 70,
-        },
-        { authorization: "Bearer token" },
-      ),
+      jsonRequest({ hubId: "hub-1" }, { authorization: "Bearer token" }),
     );
     const payload = (await response.json()) as Record<string, unknown>;
 
     expect(response.status).toBe(409);
-    expect(payload.error).toBe(
-      "Esse horário acabou de ser reservado por outro aluno. Escolha outro horário.",
-    );
-    expect(payload.code).toBe("SLOT_TAKEN");
+    expect(payload.error).toBe("O valor desta turma não está disponível.");
   });
 });

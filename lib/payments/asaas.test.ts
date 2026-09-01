@@ -60,6 +60,15 @@ describe("Asaas webhook outcomes", () => {
     expect(parseAsaasWebhook({ event: "PAYMENT_CREATED" }).outcome).toBe("ignored");
     expect(parseAsaasWebhook({ event: "CHECKOUT_CREATED" }).outcome).toBe("ignored");
   });
+
+  it("extracts the Asaas charged amount from payment.value", () => {
+    expect(
+      parseAsaasWebhook({
+        event: "PAYMENT_CONFIRMED",
+        payment: { id: "pay_1", value: 70, externalReference: "booking-1" },
+      }).paidValue,
+    ).toBe(70);
+  });
 });
 
 describe("Asaas refund responses", () => {

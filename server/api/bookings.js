@@ -33,9 +33,6 @@ bookingsRouter.post("/", async (req, res) => {
         tutorId: req.body?.tutorId,
         type: req.body?.type,
         scheduledAt: req.body?.scheduledAt,
-        price: req.body?.price,
-        platformFee: req.body?.platformFee,
-        tutorAmount: req.body?.tutorAmount,
       },
       { timestamp: FieldValue.serverTimestamp() },
     );

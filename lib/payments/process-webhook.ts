@@ -9,6 +9,7 @@ import { generateMeetingUrl } from "@/lib/bookings/meeting";
 import { getAdminApp } from "@/lib/firebase/admin";
 import { notifyConfirmedBooking, safeNotify } from "@/lib/notifications/server";
 import type { AsaasWebhookMatch, AsaasWebhookOutcome } from "@/lib/payments/asaas";
+import { comparePaidAmountToExpected } from "@/lib/payments/money";
 import { getSiteOrigin } from "@/lib/seo/site-url";
 import {
   ASAAS_WEBHOOK_RECEIPTS_COLLECTION,
@@ -17,6 +18,7 @@ import {
   WEBHOOK_CANCELLED_MESSAGE,
   WEBHOOK_CONFIRMED_MESSAGE,
   WEBHOOK_EXPIRED_MESSAGE,
+  WEBHOOK_AMOUNT_MISMATCH_MESSAGE,
   WEBHOOK_FAILED_MESSAGE,
   buildAsaasWebhookReceiptIds,
   type AsaasWebhookReceipt,
@@ -30,7 +32,8 @@ export type ProcessAsaasWebhookKind =
   | "booking_not_found"
   | "failed"
   | "expired"
-  | "ignored";
+  | "ignored"
+  | "amount_mismatch";
 
 export interface ProcessAsaasWebhookResult {
   kind: ProcessAsaasWebhookKind;
@@ -40,6 +43,7 @@ export interface ProcessAsaasWebhookResult {
   confirmed?: boolean;
   alreadyProcessed?: boolean;
   ignored?: "cancelled" | "booking_not_found";
+  amountMismatch?: boolean;
 }
 
 export interface WebhookTransaction {
@@ -92,6 +96,16 @@ function jsonResponseFields(
     };
   }
 
+  if (kind === "amount_mismatch") {
+    return {
+      kind,
+      httpStatus: 200,
+      received: true,
+      amountMismatch: true,
+      message,
+    };
+  }
+
   if (kind === "failed" || kind === "expired" || kind === "ignored") {
     return {
       kind,
@@ -122,6 +136,8 @@ function toPublicResult(kind: ProcessAsaasWebhookKind): ProcessAsaasWebhookResul
       return jsonResponseFields(kind, WEBHOOK_FAILED_MESSAGE);
     case "expired":
       return jsonResponseFields(kind, WEBHOOK_EXPIRED_MESSAGE);
+    case "amount_mismatch":
+      return jsonResponseFields(kind, WEBHOOK_AMOUNT_MISMATCH_MESSAGE);
     case "ignored":
       return jsonResponseFields(kind, eventIgnoredMessage());
     default:
@@ -144,6 +160,7 @@ function buildReceipt(
   event: AsaasWebhookMatch,
   outcome: AsaasWebhookReceiptOutcome,
   bookingId?: string,
+  extras: Partial<AsaasWebhookReceipt> = {},
 ): AsaasWebhookReceipt {
   return {
     ...(event.paymentId ? { paymentId: event.paymentId } : {}),
@@ -151,6 +168,7 @@ function buildReceipt(
     ...(bookingId ? { bookingId } : {}),
     event: event.event || "unknown",
     outcome,
+    ...extras,
   };
 }
 
@@ -205,6 +223,30 @@ async function claimSuccessfulPayment(
   if (bookingAlreadyPaid(booking)) {
     writeReceipts(tx, receiptIds, buildReceipt(event, "already_confirmed", booking.id));
     return { kind: "already_processed", booking };
+  }
+
+  const amount = comparePaidAmountToExpected(event.paidValue, booking.price);
+  if (!amount.ok) {
+    const mismatchIds = buildAsaasWebhookReceiptIds({
+      paymentId: event.paymentId,
+      asaasCheckoutId: event.asaasCheckoutId,
+    });
+    writeReceipts(
+      tx,
+      mismatchIds.length > 0 ? mismatchIds : receiptIds,
+      buildReceipt(event, "amount_mismatch", booking.id, {
+        expectedAmountCents: amount.expectedCents ?? undefined,
+        paidAmountCents: amount.paidCents,
+        mismatchReason: amount.reason,
+      }),
+    );
+    tx.updateBooking(booking.id, {
+      paymentAmountMismatch: true,
+      paymentMismatchReason: amount.reason,
+      paymentMismatchExpectedCents: amount.expectedCents,
+      paymentMismatchPaidCents: amount.paidCents,
+    });
+    return { kind: "amount_mismatch", booking };
   }
 
   const meetingUrl = booking.meetingUrl || generateMeetingUrl(booking.id);

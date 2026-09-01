@@ -19,7 +19,6 @@ import {
   formatBookingPrice,
 } from "@/lib/bookings/service";
 import { HUB_JOIN_ERRORS, type HubJoinErrorCode } from "@/lib/hubs/join";
-import { resolveCollectiveClassScheduledAt } from "@/lib/hubs/schedule";
 import { joinCollectiveClassAndBook } from "@/lib/hubs/service";
 import type { CollectiveHubLive } from "@/lib/hubs/types";
 import {
@@ -89,24 +88,15 @@ export default function BookingWidget({ tutor }: BookingWidgetProps) {
     setSubmitting(true);
 
     try {
-      const scheduledAt =
-        option === "individual"
-          ? selectedSlot!
-          : resolveCollectiveClassScheduledAt(selectedHub!);
-
       if (option === "coletivo") {
         await joinCollectiveClassAndBook(user.uid, {
           hubId: selectedHubId,
-          tutorId: tutor.id,
-          price: selectedHub!.currentPrice,
-          scheduledAt,
         });
       } else {
         await createBooking(user.uid, {
           tutorId: tutor.id,
           type: option,
-          price: tutor.individualPrice,
-          scheduledAt,
+          scheduledAt: selectedSlot!,
         });
       }
 

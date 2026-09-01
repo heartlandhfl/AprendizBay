@@ -8,11 +8,10 @@ import {
   query,
   runTransaction,
   serverTimestamp,
-  Timestamp,
   where,
   type Unsubscribe,
 } from "firebase/firestore";
-import { db, ensureFirebaseApp, requireFirebaseApp, whenFirebaseReady } from "@/lib/firebase/client";
+import { auth, db, ensureFirebaseApp, requireFirebaseApp, whenFirebaseReady } from "@/lib/firebase/client";
 import {
   createHubJoinError,
   evaluateHubJoin,
@@ -21,7 +20,6 @@ import {
 } from "@/lib/hubs/join";
 import { toPublicCollectiveHub } from "@/lib/hubs/public";
 import { requestNotification } from "@/lib/notifications/client";
-import { loadPlatformFeePercent, splitBookingPrice } from "@/lib/payments/fees";
 import { getTutorProfile } from "@/lib/tutor-profiles";
 import {
   okTutorList,
@@ -142,44 +140,41 @@ export async function joinCollectiveClassAndBook(
   input: JoinCollectiveClassInput,
 ): Promise<string> {
   await requireFirebaseApp();
-  const hubRef = doc(db, "collectiveHubs", input.hubId);
-  const bookingRef = doc(collection(db, "bookings"));
-  const feeSplit = splitBookingPrice(input.price, await loadPlatformFeePercent());
+  const user = auth.currentUser;
+  if (!user || user.uid !== studentId) {
+    throwJoinError("unauthorized");
+  }
 
-  await runTransaction(db, async (transaction) => {
-    const snapshot = await transaction.get(hubRef);
-    if (!snapshot.exists()) {
-      throwJoinError("not_found");
-    }
-
-    const data = snapshot.data() as FirestoreCollectiveHubDoc;
-    if (data.tutorId !== input.tutorId) {
-      throwJoinError("not_found");
-    }
-
-    const decision = evaluateHubJoin(data, studentId);
-    if (!decision.ok) {
-      throwJoinError(decision.code);
-    }
-
-    transaction.update(hubRef, hubJoinWrite(decision, serverTimestamp()));
-    transaction.set(bookingRef, {
-      studentId,
-      tutorId: input.tutorId,
-      type: "coletivo",
-      status: "pending",
-      paymentStatus: "unpaid",
-      price: input.price,
-      platformFee: feeSplit.platformFee,
-      tutorAmount: feeSplit.tutorAmount,
-      scheduledAt: Timestamp.fromDate(input.scheduledAt),
-      createdAt: serverTimestamp(),
-      hubId: input.hubId,
-    });
+  const idToken = await user.getIdToken();
+  const response = await fetch("/api/hubs/join", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({ hubId: input.hubId }),
   });
 
-  void requestNotification({ type: "pending_booking", bookingId: bookingRef.id });
-  return bookingRef.id;
+  const payload = (await response.json().catch(() => null)) as {
+    bookingId?: string;
+    error?: string;
+    code?: string;
+  } | null;
+
+  if (!response.ok || !payload?.bookingId) {
+    const code = payload?.code;
+    if (code === "not_found" || code === "already_joined" || code === "full" || code === "closed" || code === "cancelled" || code === "unauthorized") {
+      throwJoinError(code);
+    }
+    const error = new Error(payload?.error || "Não foi possível entrar nesta turma.") as Error & {
+      code?: string;
+    };
+    error.code = payload?.code;
+    throw error;
+  }
+
+  void requestNotification({ type: "pending_booking", bookingId: payload.bookingId });
+  return payload.bookingId;
 }
 
 export async function fetchOpenCollectiveHubs(): Promise<HubListResult<CollectiveHubLive>> {

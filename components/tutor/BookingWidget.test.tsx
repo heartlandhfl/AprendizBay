@@ -216,8 +216,6 @@ describe("BookingWidget", () => {
       expect(mockJoinCollectiveClassAndBook).toHaveBeenCalledWith(
         "student-1",
         expect.objectContaining({
-          tutorId: "1",
-          price: 28,
           hubId: "hub-1",
         }),
       );
@@ -246,7 +244,6 @@ describe("BookingWidget", () => {
         expect.objectContaining({
           tutorId: "1",
           type: "individual",
-          price: tutor.individualPrice,
           scheduledAt: new Date("2026-09-08T19:00:00"),
         }),
       );

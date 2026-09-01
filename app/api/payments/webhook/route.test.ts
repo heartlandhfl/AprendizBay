@@ -8,6 +8,7 @@ import {
   WEBHOOK_FAILED_MESSAGE,
   WEBHOOK_INVALID_MESSAGE,
   WEBHOOK_UNAUTHORIZED_MESSAGE,
+  WEBHOOK_AMOUNT_MISMATCH_MESSAGE,
   WEBHOOK_UNCONFIGURED_MESSAGE,
 } from "@/lib/payments/webhook-receipts";
 
@@ -32,6 +33,7 @@ const SUCCESS_BODY = {
   payment: {
     id: "pay_080225913252",
     status: "CONFIRMED",
+    value: 70,
     externalReference: "booking-123",
     checkoutSession: "checkout-abc",
   },
@@ -163,6 +165,27 @@ describe("POST /api/payments/webhook", () => {
     expect(payload).not.toHaveProperty("paymentId");
     expect(JSON.stringify(payload)).not.toContain("pay_080225913252");
     expect(mockProcessAsaasPaymentWebhook).toHaveBeenCalledTimes(1);
+    expect(mockProcessAsaasPaymentWebhook.mock.calls[0]?.[0]).toMatchObject({
+      paidValue: 70,
+    });
+  });
+
+  it("returns the Portuguese amount-mismatch message without confirming", async () => {
+    mockProcessAsaasPaymentWebhook.mockResolvedValue({
+      kind: "amount_mismatch",
+      httpStatus: 200,
+      received: true,
+      amountMismatch: true,
+      message: WEBHOOK_AMOUNT_MISMATCH_MESSAGE,
+    });
+
+    const response = await POST(authorizedRequest(SUCCESS_BODY));
+    const payload = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(200);
+    expect(payload.amountMismatch).toBe(true);
+    expect(payload.confirmed).toBeUndefined();
+    expect(payload.message).toBe("O valor do pagamento não confere com a reserva.");
   });
 
   it("returns Evento já processado for a duplicate delivery with the correct token", async () => {

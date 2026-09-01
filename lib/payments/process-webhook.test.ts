@@ -12,6 +12,7 @@ import {
   WEBHOOK_CANCELLED_MESSAGE,
   WEBHOOK_CONFIRMED_MESSAGE,
   WEBHOOK_EXPIRED_MESSAGE,
+  WEBHOOK_AMOUNT_MISMATCH_MESSAGE,
   WEBHOOK_FAILED_MESSAGE,
   buildAsaasWebhookReceiptIds,
 } from "@/lib/payments/webhook-receipts";
@@ -37,6 +38,7 @@ function successfulEvent(overrides: Partial<AsaasWebhookMatch> = {}): AsaasWebho
     bookingId: "booking-123",
     paymentId: "pay_080225913252",
     asaasCheckoutId: "checkout-abc",
+    paidValue: 80,
     ...overrides,
   };
 }
@@ -438,5 +440,141 @@ describe("processAsaasPaymentWebhook", () => {
       meetingUrl: generateMeetingUrl("booking-123"),
     });
     expect(onConfirmed).toHaveBeenCalledTimes(1);
+  });
+
+  describe("authoritative amount matching", () => {
+    function seventyRealBooking() {
+      return pendingBooking({ price: 70 });
+    }
+
+    it("confirms an exact R$70 payment for a R$70 booking", async () => {
+      const store = createMemoryWebhookStore(
+        new Map([["booking-123", seventyRealBooking()]]),
+      );
+      const onConfirmed = vi.fn(async () => undefined);
+
+      const result = await processAsaasPaymentWebhook(
+        successfulEvent({ paidValue: 70 }),
+        { store, onConfirmed },
+      );
+
+      expect(result).toMatchObject({
+        kind: "confirmed",
+        confirmed: true,
+        message: WEBHOOK_CONFIRMED_MESSAGE,
+      });
+      expect(onConfirmed).toHaveBeenCalledTimes(1);
+      expect(store.bookings.get("booking-123")).toMatchObject({
+        status: "confirmed",
+        paymentStatus: "paid",
+        meetingUrl: generateMeetingUrl("booking-123"),
+      });
+    });
+
+    it("rejects a R$1 payment for a R$70 booking", async () => {
+      const store = createMemoryWebhookStore(
+        new Map([["booking-123", seventyRealBooking()]]),
+      );
+      const onConfirmed = vi.fn(async () => undefined);
+
+      const result = await processAsaasPaymentWebhook(
+        successfulEvent({ paidValue: 1 }),
+        { store, onConfirmed },
+      );
+
+      expect(result).toMatchObject({
+        kind: "amount_mismatch",
+        amountMismatch: true,
+        message: WEBHOOK_AMOUNT_MISMATCH_MESSAGE,
+      });
+      expect(onConfirmed).not.toHaveBeenCalled();
+      expect(store.bookings.get("booking-123")).toMatchObject({
+        status: "pending",
+        paymentStatus: "awaiting_payment",
+      });
+      expect(store.bookings.get("booking-123")?.meetingUrl).toBeUndefined();
+    });
+
+    it("rejects a R$69.99 payment for a R$70 booking", async () => {
+      const store = createMemoryWebhookStore(
+        new Map([["booking-123", seventyRealBooking()]]),
+      );
+      const onConfirmed = vi.fn(async () => undefined);
+
+      const result = await processAsaasPaymentWebhook(
+        successfulEvent({ paidValue: 69.99 }),
+        { store, onConfirmed },
+      );
+
+      expect(result.kind).toBe("amount_mismatch");
+      expect(onConfirmed).not.toHaveBeenCalled();
+      expect(store.bookings.get("booking-123")?.paymentStatus).toBe("awaiting_payment");
+    });
+
+    it("rejects a R$70.01 overpayment for a R$70 booking (exact-match policy)", async () => {
+      const store = createMemoryWebhookStore(
+        new Map([["booking-123", seventyRealBooking()]]),
+      );
+      const onConfirmed = vi.fn(async () => undefined);
+
+      const result = await processAsaasPaymentWebhook(
+        successfulEvent({ paidValue: 70.01 }),
+        { store, onConfirmed },
+      );
+
+      expect(result).toMatchObject({
+        kind: "amount_mismatch",
+        amountMismatch: true,
+        message: WEBHOOK_AMOUNT_MISMATCH_MESSAGE,
+      });
+      expect(onConfirmed).not.toHaveBeenCalled();
+      expect(store.bookings.get("booking-123")?.status).toBe("pending");
+    });
+
+    it("rejects a successful event with a missing Asaas amount", async () => {
+      const store = createMemoryWebhookStore(
+        new Map([["booking-123", seventyRealBooking()]]),
+      );
+      const onConfirmed = vi.fn(async () => undefined);
+
+      const result = await processAsaasPaymentWebhook(
+        successfulEvent({ paidValue: undefined }),
+        { store, onConfirmed },
+      );
+
+      expect(result.kind).toBe("amount_mismatch");
+      expect(onConfirmed).not.toHaveBeenCalled();
+      expect(store.bookings.get("booking-123")?.paymentStatus).not.toBe("paid");
+    });
+
+    it("rejects a malformed Asaas amount", async () => {
+      const store = createMemoryWebhookStore(
+        new Map([["booking-123", seventyRealBooking()]]),
+      );
+      const onConfirmed = vi.fn(async () => undefined);
+
+      const result = await processAsaasPaymentWebhook(
+        successfulEvent({ paidValue: "dez reais" }),
+        { store, onConfirmed },
+      );
+
+      expect(result.kind).toBe("amount_mismatch");
+      expect(onConfirmed).not.toHaveBeenCalled();
+    });
+
+    it("does not confirm a replay of the same mismatched payment", async () => {
+      const store = createMemoryWebhookStore(
+        new Map([["booking-123", seventyRealBooking()]]),
+      );
+      const onConfirmed = vi.fn(async () => undefined);
+      const event = successfulEvent({ paidValue: 1 });
+
+      await processAsaasPaymentWebhook(event, { store, onConfirmed });
+      const replay = await processAsaasPaymentWebhook(event, { store, onConfirmed });
+
+      expect(replay.alreadyProcessed).toBe(true);
+      expect(onConfirmed).not.toHaveBeenCalled();
+      expect(store.bookings.get("booking-123")?.paymentStatus).toBe("awaiting_payment");
+    });
   });
 });

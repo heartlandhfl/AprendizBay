@@ -32,10 +32,6 @@ export interface Booking {
 export interface CreateBookingInput {
   tutorId: string;
   type: BookingType;
-  price: number;
-  platformFee?: number;
-  tutorAmount?: number;
-  hubId?: string;
   scheduledAt: Date;
 }
 

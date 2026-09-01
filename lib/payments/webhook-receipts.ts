@@ -13,12 +13,15 @@ export const WEBHOOK_FAILED_MESSAGE = "Pagamento recusado.";
 export const WEBHOOK_EXPIRED_MESSAGE = "Checkout expirado ou cancelado.";
 export const WEBHOOK_CANCELLED_MESSAGE = "Reserva cancelada.";
 export const WEBHOOK_BOOKING_NOT_FOUND_MESSAGE = "Reserva não encontrada.";
+export const WEBHOOK_AMOUNT_MISMATCH_MESSAGE =
+  "O valor do pagamento não confere com a reserva.";
 
 export type AsaasWebhookReceiptOutcome =
   | "confirmed"
   | "already_confirmed"
   | "cancelled"
-  | "booking_not_found";
+  | "booking_not_found"
+  | "amount_mismatch";
 
 export interface AsaasWebhookReceipt {
   paymentId?: string;
@@ -26,6 +29,9 @@ export interface AsaasWebhookReceipt {
   bookingId?: string;
   event: string;
   outcome: AsaasWebhookReceiptOutcome;
+  expectedAmountCents?: number;
+  paidAmountCents?: number | null;
+  mismatchReason?: string;
   createdAt?: unknown;
 }
 

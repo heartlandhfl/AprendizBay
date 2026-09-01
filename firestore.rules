@@ -93,8 +93,11 @@ rules_version = '2';
 //        Vercel / next start: app/api/bookings + lib/bookings/server.ts
 //        Transaction: occupancy query (pending|confirmed) + lessonSlots/{tutorId}_{scheduledAtISO}
 //        immediately before commit. Cancelled releases the slot; completed stays historical.
-// MATCH  bookings create             → still student-only pending create (rules unchanged)
-//        App path for individual lessons is the Admin API above, not client addDoc.
+// ADMIN  bookings create (collective) → POST /api/hubs/join
+//        Hostinger Express: server/api/hubs.js
+//        Vercel / next start: app/api/hubs/join + lib/hubs/join-and-book.js
+//        Price is hub.currentPrice. Client booking create is denied.
+// DENY   bookings create             → clients cannot write financial booking records
 // MATCH  bookings student cancel       → unpaid client update; paid via /api/bookings/cancel + refund
 //        (role from uid vs studentId/tutorId; browser actor field is ignored)
 // MATCH  bookings tutor accept payment → lib/bookings/service.ts (paymentStatus, updatedAt)
@@ -561,26 +564,16 @@ service cloud.firestore {
           || resource.data.tutorId == request.auth.uid
           || isAdmin());
 
-      allow create: if isStudent()
-        && request.resource.data.studentId == request.auth.uid
-        && request.resource.data.status == "pending"
-        && request.resource.data.type in ["individual", "coletivo"]
-        && request.resource.data.price is number
-        && request.resource.data.price > 0
-        && (!("platformFee" in request.resource.data)
-          || (request.resource.data.platformFee is number
-            && request.resource.data.platformFee >= 0))
-        && (!("tutorAmount" in request.resource.data)
-          || (request.resource.data.tutorAmount is number
-            && request.resource.data.tutorAmount >= 0))
-        && (!("paymentStatus" in request.resource.data)
-          || request.resource.data.paymentStatus == "unpaid")
-        && isVerifiedTutor(request.resource.data.tutorId);
+      // Financial fields (price, platformFee, tutorAmount) are written only by
+      // Admin SDK booking APIs. Clients cannot create or price a booking.
+      allow create: if false;
 
       allow update: if isAdmin()
         || (resource.data.studentId == request.auth.uid
           && request.resource.data.status == "cancelled"
           && resource.data.status in ["pending", "confirmed"]
+          && !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(["price", "platformFee", "tutorAmount", "hubId"])
           && (!("paymentStatus" in resource.data)
             || resource.data.paymentStatus != "paid"))
         || (resource.data.tutorId == request.auth.uid
