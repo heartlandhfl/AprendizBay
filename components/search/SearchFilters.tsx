@@ -1,7 +1,7 @@
 "use client";
 
 import { SlidersHorizontal } from "lucide-react";
-import { PRICE_RANGES, SUBJECTS } from "@/lib/mock-tutors";
+import { PRICE_RANGES, SUBJECTS } from "@/lib/tutors/catalog-options";
 import { SEARCH_CITIES } from "@/lib/tutors/constants";
 import {
   ALL_CITIES_LABEL,

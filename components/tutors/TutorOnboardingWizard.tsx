@@ -6,7 +6,8 @@ import { Loader2 } from "lucide-react";
 import AvatarUpload from "@/components/uploads/AvatarUpload";
 import CredentialUpload from "@/components/uploads/CredentialUpload";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { SUBJECTS, type Modality } from "@/lib/mock-tutors";
+import type { Modality } from "@/lib/mock-tutors";
+import { SUBJECTS } from "@/lib/tutors/catalog-options";
 import { BRAZILIAN_STATES } from "@/lib/tutors/constants";
 import { createTutorProfile } from "@/lib/tutors/service";
 

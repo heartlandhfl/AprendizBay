@@ -11,13 +11,16 @@ import { areMockTutorsEnabled } from "@/lib/tutors/mock-gate";
 import { getPopularSubjectCityPairs } from "@/lib/seo/subject-city";
 
 const USER_FACING_PAGES = [
+  "app/page.tsx",
   "app/search/page.tsx",
   "app/tutor/[id]/page.tsx",
   "app/professores/page.tsx",
   "app/professores/[materia]/[cidade]/page.tsx",
   "app/sitemap.ts",
   "components/search/SearchResults.tsx",
+  "components/search/SearchFilters.tsx",
   "components/hubs/CollectiveClassDetail.tsx",
+  "components/hubs/CreateHubForm.tsx",
 ];
 
 const MOCK_IDENTITIES = [
@@ -29,14 +32,14 @@ const MOCK_IDENTITIES = [
 ];
 
 describe("production mock tutor guard", () => {
-  it("proves MOCK_TUTORS cannot appear when NODE_ENV=production", () => {
+  it("proves MOCK_TUTORS cannot appear when NODE_ENV=production", async () => {
     const env = {
       NODE_ENV: "production",
       ENABLE_MOCK_TUTORS: "true",
       NEXT_PUBLIC_ENABLE_MOCK_TUTORS: "true",
     };
 
-    const fallback = getMockTutorsForFallback(env);
+    const fallback = await getMockTutorsForFallback(env);
     const catalog = resolveFailedTutorCatalog("unavailable", {
       mocksEnabled: areMockTutorsEnabled(env),
       mockItems: MOCK_TUTORS,
@@ -63,6 +66,11 @@ describe("production mock tutor guard", () => {
       expect(source, relativePath).not.toMatch(/TUTOR_PROFILE_DETAILS/);
       expect(source, relativePath).not.toMatch(/from ["']@\/lib\/tutor-profiles["']/);
     }
+  });
+
+  it("keeps production filter constants free of fictional tutor records", () => {
+    const source = readFileSync(resolve(process.cwd(), "lib/tutors/catalog-options.ts"), "utf8");
+    expect(source).not.toMatch(/Mariana Silva|rating: 4\.9|reviewCount/);
   });
 
   it("gates every Firebase fallback through the mock flag", () => {

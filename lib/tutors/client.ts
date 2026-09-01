@@ -15,6 +15,7 @@ import {
   type TutorListResult,
 } from "@/lib/tutors/catalog";
 import { getMockTutorsForFallback } from "@/lib/tutors/fallback";
+import { rejectMockTutorInventory } from "@/lib/tutors/mock-identities";
 import { areMockTutorsEnabled } from "@/lib/tutors/mock-gate";
 import type {
   AdminTutorApplication,
@@ -75,7 +76,7 @@ export async function fetchVerifiedTutors(
   if (!app) {
     return resolveFailedTutorCatalog("unavailable", {
       mocksEnabled: areMockTutorsEnabled(),
-      mockItems: getMockTutorsForFallback().filter((tutor) => tutor.isVerified !== false),
+      mockItems: (await getMockTutorsForFallback()).filter((tutor) => tutor.isVerified !== false),
     });
   }
 
@@ -106,12 +107,12 @@ export async function fetchVerifiedTutors(
       })
       .filter((tutor): tutor is Tutor => tutor !== null);
 
-    return okTutorList(tutors);
+    return okTutorList(rejectMockTutorInventory(tutors));
   } catch (error) {
     console.error("[Aprendiz Bay] Erro ao buscar tutores no Firestore:", error);
     return resolveFailedTutorCatalog("error", {
       mocksEnabled: areMockTutorsEnabled(),
-      mockItems: getMockTutorsForFallback().filter((tutor) => tutor.isVerified !== false),
+      mockItems: (await getMockTutorsForFallback()).filter((tutor) => tutor.isVerified !== false),
     });
   }
 }

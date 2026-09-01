@@ -5,7 +5,7 @@ import { Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { buildHubSchedule } from "@/lib/hubs/public";
 import { createCollectiveHub } from "@/lib/hubs/service";
-import { SUBJECTS } from "@/lib/mock-tutors";
+import { SUBJECTS } from "@/lib/tutors/catalog-options";
 import { useTutorProfile } from "@/lib/tutors/useTutorProfile";
 import { isMarketplaceVisible } from "@/lib/tutors/verification";
 

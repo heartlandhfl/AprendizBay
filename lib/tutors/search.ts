@@ -1,9 +1,5 @@
-import {
-  PRICE_RANGES,
-  type FilterLessonType,
-  type FilterModality,
-  type Tutor,
-} from "@/lib/mock-tutors";
+import type { FilterLessonType, FilterModality, Tutor } from "@/lib/mock-tutors";
+import { PRICE_RANGES } from "@/lib/tutors/catalog-options";
 import { slugsMatch } from "@/lib/seo/slugs";
 import type { FirestoreTutorDoc } from "@/lib/tutors/firestore-types";
 import { isMarketplaceVisible } from "@/lib/tutors/verification";

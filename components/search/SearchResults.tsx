@@ -14,12 +14,8 @@ import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
 import CatalogLoadState from "@/components/catalog/CatalogLoadState";
 import { fetchOpenCollectiveHubs } from "@/lib/hubs/service";
 import type { CollectiveHubLive } from "@/lib/hubs/types";
-import {
-  PRICE_RANGES,
-  SUBJECTS,
-  type FilterModality,
-  type Tutor,
-} from "@/lib/mock-tutors";
+import type { FilterModality, Tutor } from "@/lib/mock-tutors";
+import { PRICE_RANGES, SUBJECTS } from "@/lib/tutors/catalog-options";
 import { isCatalogProblem, type TutorCatalogState } from "@/lib/tutors/catalog";
 import { SEARCH_CITIES } from "@/lib/tutors/constants";
 import { fetchVerifiedTutors } from "@/lib/tutors/client";

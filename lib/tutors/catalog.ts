@@ -1,3 +1,6 @@
+import { rejectMockTutorInventory } from "@/lib/tutors/mock-identities";
+import type { MockTutorEnv } from "@/lib/tutors/mock-gate";
+
 export type TutorCatalogState = "ok" | "empty" | "unavailable" | "error";
 export type TutorProfileState = "ok" | "not_found" | "unavailable" | "error";
 export type HubLoadState = "ok" | "empty" | "not_found" | "unavailable" | "error";
@@ -112,12 +115,15 @@ export function resolveFailedHubItem<T>(
   return { state: failure, hub: null };
 }
 
-export function tutorsForPublicPages<T>(catalog: TutorListResult<T>): T[] {
+export function tutorsForPublicPages<T>(
+  catalog: TutorListResult<T>,
+  env: MockTutorEnv = process.env,
+): T[] {
   if (catalog.state === "unavailable" || catalog.state === "error") {
     return [];
   }
 
-  return catalog.items;
+  return rejectMockTutorInventory(catalog.items, env);
 }
 
 export function isCatalogProblem(
