@@ -10,11 +10,11 @@ import {
 import type { Tutor } from "@/lib/mock-tutors";
 import { db, ensureFirebaseApp } from "@/lib/firebase/client";
 import {
+  failedTutorList,
   okTutorList,
   resolveFailedTutorCatalog,
   type TutorListResult,
 } from "@/lib/tutors/catalog";
-import { getMockTutorsForFallback } from "@/lib/tutors/fallback";
 import { rejectMockTutorInventory } from "@/lib/tutors/mock-identities";
 import { areMockTutorsEnabled } from "@/lib/tutors/mock-gate";
 import type {
@@ -28,6 +28,20 @@ import {
   firestoreSearchConstraints,
   isEligibleForSearch,
 } from "@/lib/tutors/search";
+
+async function catalogWhenFirebaseMissing(
+  failure: "unavailable" | "error",
+): Promise<TutorListResult<Tutor>> {
+  if (process.env.NODE_ENV === "production") {
+    return failedTutorList(failure);
+  }
+
+  const { getMockTutorsForFallback } = await import("./fallback");
+  return resolveFailedTutorCatalog(failure, {
+    mocksEnabled: areMockTutorsEnabled(),
+    mockItems: (await getMockTutorsForFallback()).filter((tutor) => tutor.isVerified !== false),
+  });
+}
 
 export async function fetchAdminTutorApplications(): Promise<AdminTutorApplication[]> {
   const app = await ensureFirebaseApp();
@@ -74,10 +88,7 @@ export async function fetchVerifiedTutors(
 ): Promise<TutorListResult<Tutor>> {
   const app = await ensureFirebaseApp();
   if (!app) {
-    return resolveFailedTutorCatalog("unavailable", {
-      mocksEnabled: areMockTutorsEnabled(),
-      mockItems: (await getMockTutorsForFallback()).filter((tutor) => tutor.isVerified !== false),
-    });
+    return catalogWhenFirebaseMissing("unavailable");
   }
 
   try {
@@ -110,9 +121,6 @@ export async function fetchVerifiedTutors(
     return okTutorList(rejectMockTutorInventory(tutors));
   } catch (error) {
     console.error("[Aprendiz Bay] Erro ao buscar tutores no Firestore:", error);
-    return resolveFailedTutorCatalog("error", {
-      mocksEnabled: areMockTutorsEnabled(),
-      mockItems: (await getMockTutorsForFallback()).filter((tutor) => tutor.isVerified !== false),
-    });
+    return catalogWhenFirebaseMissing("error");
   }
 }

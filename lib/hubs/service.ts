@@ -63,30 +63,12 @@ function throwJoinError(code: HubJoinErrorCode): never {
 }
 
 async function getMockOpenHubs(): Promise<CollectiveHubLive[]> {
-  if (!areMockTutorsEnabled() || process.env.NODE_ENV === "production") {
+  if (process.env.NODE_ENV === "production" || !areMockTutorsEnabled()) {
     return [];
   }
 
-  const { getTutorProfile } = await import("../tutor-profiles");
-
-  return ["1", "2", "3", "4", "5"].flatMap((tutorId) => {
-    const profile = getTutorProfile(tutorId);
-    if (!profile) {
-      return [];
-    }
-
-    return profile.collectiveHubs
-      .filter((hub) => hub.confirmedStudents < hub.maxStudents)
-      .map((hub) => ({
-        ...hub,
-        subject: hub.subject || profile.subject,
-        tutorName: hub.tutorName || profile.name,
-        individualPrice: hub.individualPrice || profile.individualPrice,
-        tutorId: profile.id,
-        status: "open",
-        isJoined: false,
-      }));
-  });
+  const { loadMockOpenHubs } = await import("./mock-hubs");
+  return loadMockOpenHubs();
 }
 
 export async function createCollectiveHub(

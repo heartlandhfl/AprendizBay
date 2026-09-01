@@ -1,39 +1,48 @@
 import { isProductionNodeEnv, type MockTutorEnv } from "@/lib/tutors/mock-gate";
 
 /**
- * Known fictional marketplace identities from development fixtures.
- * Production public surfaces must never emit these names, ids, or hubs —
- * even if Firestore was accidentally seeded with MOCK_TUTORS.
+ * FNV-1a fingerprints of development fixture identities.
+ * The plaintext names/ids live only in `lib/mock-tutors.ts` and tests so
+ * production bundles cannot ship fictional marketplace inventory.
  */
-export const KNOWN_MOCK_TUTOR_NAMES = [
-  "Mariana Silva",
-  "Lucas Ferreira",
-  "Rodrigo Almeida",
-  "Fernanda Costa",
-  "André Martins",
-  "Andre Martins",
-] as const;
+const BLOCKED_FINGERPRINTS = new Set([
+  "122af905",
+  "c1b70a03",
+  "6162b514",
+  "1d767518",
+  "743da987",
+  "df05a38b",
+  "340ca71c",
+  "370cabd5",
+  "360caa42",
+  "310ca263",
+  "300ca0d0",
+  "091187b1",
+  "061182f8",
+  "0d13cc94",
+  "1013d14d",
+  "78c941e6",
+  "90fb047a",
+  "8ffb02e7",
+  "00f36605",
+]);
 
-export const KNOWN_MOCK_TUTOR_IDS = ["1", "2", "3", "4", "5"] as const;
+export function fingerprintMockIdentity(value: string): string {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i += 1) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
 
-export const KNOWN_MOCK_HUB_IDS = [
-  "hub-m1",
-  "hub-m2",
-  "hub-l1",
-  "hub-l2",
-  "hub-r1",
-  "hub-f1",
-  "hub-f2",
-  "hub-a1",
-] as const;
-
-const MOCK_TUTOR_NAMES = new Set<string>(KNOWN_MOCK_TUTOR_NAMES);
-const MOCK_TUTOR_IDS = new Set<string>(KNOWN_MOCK_TUTOR_IDS);
-const MOCK_HUB_IDS = new Set<string>(KNOWN_MOCK_HUB_IDS);
+function isBlockedIdentity(value: string): boolean {
+  return BLOCKED_FINGERPRINTS.has(fingerprintMockIdentity(value));
+}
 
 export function isKnownMockInventoryItem(item: unknown): boolean {
   if (typeof item === "string") {
-    return MOCK_TUTOR_IDS.has(item) || MOCK_HUB_IDS.has(item) || MOCK_TUTOR_NAMES.has(item);
+    return isBlockedIdentity(item);
   }
 
   if (!item || typeof item !== "object") {
@@ -41,13 +50,13 @@ export function isKnownMockInventoryItem(item: unknown): boolean {
   }
 
   const record = item as { id?: unknown; name?: unknown; tutorName?: unknown };
-  if (typeof record.name === "string" && MOCK_TUTOR_NAMES.has(record.name)) {
+  if (typeof record.name === "string" && isBlockedIdentity(record.name)) {
     return true;
   }
-  if (typeof record.tutorName === "string" && MOCK_TUTOR_NAMES.has(record.tutorName)) {
+  if (typeof record.tutorName === "string" && isBlockedIdentity(record.tutorName)) {
     return true;
   }
-  if (typeof record.id === "string" && (MOCK_TUTOR_IDS.has(record.id) || MOCK_HUB_IDS.has(record.id))) {
+  if (typeof record.id === "string" && isBlockedIdentity(record.id)) {
     return true;
   }
 

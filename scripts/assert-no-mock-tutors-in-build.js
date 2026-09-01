@@ -61,6 +61,9 @@ function shouldScan(filePath, root) {
   if (rel.startsWith(`static${path.sep}chunks${path.sep}`) && CLIENT_EXTENSIONS.has(ext)) {
     return true;
   }
+  if (rel.startsWith(`server${path.sep}chunks${path.sep}`) && CLIENT_EXTENSIONS.has(ext)) {
+    return true;
+  }
   return false;
 }
 

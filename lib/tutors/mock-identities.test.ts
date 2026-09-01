@@ -1,12 +1,33 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { MOCK_TUTORS } from "@/lib/mock-tutors";
 import {
+  fingerprintMockIdentity,
   isKnownMockInventoryItem,
   rejectMockTutorInventory,
 } from "@/lib/tutors/mock-identities";
 
+const FIXTURE_NAMES = [
+  "Mariana Silva",
+  "Lucas Ferreira",
+  "Rodrigo Almeida",
+  "Fernanda Costa",
+  "André Martins",
+];
+
 describe("mock tutor identities", () => {
-  it("recognizes the audited fictional marketplace names", () => {
+  it("does not embed fixture names in the production guard module", () => {
+    const source = readFileSync(resolve(process.cwd(), "lib/tutors/mock-identities.ts"), "utf8");
+    for (const name of FIXTURE_NAMES) {
+      expect(source).not.toContain(name);
+    }
+    expect(source).not.toContain("hub-m1");
+    expect(source).not.toMatch(/name: "Mariana/);
+  });
+
+  it("recognizes the audited fictional marketplace names by fingerprint", () => {
+    expect(fingerprintMockIdentity("Mariana Silva")).toBe("122af905");
     expect(isKnownMockInventoryItem({ name: "Mariana Silva" })).toBe(true);
     expect(isKnownMockInventoryItem({ id: "1" })).toBe(true);
     expect(isKnownMockInventoryItem({ id: "hub-m1" })).toBe(true);
