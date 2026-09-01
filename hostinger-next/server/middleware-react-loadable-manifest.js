@@ -1,1 +1,1 @@
-self.__REACT_LOADABLE_MANIFEST="{}";
+self.__REACT_LOADABLE_MANIFEST='{"lib/hubs/service.ts -> ./mock-hubs":{"id":2516,"files":["static/chunks/2516.3b71b27469125063.js"]},"lib/tutors/client.ts -> ./fallback":{"id":8627,"files":["static/chunks/8627.5ade985e3e440fc3.js"]},"lib/tutors/fallback.ts -> ../mock-tutors":{"id":4934,"files":["static/chunks/4934.f75adce4d97e98a9.js"]},"lib/tutors/fallback.ts -> ../tutor-profiles":{"id":4659,"files":["static/chunks/4659.6d31af161aecf065.js"]}}';
