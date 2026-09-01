@@ -187,7 +187,7 @@ Use Vercel (or Netlify, Railway, a VPS with `next start`, etc.) when you need th
 | `NEXT_PUBLIC_SITE_URL` | Your production URL, e.g. `https://www.aprendizbay.com.br` (Open Graph / `metadataBase`) |
 | `ASAAS_API_KEY` | Asaas API key (`access_token`). Use a sandbox key (`$aact_hmlg_...`) until you switch environments |
 | `ASAAS_ENVIRONMENT` | `sandbox` (default, `https://api-sandbox.asaas.com/v3`) or `production` (`https://api.asaas.com/v3`) |
-| `ASAAS_WEBHOOK_TOKEN` | Optional token Asaas sends as `asaas-access-token` |
+| `ASAAS_WEBHOOK_TOKEN` | Required shared secret Asaas sends as `asaas-access-token`. Missing or wrong tokens reject the webhook without changing bookings |
 | `RESEND_API_KEY` | [Resend](https://resend.com) API key (preferred mailer) |
 | `SENDGRID_API_KEY` | SendGrid API key (used if Resend is unset) |
 | `EMAIL_FROM` | From header, e.g. `Aprendiz Bay <noreply@aprendizbay.com.br>` |
