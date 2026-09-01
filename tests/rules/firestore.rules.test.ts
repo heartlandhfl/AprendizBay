@@ -269,6 +269,41 @@ describe("firestore.rules", () => {
       );
     });
 
+    it("authenticated student → direct booking create → DENIED", async () => {
+      await seedBaseDocs({ tutorVerified: true, verificationStatus: "approved" });
+
+      await assertFails(
+        addDoc(collection(studentDb(), "bookings"), pendingBookingPayload()),
+      );
+      await assertFails(
+        setDoc(doc(studentDb(), "bookings", "client-forged"), pendingBookingPayload()),
+      );
+    });
+
+    it("unauthenticated user → direct booking create → DENIED", async () => {
+      await seedBaseDocs({ tutorVerified: true, verificationStatus: "approved" });
+
+      await assertFails(
+        addDoc(collection(guestDb(), "bookings"), pendingBookingPayload()),
+      );
+      await assertFails(
+        setDoc(doc(guestDb(), "bookings", "anon-forged"), pendingBookingPayload()),
+      );
+    });
+
+    it("authorized server booking API → allowed", async () => {
+      await seedBaseDocs({ tutorVerified: true, verificationStatus: "approved" });
+
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await assertSucceeds(
+          addDoc(collection(context.firestore(), "bookings"), {
+            ...pendingBookingPayload(),
+            slotKey: "tutor-1_2026-09-08T19:00:00.000Z",
+          }),
+        );
+      });
+    });
+
     it("denies a student creating a booking with an arbitrary low price", async () => {
       await seedBaseDocs({ tutorVerified: true, verificationStatus: "approved" });
 

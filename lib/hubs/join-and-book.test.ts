@@ -171,4 +171,36 @@ describe("createCollectiveBookingForStudent", () => {
     });
     expect(store.bookings.size).toBe(0);
   });
+
+  it("rejects an unauthenticated join", async () => {
+    const store = createMemoryJoinStore({
+      hubs: { [HUB_ID]: openHub() },
+    });
+
+    await expect(
+      createCollectiveBookingForStudent(store.db, { hubId: HUB_ID }, deps),
+    ).rejects.toMatchObject({
+      code: "UNAUTHENTICATED",
+      message: JOIN_AND_BOOK_ERRORS.UNAUTHENTICATED,
+    });
+    expect(store.bookings.size).toBe(0);
+  });
+
+  it("rejects a tutor trying to join as a student", async () => {
+    const store = createMemoryJoinStore({
+      users: { "tutor-1": { role: "tutor" } },
+      hubs: { [HUB_ID]: openHub() },
+    });
+
+    await expect(
+      createCollectiveBookingForStudent(
+        store.db,
+        { actorUid: "tutor-1", hubId: HUB_ID },
+        deps,
+      ),
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN_ROLE",
+    });
+    expect(store.bookings.size).toBe(0);
+  });
 });

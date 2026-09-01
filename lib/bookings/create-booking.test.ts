@@ -22,16 +22,32 @@ function approvedTutor() {
   };
 }
 
+function weeklyMatching(date: Date) {
+  const startMinutes = date.getHours() * 60 + date.getMinutes();
+  const endMinutes = startMinutes + 60;
+  return {
+    slots: [
+      {
+        weekday: date.getDay(),
+        startTime: `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`,
+        endTime: `${String(Math.floor(endMinutes / 60)).padStart(2, "0")}:${String(endMinutes % 60).padStart(2, "0")}`,
+      },
+    ],
+  };
+}
+
 function createMemoryCreateStore(
   seed: {
     users?: Record<string, Record<string, unknown>>;
     tutors?: Record<string, Record<string, unknown>>;
+    availability?: Record<string, Record<string, unknown>>;
     bookings?: Array<Record<string, unknown> & { id: string }>;
     slots?: Record<string, Record<string, unknown>>;
   } = {},
 ) {
   const users = { ...(seed.users ?? {}) };
   const tutors = { ...(seed.tutors ?? {}) };
+  const availability = { ...(seed.availability ?? {}) };
   const bookings = new Map(
     (seed.bookings ?? []).map((booking) => [booking.id, { ...booking }]),
   );
@@ -67,6 +83,21 @@ function createMemoryCreateStore(
               async get() {
                 const data = tutors[id];
                 return { exists: Boolean(data), data: () => data };
+              },
+              collection(subName: string) {
+                if (subName !== "availability") {
+                  throw new Error(`unexpected subcollection ${subName}`);
+                }
+                return {
+                  doc(docId: string) {
+                    return {
+                      async get() {
+                        const data = availability[`${id}/${docId}`];
+                        return { exists: Boolean(data), data: () => data };
+                      },
+                    };
+                  },
+                };
               },
             };
           },
@@ -109,6 +140,10 @@ function createMemoryCreateStore(
             return {
               id: bookingId,
               path: `bookings/${bookingId}`,
+              async get() {
+                const data = bookings.get(bookingId);
+                return { exists: Boolean(data), id: bookingId, data: () => data };
+              },
             };
           },
         };
@@ -256,6 +291,7 @@ describe("createIndividualBookingForStudent", () => {
         "student-b": { role: "student" },
       },
       tutors: { [TUTOR_ID]: approvedTutor() },
+      availability: { [`${TUTOR_ID}/weekly`]: weeklyMatching(SLOT) },
       bookings: extras.bookings,
     });
   }
@@ -475,6 +511,7 @@ describe("createIndividualBookingForStudent", () => {
           verificationStatus: "approved",
         },
       },
+      availability: { [`${TUTOR_ID}/weekly`]: weeklyMatching(SLOT) },
     });
 
     await expect(
@@ -493,5 +530,100 @@ describe("createIndividualBookingForStudent", () => {
       message: CREATE_BOOKING_ERRORS.INVALID_PRICE,
     });
     expect(store.bookings.size).toBe(0);
+  });
+
+  it("rejects a slot that is not in the tutor weekly availability", async () => {
+    const store = seededStore();
+    const unoffered = new Date(SLOT);
+    unoffered.setHours((SLOT.getHours() + 6) % 24, 0, 0, 0);
+
+    await expect(
+      createIndividualBookingForStudent(
+        store.db,
+        {
+          actorUid: "student-a",
+          tutorId: TUTOR_ID,
+          scheduledAt: unoffered,
+          price: 70,
+        },
+        deps,
+      ),
+    ).rejects.toMatchObject({
+      code: "SLOT_NOT_OFFERED",
+      message: CREATE_BOOKING_ERRORS.SLOT_NOT_OFFERED,
+    });
+    expect(store.bookings.size).toBe(0);
+  });
+
+  it("rejects a create when lessonSlots already holds the tutor/time", async () => {
+    const slotKey = `tutor-1_${SLOT.toISOString()}`;
+    const store = createMemoryCreateStore({
+      users: { "student-b": { role: "student" } },
+      tutors: { [TUTOR_ID]: approvedTutor() },
+      availability: { [`${TUTOR_ID}/weekly`]: weeklyMatching(SLOT) },
+      bookings: [
+        {
+          id: "held-booking",
+          studentId: "student-a",
+          tutorId: TUTOR_ID,
+          type: "individual",
+          status: "pending",
+          scheduledAt: SLOT,
+        },
+      ],
+      slots: {
+        [slotKey]: {
+          tutorId: TUTOR_ID,
+          bookingId: "held-booking",
+          status: "held",
+        },
+      },
+    });
+
+    await expect(
+      createIndividualBookingForStudent(
+        store.db,
+        {
+          actorUid: "student-b",
+          tutorId: TUTOR_ID,
+          scheduledAt: SLOT,
+          studentId: "student-b",
+          status: "confirmed",
+          paymentStatus: "paid",
+          price: 1,
+        },
+        deps,
+      ),
+    ).rejects.toMatchObject({
+      code: "SLOT_TAKEN",
+      message: CREATE_BOOKING_ERRORS.SLOT_TAKEN,
+    });
+    expect(store.bookings.size).toBe(1);
+  });
+
+  it("uses the authenticated student id and ignores a client-supplied studentId or status", async () => {
+    const store = seededStore();
+
+    const result = await createIndividualBookingForStudent(
+      store.db,
+      {
+        actorUid: "student-a",
+        tutorId: TUTOR_ID,
+        scheduledAt: SLOT,
+        studentId: "attacker",
+        tutorIdFromClient: "other-tutor",
+        status: "confirmed",
+        paymentStatus: "paid",
+        isVerified: true,
+      },
+      deps,
+    );
+
+    expect(store.bookings.get(result.bookingId)).toMatchObject({
+      studentId: "student-a",
+      tutorId: TUTOR_ID,
+      status: "pending",
+      paymentStatus: "unpaid",
+    });
   });
 });

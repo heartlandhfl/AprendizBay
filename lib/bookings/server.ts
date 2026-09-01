@@ -80,6 +80,7 @@ export interface BookingRecord {
   meetingUrl?: string;
   scheduledAt: Date;
   completedAt?: Date;
+  slotKey?: string;
 }
 
 function optionalDate(value: unknown): Date | undefined {
@@ -125,6 +126,7 @@ export function mapBookingRecord(
     meetingUrl: data.meetingUrl ? String(data.meetingUrl) : undefined,
     scheduledAt: toScheduledDate(data.scheduledAt),
     completedAt: optionalDate(data.completedAt),
+    slotKey: data.slotKey ? String(data.slotKey) : undefined,
   };
 }
 
@@ -202,13 +204,19 @@ function createFirestoreCancelStore(db: Firestore): CancelStore {
     async runAtomic<T>(work: (tx: CancelTransaction) => Promise<T>): Promise<T> {
       return db.runTransaction(async (transaction) => {
         const pendingWrites: Array<() => void> = [];
+        const seen = new Map<string, BookingRecord>();
         const tx: CancelTransaction = {
           async getBooking(bookingId) {
             const snap = await transaction.get(db.collection("bookings").doc(bookingId));
             if (!snap.exists) {
               return null;
             }
-            return mapBookingRecord(snap.id, (snap.data() ?? {}) as Record<string, unknown>);
+            const record = mapBookingRecord(
+              snap.id,
+              (snap.data() ?? {}) as Record<string, unknown>,
+            );
+            seen.set(bookingId, record);
+            return record;
           },
           updateBooking(bookingId, updates) {
             const ref = db.collection("bookings").doc(bookingId);
@@ -222,7 +230,13 @@ function createFirestoreCancelStore(db: Firestore): CancelStore {
             if (payload.refundStatus === null) {
               payload.refundStatus = FieldValue.delete();
             }
-            pendingWrites.push(() => transaction.update(ref, payload));
+            pendingWrites.push(() => {
+              transaction.update(ref, payload);
+              const booking = seen.get(bookingId);
+              if (updates.status === "cancelled" && booking?.slotKey) {
+                transaction.delete(db.collection("lessonSlots").doc(booking.slotKey));
+              }
+            });
           },
         };
         const result = await work(tx);
