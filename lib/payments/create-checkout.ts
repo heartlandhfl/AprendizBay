@@ -18,6 +18,7 @@ import {
   type AsaasCustomerData,
 } from "@/lib/payments/asaas";
 import { getPlatformFeePercent, splitBookingPrice } from "@/lib/payments/fees";
+import { authoritativeLessonPrice } from "@/lib/payments/money";
 import { canStartCheckout } from "@/lib/payments/status";
 
 export const CHECKOUT_LOCK_MS = 45_000;
@@ -105,7 +106,7 @@ function validatePayableBooking(
   if (!canStartCheckout(booking)) {
     return fail(409, CHECKOUT_ERRORS.awaitingTutor);
   }
-  if (!Number.isFinite(booking.price) || booking.price <= 0) {
+  if (!authoritativeLessonPrice(booking.price)) {
     return fail(400, CHECKOUT_ERRORS.invalidPrice);
   }
   return null;
@@ -502,7 +503,7 @@ export async function createBookingCheckout(
       bookingId: payable.id,
       itemName: `Aula ${typeLabel}`.slice(0, 30),
       itemDescription: `Pagamento da aula ${typeLabel.toLowerCase()} no Aprendiz Bay`,
-      value: payable.price,
+      value: authoritativeLessonPrice(payable.price)?.price ?? payable.price,
       customer: input.customer,
       successUrl: `${input.siteUrl}/bookings?pagamento=sucesso`,
       cancelUrl: `${input.siteUrl}/bookings?pagamento=cancelado`,

@@ -19,7 +19,7 @@ Paid bookings can be cancelled only through `POST /api/bookings/cancel`. Student
 
 1. `POST /api/payments/create-checkout` creates a sandbox checkout at `https://api-sandbox.asaas.com/v3/checkouts` (or production `https://api.asaas.com/v3/checkouts` when `ASAAS_ENVIRONMENT=production`).
 2. The student is redirected to `https://asaas.com/checkoutSession/show?id={id}` (or the `link` returned by Asaas).
-3. `POST /api/payments/webhook` confirms the booking with `confirmBookingWithMeetingUrl` when Asaas reports a successful payment (`externalReference` is the booking ID).
+3. `POST /api/payments/webhook` confirms the booking only when Asaas reports a successful payment whose amount matches the stored booking price (`externalReference` is the booking ID).
 4. `POST /api/bookings/cancel` estorna a cobrança em `POST /v3/payments/{id}/refund` quando a reserva já está paga e o cancelamento é permitido.
 
 ## Desenvolvimento

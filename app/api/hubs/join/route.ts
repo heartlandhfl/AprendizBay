@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUserProfile, verifyUserIdToken } from "@/lib/auth/admin-server";
-import { statusFromCreateBookingError } from "@/lib/bookings/create-booking";
-import { createIndividualBookingAsStudent } from "@/lib/bookings/server";
+import { createCollectiveBookingAsStudent } from "@/lib/bookings/server";
+import { statusFromJoinAndBookError } from "@/lib/hubs/join-and-book";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,39 +12,31 @@ function readBearerToken(request: Request): string {
 }
 
 /**
- * Vercel / next start counterpart to POST /api/bookings
- * (server/api/bookings.js on Hostinger Express). Authoritative
- * individual-slot check runs in a Firestore transaction immediately
- * before the booking is committed.
+ * Server-authoritative collective join + booking.
+ * The client identifies the turma; price comes from collectiveHubs.currentPrice.
  */
 export async function POST(request: Request) {
   try {
     const { uid } = await verifyUserIdToken(readBearerToken(request));
-    const body = (await request.json()) as {
-      tutorId?: string;
-      type?: string;
-      scheduledAt?: string;
-    };
+    const body = (await request.json()) as { hubId?: string };
     const profile = await getUserProfile(uid);
 
-    const result = await createIndividualBookingAsStudent({
+    const result = await createCollectiveBookingAsStudent({
       actorUid: uid,
       actorRole: profile?.role,
-      tutorId: body.tutorId,
-      type: body.type,
-      scheduledAt: body.scheduledAt,
+      hubId: body.hubId,
     });
 
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Não foi possível criar a reserva.";
+      error instanceof Error ? error.message : "Não foi possível entrar nesta turma.";
     return NextResponse.json(
       {
         error: message,
         code: error && typeof error === "object" && "code" in error ? error.code : undefined,
       },
-      { status: statusFromCreateBookingError(error) },
+      { status: statusFromJoinAndBookError(error) },
     );
   }
 }

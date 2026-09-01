@@ -48,7 +48,6 @@ export function assertCanCreateIndividualBooking(
   actorUid: string;
   tutorId: string;
   scheduledAt: Date;
-  price: number;
 };
 
 export function statusFromCreateBookingError(error: unknown): number;

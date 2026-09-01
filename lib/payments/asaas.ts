@@ -68,6 +68,8 @@ export interface AsaasWebhookMatch {
   bookingId?: string;
   paymentId?: string;
   asaasCheckoutId?: string;
+  /** Raw Asaas charged amount (`payment.value` / `checkout.value`). */
+  paidValue?: unknown;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -445,6 +447,12 @@ export function parseAsaasWebhook(payload: unknown): AsaasWebhookMatch {
       readString(payment.checkoutSession) ??
       readString(checkout.id) ??
       readString(body.checkoutSession),
+    paidValue:
+      payment.value !== undefined
+        ? payment.value
+        : checkout.value !== undefined
+          ? checkout.value
+          : body.value,
   };
 }
 

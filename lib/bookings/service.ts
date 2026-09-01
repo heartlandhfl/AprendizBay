@@ -22,7 +22,6 @@ import { CREATE_BOOKING_ERRORS } from "@/lib/bookings/create-booking";
 import { parseOccupiedStarts } from "@/lib/bookings/occupancy";
 import type { Modality } from "@/lib/mock-tutors";
 import { requestNotification } from "@/lib/notifications/client";
-import { loadPlatformFeePercent, splitBookingPrice } from "@/lib/payments/fees";
 
 function readOptionalMoney(value: unknown): number | undefined {
   if (typeof value !== "number" || !Number.isFinite(value)) {
@@ -74,11 +73,6 @@ export async function createBooking(
     throw new Error(CREATE_BOOKING_ERRORS.UNAUTHENTICATED);
   }
 
-  const feeSplit =
-    typeof input.platformFee === "number" && typeof input.tutorAmount === "number"
-      ? { platformFee: input.platformFee, tutorAmount: input.tutorAmount }
-      : splitBookingPrice(input.price, await loadPlatformFeePercent());
-
   const idToken = await user.getIdToken();
   const response = await fetch("/api/bookings", {
     method: "POST",
@@ -89,9 +83,6 @@ export async function createBooking(
     body: JSON.stringify({
       tutorId: input.tutorId,
       type: input.type,
-      price: input.price,
-      platformFee: feeSplit.platformFee,
-      tutorAmount: feeSplit.tutorAmount,
       scheduledAt: input.scheduledAt.toISOString(),
     }),
   });

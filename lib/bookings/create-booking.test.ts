@@ -18,6 +18,7 @@ function approvedTutor() {
     name: "Mariana",
     isVerified: true,
     verificationStatus: "approved",
+    individualPrice: 70,
   };
 }
 
@@ -439,5 +440,58 @@ describe("createIndividualBookingForStudent", () => {
       type: "coletivo",
       status: "pending",
     });
+  });
+
+  it("stores the tutor individualPrice and ignores a client-supplied price and fee split", async () => {
+    const store = seededStore();
+
+    const result = await createIndividualBookingForStudent(
+      store.db,
+      {
+        actorUid: "student-a",
+        tutorId: TUTOR_ID,
+        scheduledAt: SLOT,
+        price: 1,
+        platformFee: 0,
+        tutorAmount: 1,
+      },
+      deps,
+    );
+
+    expect(store.bookings.get(result.bookingId)).toMatchObject({
+      price: 70,
+      platformFee: 7,
+      tutorAmount: 63,
+    });
+  });
+
+  it("rejects a booking when the tutor has no valid individualPrice", async () => {
+    const store = createMemoryCreateStore({
+      users: { "student-a": { role: "student" } },
+      tutors: {
+        [TUTOR_ID]: {
+          userId: TUTOR_ID,
+          isVerified: true,
+          verificationStatus: "approved",
+        },
+      },
+    });
+
+    await expect(
+      createIndividualBookingForStudent(
+        store.db,
+        {
+          actorUid: "student-a",
+          tutorId: TUTOR_ID,
+          scheduledAt: SLOT,
+          price: 70,
+        },
+        deps,
+      ),
+    ).rejects.toMatchObject({
+      code: "INVALID_PRICE",
+      message: CREATE_BOOKING_ERRORS.INVALID_PRICE,
+    });
+    expect(store.bookings.size).toBe(0);
   });
 });

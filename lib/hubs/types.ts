@@ -29,7 +29,4 @@ export interface CreateCollectiveHubInput {
 
 export interface JoinCollectiveClassInput {
   hubId: string;
-  tutorId: string;
-  price: number;
-  scheduledAt: Date;
 }

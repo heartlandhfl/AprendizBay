@@ -1,12 +1,13 @@
+import {
+  authoritativeLessonPrice,
+  splitBookingPriceFromCents,
+} from "@/lib/payments/money";
+
 export const DEFAULT_PLATFORM_FEE_PERCENT = 10;
 
 export interface BookingFeeSplit {
   platformFee: number;
   tutorAmount: number;
-}
-
-function roundMoney(value: number): number {
-  return Math.round(value * 100) / 100;
 }
 
 export function parsePlatformFeePercent(value: unknown): number {
@@ -32,11 +33,12 @@ export function splitBookingPrice(
   price: number,
   percent: number = getPlatformFeePercent(),
 ): BookingFeeSplit {
-  const safePrice = Number.isFinite(price) && price > 0 ? price : 0;
-  const safePercent = parsePlatformFeePercent(percent);
-  const platformFee = roundMoney((safePrice * safePercent) / 100);
-  const tutorAmount = roundMoney(safePrice - platformFee);
-  return { platformFee, tutorAmount };
+  const authoritative = authoritativeLessonPrice(price);
+  const split = splitBookingPriceFromCents(
+    authoritative?.priceCents ?? 0,
+    percent,
+  );
+  return { platformFee: split.platformFee, tutorAmount: split.tutorAmount };
 }
 
 export function resolveBookingFeeSplit(booking: {
