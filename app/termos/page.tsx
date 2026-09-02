@@ -24,16 +24,25 @@ export default function TermosPage() {
     >
       <LegalSection id="aceitacao" title="1. Aceitação e natureza do serviço">
         <p>
-          A Aprendiz Bay é uma plataforma digital brasileira que intermedia o
-          encontro entre alunos e professores para aulas individuais e coletivas,
-          presenciais ou online. Não prestamos a aula em nosso nome: o contrato
-          de ensino se forma entre aluno e professor, com a plataforma atuando
-          como marketplace, meio de agendamento, mensagens e pagamento.
+          A Aprendiz Bay é uma plataforma digital brasileira que conecta, de forma
+          independente, <strong>alunos</strong> e <strong>professores</strong> para
+          aulas individuais e coletivas, presenciais ou online. A plataforma
+          oferece ferramentas de busca, perfil, agendamento, mensagens e
+          pagamento, mas <strong>não ministra as aulas em nome próprio</strong>.
+        </p>
+        <p>
+          O contrato de prestação de serviços educacionais é celebrado diretamente
+          entre aluno e professor. A Aprendiz Bay atua como intermediadora
+          tecnológica (marketplace), e não como empregadora, sócia, preposta ou
+          mandatária dos professores cadastrados. Professores definem preços,
+          disponibilidade e conteúdo; alunos escolhem com quem estudar.
         </p>
         <p>
           A Aprendiz Bay não é instituição de ensino, não emite certificado
-          oficial e não estabelece vínculo empregatício com professores
-          cadastrados.
+          oficial e <strong>não estabelece vínculo empregatício</strong> com
+          professores, facilitadores de indicação ou demais usuários. A relação
+          entre professor e plataforma é de parceria comercial/autônoma, sujeita
+          a revisão jurídica quanto à forma societária aplicável.
         </p>
       </LegalSection>
 
@@ -93,49 +102,136 @@ export default function TermosPage() {
 
       <LegalSection id="pagamentos" title="6. Pagamentos e taxa da plataforma">
         <p>
-          Depois que o professor aceita a reserva, o aluno paga pelo checkout
-          Asaas, com <strong>PIX</strong> ou <strong>cartão de crédito</strong>.
-          Uma taxa da plataforma (padrão de 10%, configurável) é destacada
-          antes do pagamento e registrada na reserva como valor do professor e
-          taxa da Aprendiz Bay.
+          Depois que o professor aceita a reserva, o aluno realiza o pagamento
+          por checkout hospedado do processador de pagamentos contratado pela
+          plataforma. Conforme a configuração vigente do serviço, o processamento
+          financeiro pode ser feito pelo <strong>Mercado Pago</strong> e/ou pelo{" "}
+          <strong>Asaas</strong>. Na implantação atual, novos pagamentos podem
+          ser direcionados prioritariamente ao Mercado Pago; a forma final de
+          roteamento entre processadores deve ser confirmada na revisão jurídica
+          e na comunicação ao usuário no momento do checkout.
         </p>
         <p>
-          O processamento financeiro é feito pelo Asaas. A Aprendiz Bay não
-          armazena o número completo do cartão. Dados de cobrança (incluindo
-          CPF informado no checkout) são tratados conforme a{" "}
+          O checkout pode oferecer meios como PIX, cartão de crédito e outros
+          disponibilizados pelo processador ativo. Uma taxa da plataforma
+          (padrão de 10%, configurável) é destacada antes do pagamento e
+          registrada na reserva como valor do professor e taxa da Aprendiz Bay.
+        </p>
+        <p>
+          A confirmação da reserva como <strong>paga</strong> depende da
+          confirmação do pagamento pelo processador (incluindo notificações
+          automáticas de webhook). Pagamentos recusados, expirados ou cancelados
+          não confirmam a aula. A Aprendiz Bay não armazena o número completo do
+          cartão; dados de cobrança informados no checkout (como nome, e-mail,
+          CPF e telefone) são tratados conforme a{" "}
           <Link href="/privacidade" className="font-medium text-primary-700 hover:text-primary-600">
             Política de Privacidade
           </Link>{" "}
-          e as regras do Asaas.
+          e as regras do processador de pagamentos utilizado.
         </p>
       </LegalSection>
 
       <LegalSection id="cancelamento" title="7. Cancelamento e reembolso">
         <p>
-          Reservas ainda não pagas podem ser canceladas pelo aluno ou pelo
-          professor sem cobrança. Em reservas pagas:
+          As regras abaixo refletem o fluxo implementado na plataforma e podem
+          ser ajustadas após revisão jurídica, desde que respeitados direitos
+          irrenunciáveis do consumidor:
         </p>
         <ul className="list-disc space-y-2 pl-5">
           <li>
-            o aluno tem cancelamento gratuito com estorno integral se cancelar
-            com <strong>24 horas ou mais</strong> de antecedência;
+            reservas <strong>ainda não pagas</strong> podem ser canceladas pelo
+            aluno ou pelo professor sem cobrança;
           </li>
           <li>
-            cancelamento do aluno com menos de 24 horas não é gratuito e o
-            valor pago é mantido, salvo determinação legal em contrário;
+            reservas <strong>pagas</strong> só entram na política de estorno
+            quando o status de pagamento da reserva é{" "}
+            <span className="font-medium">paid</span> (pago confirmado pelo
+            processador);
           </li>
           <li>
-            se o professor cancelar uma aula já paga, o aluno recebe estorno
-            integral.
+            o aluno tem cancelamento com <strong>estorno integral</strong> se
+            cancelar com <strong>24 horas ou mais</strong> de antecedência em
+            relação ao horário agendado da aula;
+          </li>
+          <li>
+            cancelamento do aluno com <strong>menos de 24 horas</strong> de
+            antecedência, em reserva já paga, não é permitido pela plataforma e{" "}
+            <strong>não gera estorno automático</strong>, salvo determinação legal
+            em contrário;
+          </li>
+          <li>
+            se o professor cancelar uma aula já paga, o aluno recebe{" "}
+            <strong>estorno integral</strong>, inclusive a menos de 24 horas;
+          </li>
+          <li>
+            reservas já canceladas ou aulas já concluídas não podem ser
+            canceladas novamente pela mesma reserva;
+          </li>
+          <li>
+            o valor estornado nunca excede o valor efetivamente pago na reserva.
           </li>
         </ul>
         <p>
-          Estornos são solicitados ao Asaas. O prazo de efetivação no banco ou
-          na fatura depende do meio de pagamento.
+          Quando aplicável, o estorno é solicitado ao processador de pagamentos
+          (Mercado Pago ou Asaas, conforme o pagamento original). O prazo para
+          o crédito aparecer no extrato, na fatura do cartão ou na conta PIX
+          depende do meio de pagamento e das regras do processador e da
+          instituição financeira. A plataforma pode registrar o pedido de
+          estorno e atualizar o status da reserva após a confirmação do
+          processador.
+        </p>
+        <p>
+          <strong>Revisão jurídica recomendada:</strong> validar se a política
+          de 24 horas para o aluno atende integralmente ao Código de Defesa do
+          Consumidor e se textos de exceção, chargeback e disputa precisam ser
+          ampliados para cada processador.
         </p>
       </LegalSection>
 
-      <LegalSection id="avaliacoes" title="8. Avaliações e mensagens">
+      <LegalSection id="facilitadores" title="8. Programa de indicação (facilitadores)">
+        <p>
+          A Aprendiz Bay pode oferecer um programa de indicação para pessoas
+          cadastradas como <strong>facilitadores</strong>, que divulgam a
+          plataforma por meio de links próprios (por exemplo,{" "}
+          <code className="rounded bg-muted px-1.5 py-0.5 text-sm">
+            aprendizbay.com.br/r/{"{codigo}"}
+          </code>
+          ).
+        </p>
+        <p>
+          <strong>Rastreamento:</strong> ao acessar um link de indicação, a
+          plataforma pode registrar o clique e armazenar um identificador de
+          indicação em cookie ou parâmetro equivalente no dispositivo do
+          visitante, pelo prazo informado na Política de Privacidade. Se o
+          visitante criar conta, a indicação pode ser associada ao novo usuário,
+          desde que ainda válida e não bloqueada por regras antifraude.
+        </p>
+        <p>
+          <strong>Comissão:</strong> a comissão do facilitador, quando prevista,
+          tende a ser creditada somente na <strong>primeira reserva paga</strong>{" "}
+          do usuário indicado, após confirmação do pagamento pelo processador. A
+          comissão permanece em status pendente durante um período de carência
+          para reembolso (padrão de 7 dias após o pagamento, configurável) e
+          só se torna disponível para repasse se não houver estorno da aula
+          correspondente. Comissões podem ser estornadas ou anuladas se o
+          pagamento subjacente for reembolsado.
+        </p>
+        <p>
+          <strong>Fraude e autoindicação:</strong> são vedados autoindicação,
+          indicações com e-mail, telefone ou CPF coincidentes com os do
+          facilitador, contas duplicadas, indícios de fraude ou qualquer
+          manipulação do programa. A plataforma pode recusar, cancelar ou não
+          pagar comissões suspeitas, bloquear identidades repetidas e encerrar
+          a participação do facilitador, sem prejuízo de outras medidas.
+        </p>
+        <p>
+          Valores percentuais, prazos de repasse, elegibilidade e tributação das
+          comissões devem ser confirmados em contrato ou regulamento específico
+          do programa após <strong>revisão jurídica e contábil</strong>.
+        </p>
+      </LegalSection>
+
+      <LegalSection id="avaliacoes" title="9. Avaliações e mensagens">
         <p>
           Avaliações exigem reserva concluída e devem ser honestas, sem ofensas
           ou dados de terceiros. A nota pública do professor é recalculada a
@@ -145,7 +241,7 @@ export default function TermosPage() {
         </p>
       </LegalSection>
 
-      <LegalSection id="condutas" title="9. Condutas proibidas">
+      <LegalSection id="condutas" title="10. Condutas proibidas">
         <p>
           É vedado usar a plataforma para fraudar pagamentos, burlar a
           verificação de professores, publicar conteúdo discriminatório,
@@ -155,7 +251,7 @@ export default function TermosPage() {
         </p>
       </LegalSection>
 
-      <LegalSection id="propriedade" title="10. Propriedade intelectual">
+      <LegalSection id="propriedade" title="11. Propriedade intelectual">
         <p>
           Marca, layout, textos institucionais e software da Aprendiz Bay
           pertencem à plataforma ou a seus licenciadores. O professor mantém
@@ -165,14 +261,14 @@ export default function TermosPage() {
         </p>
       </LegalSection>
 
-      <LegalSection id="responsabilidade" title="11. Limitação de responsabilidade">
+      <LegalSection id="responsabilidade" title="12. Limitação de responsabilidade">
         <p>
           A qualidade pedagógica da aula, pontualidade e ambiente (online ou
           presencial) são de responsabilidade do professor e, no que couber, do
           aluno. A plataforma envida esforços razoáveis de disponibilidade e
           verificação, mas não garante resultado de aprendizado, aprovação em
           exames ou funcionamento ininterrupto de serviços de terceiros (Firebase,
-          Asaas, salas de videoconferência).
+          Mercado Pago, Asaas, salas de videoconferência).
         </p>
         <p>
           Nada neste rascunho afasta direitos irrenunciáveis do consumidor
@@ -180,7 +276,7 @@ export default function TermosPage() {
         </p>
       </LegalSection>
 
-      <LegalSection id="exclusao" title="12. Encerramento da conta">
+      <LegalSection id="exclusao" title="13. Encerramento da conta">
         <p>
           Você pode solicitar a exclusão da conta em{" "}
           <Link href="/configuracoes" className="font-medium text-primary-700 hover:text-primary-600">
@@ -201,7 +297,7 @@ export default function TermosPage() {
         </p>
       </LegalSection>
 
-      <LegalSection id="lei" title="13. Lei aplicável e foro">
+      <LegalSection id="lei" title="14. Lei aplicável e foro">
         <p>
           Aplica-se a legislação brasileira, em especial o Código de Defesa do
           Consumidor, o Marco Civil da Internet (Lei nº 12.965/2014) e a LGPD
@@ -212,7 +308,7 @@ export default function TermosPage() {
         </p>
       </LegalSection>
 
-      <LegalSection id="contato" title="14. Contato e alterações">
+      <LegalSection id="contato" title="15. Contato e alterações">
         <p>
           Dúvidas sobre estes Termos:{" "}
           <a
