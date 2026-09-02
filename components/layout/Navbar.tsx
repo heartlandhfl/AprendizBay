@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   ChevronDown,
-  GraduationCap,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -13,6 +12,7 @@ import {
   Search,
   Settings,
 } from "lucide-react";
+import { BrandLogoLink } from "@/components/brand/BrandLogo";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { usePendingBookingCount } from "@/lib/bookings/usePendingBookingCount";
 import { signOut } from "@/lib/auth/service";
@@ -52,17 +52,7 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-surface/80 backdrop-blur-md">
       <nav className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:gap-6 sm:px-6 lg:px-8">
-        <Link
-          href="/"
-          className="flex shrink-0 items-center gap-2 text-primary-700 transition-colors hover:text-primary-600"
-        >
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-600 text-white shadow-soft">
-            <GraduationCap className="h-5 w-5" aria-hidden="true" />
-          </div>
-          <span className="hidden text-lg font-bold tracking-tight sm:inline">
-            Aprendiz Bay
-          </span>
-        </Link>
+        <BrandLogoLink height={40} priority className="transition-opacity hover:opacity-90" />
 
         <div className="relative mx-auto hidden max-w-md flex-1 md:block">
           <Search

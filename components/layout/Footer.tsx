@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { GraduationCap } from "lucide-react";
+import { BrandLogoLink } from "@/components/brand/BrandLogo";
 import CookiePreferencesButton from "@/components/legal/CookiePreferencesButton";
 
 const footerLinks = {
@@ -23,12 +23,7 @@ export default function Footer() {
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid gap-10 md:grid-cols-4">
           <div className="md:col-span-2">
-            <Link href="/" className="inline-flex items-center gap-2 text-primary-700">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary-600 text-white">
-                <GraduationCap className="h-4 w-4" aria-hidden="true" />
-              </div>
-              <span className="text-lg font-bold">Aprendiz Bay</span>
-            </Link>
+            <BrandLogoLink height={48} />
             <p className="mt-4 max-w-sm text-sm leading-relaxed text-muted-foreground">
               A plataforma brasileira que conecta alunos e professores com aulas
               particulares e coletivas acessíveis. Aprenda junto, pague menos.
