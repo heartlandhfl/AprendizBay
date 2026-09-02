@@ -69,10 +69,25 @@ export default function PrivacidadePage() {
             avaliações e participação em turmas coletivas.
           </li>
           <li>
-            <strong>Pagamento:</strong> dados enviados ao Asaas no checkout
-            (nome, e-mail, CPF, telefone e endereço informados pelo aluno). A
-            Aprendiz Bay guarda na reserva identificadores da cobrança e do
-            checkout, não o cartão completo.
+            <strong>Pagamento:</strong> dados enviados ao processador de
+            pagamentos no checkout (nome, e-mail, CPF e telefone informados pelo
+            aluno; endereço quando exigido pelo Asaas). Conforme a configuração
+            vigente, o processador pode ser o <strong>Mercado Pago</strong> e/ou
+            o <strong>Asaas</strong>. A Aprendiz Bay guarda na reserva
+            identificadores da cobrança, do checkout e do pagamento, não o cartão
+            completo.
+          </li>
+          <li>
+            <strong>Programa de facilitadores:</strong> código de indicação,
+            cliques em links de referência, registro de indicação na criação da
+            conta, status antifraude da indicação, comissões e repasses
+            associados ao facilitador (quando aplicável).
+          </li>
+          <li>
+            <strong>Indicação e cookies:</strong> cookie ou identificador
+            equivalente (<code className="rounded bg-muted px-1.5 py-0.5 text-sm">ab_referral_code</code>)
+            para associar visitantes a um facilitador, pelo prazo informado na
+            seção de cookies.
           </li>
           <li>
             <strong>Técnicos:</strong> cookies e armazenamentos estritamente
@@ -95,7 +110,8 @@ export default function PrivacidadePage() {
           </li>
           <li>
             <strong>Legítimo interesse</strong> (art. 7º, IX), com teste de
-            balanceamento: prevenção a fraude, segurança, melhoria do produto e
+            balanceamento: prevenção a fraude (incluindo autoindicação e abuso
+            do programa de facilitadores), segurança, melhoria do produto e
             manutenção da integridade de reservas e avaliações após exclusão da
             conta.
           </li>
@@ -114,8 +130,9 @@ export default function PrivacidadePage() {
       <LegalSection id="finalidades" title="4. Finalidades">
         <p>
           Usamos os dados para autenticar usuários, exibir perfis, operar
-          reservas e turmas, processar pagamentos e estornos, recalcular notas
-          de professores, prestar suporte, cumprir a lei e comunicar avisos
+          reservas e turmas, processar pagamentos e estornos, administrar o
+          programa de indicação de facilitadores (quando ativo), recalcular
+          notas de professores, prestar suporte, cumprir a lei e comunicar avisos
           operacionais da conta. Não vendemos dados pessoais.
         </p>
       </LegalSection>
@@ -128,7 +145,12 @@ export default function PrivacidadePage() {
             — hospedagem da conta, banco e arquivos;
           </li>
           <li>
-            <strong>Asaas</strong> — checkout, PIX, cartão e estornos;
+            <strong>Mercado Pago</strong> — checkout hospedado, confirmação de
+            pagamento, estornos e notificações de transação (conforme rollout);
+          </li>
+          <li>
+            <strong>Asaas</strong> — checkout, PIX, cartão e estornos (quando
+            configurado como processador ativo);
           </li>
           <li>
             <strong>Hospedagem do site</strong> (hoje Hostinger; prévias podem
@@ -152,6 +174,15 @@ export default function PrivacidadePage() {
           Usamos, de forma estritamente necessária, identificadores de sessão do
           Firebase Authentication e a preferência de cookies gravada neste
           dispositivo. Sem eles, login e reservas autenticadas não funcionam.
+        </p>
+        <p>
+          Para o programa de indicação de facilitadores, podemos usar o cookie{" "}
+          <code className="rounded bg-muted px-1.5 py-0.5 text-sm">ab_referral_code</code>{" "}
+          (ou parâmetro equivalente na URL) para lembrar qual link de indicação
+          foi acessado antes do cadastro, em geral por até 30 dias. Esse cookie
+          apoia a atribuição de indicações e métricas do facilitador; a base
+          legal e a necessidade de consentimento adicional devem ser validadas
+          na revisão jurídica.
         </p>
         <p>
           <strong>Cookies opcionais</strong> (métricas ou marketing){" "}
@@ -179,7 +210,10 @@ export default function PrivacidadePage() {
           preservar a integridade do histórico da outra parte, das notas
           públicas e de registros financeiros. Mensagens e o perfil público de
           professor são anonimizados; turmas do professor são encerradas.
-          Identificadores de pagamento podem ser mantidos pelo prazo legal.
+          Identificadores de pagamento, registros de comissão de facilitadores
+          e dados de indicação podem ser mantidos pelo prazo necessário à
+          prevenção de fraude, cumprimento fiscal e defesa em processos, conforme
+          orientação jurídica.
         </p>
       </LegalSection>
 
