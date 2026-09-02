@@ -65,6 +65,41 @@ server.js            # Express entry for npm run dev / legacy Hostinger
 
 Client Firebase features (auth, Firestore reads/writes from the browser, bookings UI) need `NEXT_PUBLIC_FIREBASE_*` on any target. Server features additionally need `FIREBASE_ADMIN_*` on Vercel.
 
+### Environments
+
+Aprendiz Bay uses **three isolated Firebase projects** and matching Vercel environment scopes. Template files in the repo list every variable name (no secrets committed):
+
+| Environment | Firebase project (`.firebaserc` alias) | Site URL | Env template | Vercel scope |
+|-------------|------------------------------------------|----------|--------------|--------------|
+| **development** | `aprendiz-bay-dev` (`development`) | `http://localhost:3000` | `.env.development` | Local only (`npm run dev`) |
+| **staging** | `aprendiz-bay-staging` (`staging`) | `https://staging.aprendizbay.com.br` | `.env.staging` | **Preview** (or a `staging` branch) |
+| **production** | `aprendiz-bay-prod` (`production`) | `https://aprendizbay.com.br` | `.env.production` | **Production** |
+
+**Local development:** copy the development template and fill secrets once per machine:
+
+```bash
+cp .env.development .env.local
+# edit .env.local — never commit this file
+npm run dev
+```
+
+**Vercel (one project, three scopes):** import the repo once. In **Project → Settings → Environment Variables**, paste values from `.env.staging` for the **Preview** scope and from `.env.production` for **Production**. Assign `staging.aprendizbay.com.br` to Preview (or a dedicated `staging` branch) and `aprendizbay.com.br` to Production. Set `FIREBASE_ADMIN_*` for **both** build and runtime on each scope so tutor SEO pages can pre-render at build time.
+
+**Firebase rules (all three projects):** `firestore.rules` and `storage.rules` are project-agnostic — they reference collections, paths, and `request.auth` only, with no hard-coded project IDs. Deploy the **same** rules and indexes to each project by switching the CLI alias:
+
+```bash
+firebase use development   # aprendiz-bay-dev
+firebase deploy --only firestore:rules,firestore:indexes,storage
+
+firebase use staging       # aprendiz-bay-staging
+firebase deploy --only firestore:rules,firestore:indexes,storage
+
+firebase use production    # aprendiz-bay-prod
+firebase deploy --only firestore:rules,firestore:indexes,storage
+```
+
+Add each site hostname under **Firebase Console → Authentication → Authorized domains** for its project before testing sign-in.
+
 ### Primeiro administrador (manual no Firestore)
 
 Não há fluxo de cadastro para `role: "admin"`. O primeiro administrador deve ser promovido manualmente no **Firebase Console**:
@@ -98,7 +133,7 @@ To include composite indexes (bookings, collectiveHubs queries):
 firebase deploy --only firestore:rules,firestore:indexes,storage
 ```
 
-Project ID is configured in `.firebaserc` (`aprendiz-bay-dev` by default). Switch projects with `firebase use` if needed.
+Project aliases are configured in `.firebaserc` (`development`, `staging`, `production`). Switch targets with `firebase use <alias>` before deploying rules or indexes.
 
 Enable **Authentication** providers (Email/Password + Google) and add your production domain under **Authorized domains** in the Firebase console.
 
@@ -114,7 +149,7 @@ npx tsx scripts/seed.ts
 2. Framework preset: **Next.js** (default build: `npm run build` per `vercel.json`). Do **not** point Vercel at `server.js`.
 3. In **Project → Settings → Build and Deployment**, set **Node.js Version** to **24.x** (or disable any override so it follows `package.json` / `.nvmrc`).
 4. Leave **Output Directory** empty (default `.next`). Do not set `hostinger-next` or `output: "export"`.
-5. In **Project → Settings → Environment Variables**, set every variable from `.env.local.example` (see table below).
+5. In **Project → Settings → Environment Variables**, set variables from `.env.production` (Production scope) and `.env.staging` (Preview scope). See [Environments](#environments) above.
 6. Deploy. Add your production domain to Firebase **Authentication → Authorized domains**.
 
 `vercel.json` sets `framework: "nextjs"`, `buildCommand: "npm run build"`, and `installCommand: "npm install"`.
