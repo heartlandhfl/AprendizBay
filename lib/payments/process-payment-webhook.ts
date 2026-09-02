@@ -4,7 +4,12 @@ import { trackServerEvent } from "@/lib/analytics/server";
 import { mapBookingRecord, type BookingRecord } from "@/lib/bookings/server";
 import { generateMeetingUrl } from "@/lib/bookings/meeting";
 import { getAdminApp } from "@/lib/firebase/admin";
-import { notifyConfirmedBooking, safeNotify } from "@/lib/notifications/server";
+import {
+  notifyConfirmedBooking,
+  notifyPaymentFailed,
+  notifyRefundCompleted,
+  safeNotify,
+} from "@/lib/notifications/server";
 import type { PaymentProvider, PaymentStatus } from "@/lib/payments/gateway/types";
 import { comparePaidAmountToExpected } from "@/lib/payments/money";
 import {
@@ -75,6 +80,8 @@ export interface PaymentWebhookStore {
 export interface ProcessPaymentWebhookDeps {
   store?: PaymentWebhookStore;
   onPaid?: (booking: BookingRecord) => Promise<void>;
+  onFailed?: (booking: BookingRecord) => Promise<void>;
+  onRefunded?: (booking: BookingRecord) => Promise<void>;
 }
 
 function jsonResponseFields(
@@ -478,6 +485,17 @@ async function defaultOnPaid(booking: BookingRecord): Promise<void> {
   });
 }
 
+async function defaultOnFailed(booking: BookingRecord): Promise<void> {
+  await safeNotify(() => notifyPaymentFailed(booking.id), "payment_failed");
+}
+
+async function defaultOnRefunded(booking: BookingRecord): Promise<void> {
+  await safeNotify(
+    () => notifyRefundCompleted(booking.id, booking.refundAmount),
+    "refund_completed",
+  );
+}
+
 export function buildVerifiedPaymentWebhookEvent(input: {
   provider: PaymentProvider;
   paymentId: string;
@@ -519,7 +537,16 @@ export async function processPaymentWebhook(
 
   if (event.status === "failed" || event.status === "refunded" || event.status === "cancelled" || event.status === "expired") {
     const claimed = await store.runAtomic((tx) => claimUnsuccessfulPayment(tx, event));
-    return toPublicResult(claimed.kind);
+    const result = toPublicResult(claimed.kind);
+    if (claimed.kind === "failed" && claimed.booking) {
+      const onFailed = deps.onFailed ?? defaultOnFailed;
+      await onFailed(claimed.booking);
+    }
+    if (claimed.kind === "refunded" && claimed.booking) {
+      const onRefunded = deps.onRefunded ?? defaultOnRefunded;
+      await onRefunded(claimed.booking);
+    }
+    return result;
   }
 
   return toPublicResult("ignored");

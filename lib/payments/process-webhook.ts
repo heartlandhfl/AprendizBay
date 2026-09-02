@@ -7,7 +7,7 @@ import {
 } from "@/lib/bookings/server";
 import { generateMeetingUrl } from "@/lib/bookings/meeting";
 import { getAdminApp } from "@/lib/firebase/admin";
-import { notifyConfirmedBooking, safeNotify } from "@/lib/notifications/server";
+import { notifyConfirmedBooking, notifyPaymentFailed, safeNotify } from "@/lib/notifications/server";
 import type { AsaasWebhookMatch, AsaasWebhookOutcome } from "@/lib/payments/asaas";
 import { comparePaidAmountToExpected } from "@/lib/payments/money";
 import { getSiteOrigin } from "@/lib/seo/site-url";
@@ -60,6 +60,7 @@ export interface WebhookStore {
 export interface ProcessAsaasWebhookDeps {
   store?: WebhookStore;
   onConfirmed?: (booking: BookingRecord) => Promise<void>;
+  onFailed?: (booking: BookingRecord) => Promise<void>;
 }
 
 function jsonResponseFields(
@@ -475,6 +476,10 @@ async function defaultOnConfirmed(booking: BookingRecord): Promise<void> {
   });
 }
 
+async function defaultOnFailed(booking: BookingRecord): Promise<void> {
+  await safeNotify(() => notifyPaymentFailed(booking.id), "payment_failed");
+}
+
 export async function processAsaasPaymentWebhook(
   event: AsaasWebhookMatch,
   deps: ProcessAsaasWebhookDeps = {},
@@ -490,7 +495,12 @@ export async function processAsaasPaymentWebhook(
     const claimed = await store.runAtomic((tx) =>
       claimUnsuccessfulPayment(tx, event, outcome),
     );
-    return toPublicResult(claimed.kind);
+    const result = toPublicResult(claimed.kind);
+    if (outcome === "failed" && claimed.kind === "failed" && claimed.booking) {
+      const onFailed = deps.onFailed ?? defaultOnFailed;
+      await onFailed(claimed.booking);
+    }
+    return result;
   }
 
   const receiptIds = buildAsaasWebhookReceiptIds(event);

@@ -156,6 +156,7 @@ export async function confirmBookingAsTutor(bookingId: string): Promise<void> {
     paymentStatus: "awaiting_payment" as PaymentStatus,
     updatedAt: serverTimestamp(),
   });
+  void requestNotification({ type: "booking_accepted", bookingId });
 }
 
 export async function cancelBookingAsTutor(bookingId: string): Promise<void> {

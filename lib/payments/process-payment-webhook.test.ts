@@ -57,6 +57,27 @@ describe("processPaymentWebhook", () => {
     });
   });
 
+  it("marks the booking as failed and invokes onFailed", async () => {
+    const store = createMemoryPaymentWebhookStore(
+      new Map([["booking-123", pendingBooking()]]),
+    );
+    const onFailed = vi.fn(async () => undefined);
+
+    const result = await processPaymentWebhook(
+      buildVerifiedPaymentWebhookEvent({
+        provider: "mercadopago",
+        paymentId: "99999",
+        status: "failed",
+        bookingId: "booking-123",
+      }),
+      { store, onFailed },
+    );
+
+    expect(result.kind).toBe("failed");
+    expect(onFailed).toHaveBeenCalledTimes(1);
+    expect(store.bookings.get("booking-123")?.paymentStatus).toBe("failed");
+  });
+
   it("is idempotent using paymentWebhookReceipts", async () => {
     const store = createMemoryPaymentWebhookStore(
       new Map([["booking-123", pendingBooking()]]),
