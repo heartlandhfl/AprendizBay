@@ -58,6 +58,8 @@ export type TutorPayoutStatus = "pending" | "processing" | "paid" | "failed" | "
 export interface TutorPayoutRecord {
   payoutId: string;
   tutorId: string;
+  /** Booking that unlocked this payout (one payout per completed lesson). */
+  bookingId: string;
   /** Total disbursement amount (BRL). */
   amount: number;
   status: TutorPayoutStatus;
@@ -65,6 +67,11 @@ export interface TutorPayoutRecord {
   paymentIds: string[];
   createdAt?: unknown;
   paidAt?: unknown;
+}
+
+export function buildTutorPayoutDocId(bookingId: string): string {
+  const sanitized = bookingId.trim().replace(/[/.#[\]*$]/g, "_").slice(0, 700);
+  return `booking_${sanitized}`;
 }
 
 export function buildPaymentLedgerDocId(

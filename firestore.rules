@@ -93,9 +93,9 @@ rules_version = '2';
 //     Readable by the booking student, tutor, or admin. Client writes denied.
 //
 //   tutorPayouts/{payoutId}             // Tutor disbursement batches (Admin SDK writes)
-//     payoutId, tutorId, amount, status: pending | processing | paid | failed | cancelled
+//     payoutId, tutorId, bookingId, amount, status: pending | processing | paid | failed | cancelled
 //     paymentIds[] (ledger payment document ids), createdAt?, paidAt?
-//     Readable by the tutor or admin. Client writes denied.
+//     Readable by the tutor or admin. Client writes denied. Queued after lesson completion.
 //
 //   adminAuditLogs/{logId}              // Admin SDK only (privileged admin actions)
 //     actorUid, action, targetType?, targetId?, metadata, createdAt
@@ -137,7 +137,8 @@ rules_version = '2';
 //        (asaasWebhookReceipts + booking write in one Admin transaction; e-mail after commit)
 // ADMIN  payments ledger (webhook)     → lib/payments/process-payment-webhook.ts
 //        (paymentWebhookReceipts + payments/{paymentId} + booking in one Admin transaction)
-// ADMIN  tutorPayouts                  → future payout jobs (Admin SDK only)
+// ADMIN  tutorPayouts                  → lib/payments/tutor-payouts.ts after lesson completion
+// ADMIN  tutorPayouts mark paid        → POST /api/admin/tutor-payouts/mark-paid
 // ADMIN  bookings lesson reminder      → lib/notifications (lessonReminderSentAt)
 // MATCH  bookings tutor cancel         → unpaid client-capable; paid via /api/bookings/cancel + refund
 // ADMIN  bookings tutor complete       → POST /api/bookings/complete
