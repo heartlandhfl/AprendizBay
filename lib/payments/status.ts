@@ -82,7 +82,7 @@ export function getStudentPaymentCopy(lifecycle: PaymentLifecycle): PaymentCopy 
     case "checkout_created":
       return {
         explanation:
-          "Há um checkout em aberto. Conclua o pagamento ou gere um novo se o link não funcionar. A aula só será liberada depois da confirmação do Asaas.",
+          "Há um pagamento em andamento. Conclua o pagamento ou tente novamente se o formulário não funcionar. A aula só será liberada depois da confirmação do Mercado Pago.",
         actionLabel: "Tentar pagamento novamente",
       };
     case "failed":
@@ -94,7 +94,7 @@ export function getStudentPaymentCopy(lifecycle: PaymentLifecycle): PaymentCopy 
     case "expired":
       return {
         explanation:
-          "O checkout expirou ou foi cancelado. Nenhum pagamento foi confirmado e a aula ainda não foi liberada.",
+          "O pagamento expirou ou foi cancelado. Nenhum pagamento foi confirmado e a aula ainda não foi liberada.",
         actionLabel: "Tentar pagamento novamente",
       };
     case "paid":
@@ -120,7 +120,7 @@ export function getTutorPaymentCopy(lifecycle: PaymentLifecycle): PaymentCopy | 
     case "expired":
       return {
         explanation:
-          "O checkout do aluno expirou ou foi cancelado. A aula ainda não está confirmada e nenhum pagamento foi concluído.",
+          "O pagamento do aluno expirou ou foi cancelado. A aula ainda não está confirmada e nenhum pagamento foi concluído.",
       };
     default:
       return null;

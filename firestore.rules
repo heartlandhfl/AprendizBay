@@ -811,6 +811,11 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Mercado Pago webhook receipts — Admin SDK only (lib/payments/process-mercadopago-webhook.ts)
+    match /mercadopagoWebhookReceipts/{receiptId} {
+      allow read, write: if false;
+    }
+
     // Admin action audit trail — Admin SDK only (lib/admin/audit.js)
     match /adminAuditLogs/{logId} {
       allow read, write: if false;

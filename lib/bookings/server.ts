@@ -70,6 +70,7 @@ export interface BookingRecord {
   tutorAmount?: number;
   paymentStatus?: PaymentStatus;
   paymentId?: string;
+  mercadopagoPaymentStatus?: string;
   asaasCheckoutId?: string;
   asaasCheckoutExpiresAt?: Date;
   checkoutLockUntil?: Date;
@@ -113,6 +114,9 @@ export function mapBookingRecord(
         : undefined,
     paymentStatus: (data.paymentStatus as PaymentStatus | undefined) ?? "unpaid",
     paymentId: data.paymentId ? String(data.paymentId) : undefined,
+    mercadopagoPaymentStatus: data.mercadopagoPaymentStatus
+      ? String(data.mercadopagoPaymentStatus)
+      : undefined,
     asaasCheckoutId: data.asaasCheckoutId ? String(data.asaasCheckoutId) : undefined,
     asaasCheckoutExpiresAt: optionalDate(data.asaasCheckoutExpiresAt),
     checkoutLockUntil: optionalDate(data.checkoutLockUntil),
