@@ -23,13 +23,17 @@ import {
   readReferralCodeFromDocument,
 } from "@/lib/facilitators/referral-cookie";
 
-export default function SignupForm() {
+interface SignupFormProps {
+  defaultRole?: SignupRole;
+}
+
+export default function SignupForm({ defaultRole = "student" }: SignupFormProps) {
   const router = useRouter();
   const { user, userDoc, loading: authLoading } = useAuth();
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<SignupRole>("student");
+  const [role, setRole] = useState<SignupRole>(defaultRole);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const completingGoogleProfile = !!user && !userDoc;

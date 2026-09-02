@@ -17,6 +17,7 @@ describe("buildSitemapEntries", () => {
 
     expect(urls).toContain(origin);
     expect(urls).toContain(`${origin}/professores`);
+    expect(urls).toContain(`${origin}/seja-professor`);
     expect(urls).toContain(`${origin}/search`);
     expect(urls).toContain(`${origin}/termos`);
     expect(urls).toContain(`${origin}/privacidade`);
@@ -41,6 +42,7 @@ describe("buildSitemapEntries", () => {
     expect(urls).toEqual([
       origin,
       `${origin}/professores`,
+      `${origin}/seja-professor`,
       `${origin}/search`,
       `${origin}/termos`,
       `${origin}/privacidade`,
