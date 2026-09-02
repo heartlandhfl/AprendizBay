@@ -20,6 +20,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@mercadopago/sdk-react": "^1.0.7",
     "@sentry/node": "^10.72.0",
     "express": "^4.22.2",
     "firebase-admin": "^14.3.0"

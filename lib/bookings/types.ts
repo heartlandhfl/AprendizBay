@@ -23,6 +23,7 @@ export interface Booking {
   meetingUrl?: string;
   paymentStatus?: PaymentStatus;
   paymentId?: string;
+  mercadopagoPaymentStatus?: string;
   asaasCheckoutId?: string;
   refundId?: string;
   refundStatus?: string;
