@@ -15,6 +15,13 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import type { SignupRole } from "@/lib/auth/types";
 import { trackEvent } from "@/lib/analytics/client";
 import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
+import {
+  attachReferralAfterSignup,
+} from "@/lib/facilitators/client";
+import {
+  clearReferralCookie,
+  readReferralCodeFromDocument,
+} from "@/lib/facilitators/referral-cookie";
 
 export default function SignupForm() {
   const router = useRouter();
@@ -48,6 +55,16 @@ export default function SignupForm() {
     }
   }, [displayName, email, user]);
 
+  async function attachStoredReferralIfPresent(): Promise<void> {
+    const referralCode = readReferralCodeFromDocument();
+    if (!referralCode) {
+      return;
+    }
+
+    await attachReferralAfterSignup({ referralCode });
+    clearReferralCookie();
+  }
+
   async function handleEmailSignup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -56,6 +73,7 @@ export default function SignupForm() {
     try {
       await signUpWithEmail(email.trim(), password, displayName.trim(), role);
       trackEvent(ANALYTICS_EVENTS.signUp, { role, method: "email" });
+      await attachStoredReferralIfPresent();
       router.replace(role === "tutor" ? "/tutor/onboarding" : "/bookings");
     } catch (signupError) {
       setError(getAuthErrorMessage(signupError));
@@ -75,6 +93,7 @@ export default function SignupForm() {
         await signUpWithGoogle(role);
       }
       trackEvent(ANALYTICS_EVENTS.signUp, { role, method: "google" });
+      await attachStoredReferralIfPresent();
       router.replace(role === "tutor" ? "/tutor/onboarding" : "/bookings");
     } catch (signupError) {
       setError(getAuthErrorMessage(signupError));
