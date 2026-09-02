@@ -83,6 +83,20 @@ rules_version = '2';
 //   asaasWebhookReceipts/{receiptId}    // Admin SDK only (Asaas webhook idempotency)
 //     paymentId?, asaasCheckoutId?, bookingId?, event, outcome, createdAt
 //
+//   payments/{paymentId}                // Financial ledger (Admin SDK writes)
+//     paymentId === "{provider}_{providerPaymentId}"
+//     bookingId, studentId, tutorId, provider, providerPaymentId
+//     grossAmount, platformFee, paymentProcessingFee, netPlatformRevenue
+//     tutorGrossAmount, tutorPayoutAmount
+//     status: pending | checkout_created | paid | failed | refunded | cancelled | expired
+//     createdAt, paidAt?, refundedAt?
+//     Readable by the booking student, tutor, or admin. Client writes denied.
+//
+//   tutorPayouts/{payoutId}             // Tutor disbursement batches (Admin SDK writes)
+//     payoutId, tutorId, amount, status: pending | processing | paid | failed | cancelled
+//     paymentIds[] (ledger payment document ids), createdAt?, paidAt?
+//     Readable by the tutor or admin. Client writes denied.
+//
 //   adminAuditLogs/{logId}              // Admin SDK only (privileged admin actions)
 //     actorUid, action, targetType?, targetId?, metadata, createdAt
 //
@@ -121,6 +135,9 @@ rules_version = '2';
 //        (asaasCheckoutId, asaasCheckoutExpiresAt, checkoutLockUntil, fee split)
 // ADMIN  bookings confirm (webhook)    → lib/payments/process-webhook.ts
 //        (asaasWebhookReceipts + booking write in one Admin transaction; e-mail after commit)
+// ADMIN  payments ledger (webhook)     → lib/payments/process-payment-webhook.ts
+//        (paymentWebhookReceipts + payments/{paymentId} + booking in one Admin transaction)
+// ADMIN  tutorPayouts                  → future payout jobs (Admin SDK only)
 // ADMIN  bookings lesson reminder      → lib/notifications (lessonReminderSentAt)
 // MATCH  bookings tutor cancel         → unpaid client-capable; paid via /api/bookings/cancel + refund
 // ADMIN  bookings tutor complete       → POST /api/bookings/complete
@@ -821,9 +838,20 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // Payment records — Admin SDK only (lib/payments/process-payment-webhook.ts)
+    // Financial ledger — Admin SDK writes; participants read own records
     match /payments/{paymentId} {
-      allow read, write: if false;
+      allow read: if isAuthenticated()
+        && (resource.data.studentId == request.auth.uid
+          || resource.data.tutorId == request.auth.uid
+          || isAdmin());
+      allow write: if false;
+    }
+
+    // Tutor payout batches — Admin SDK writes; tutor reads own payouts
+    match /tutorPayouts/{payoutId} {
+      allow read: if isAuthenticated()
+        && (resource.data.tutorId == request.auth.uid || isAdmin());
+      allow write: if false;
     }
 
     // Admin action audit trail — Admin SDK only (lib/admin/audit.js)

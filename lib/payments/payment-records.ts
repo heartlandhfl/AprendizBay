@@ -1,8 +1,15 @@
 import type { PaymentProvider, PaymentStatus } from "@/lib/payments/gateway/types";
+import {
+  buildPaymentLedgerDocId,
+  type PaymentLedgerRecord,
+  type PaymentLedgerStatus,
+  PAYMENTS_COLLECTION,
+} from "@/lib/payments/ledger/schema";
 
-/** Admin SDK only. Client access is denied by Firestore rules. */
-export const PAYMENTS_COLLECTION = "payments";
+export { PAYMENTS_COLLECTION, buildPaymentLedgerDocId };
+export type { PaymentLedgerRecord, PaymentLedgerStatus };
 
+/** @deprecated Use PaymentLedgerRecord from lib/payments/ledger/schema instead. */
 export interface PaymentRecord {
   bookingId: string;
   provider: PaymentProvider;
@@ -16,6 +23,7 @@ export interface PaymentRecord {
   updatedAt?: unknown;
 }
 
+/** @deprecated Use buildPaymentLedgerDocId instead. */
 export function paymentRecordDocId(provider: PaymentProvider, paymentId: string): string {
-  return `${provider}_${paymentId.trim().replace(/[/.#[\]*$]/g, "_").slice(0, 700)}`;
+  return buildPaymentLedgerDocId(provider, paymentId);
 }
