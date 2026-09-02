@@ -5,6 +5,10 @@ import { mapBookingRecord, type BookingRecord } from "@/lib/bookings/server";
 import { generateMeetingUrl } from "@/lib/bookings/meeting";
 import { getAdminApp } from "@/lib/firebase/admin";
 import {
+  maybeCreateFacilitatorCommission,
+  reverseFacilitatorCommissionForBooking,
+} from "@/lib/facilitators/commission";
+import {
   notifyConfirmedBooking,
   notifyPaymentFailed,
   notifyRefundCompleted,
@@ -483,6 +487,17 @@ async function defaultOnPaid(booking: BookingRecord): Promise<void> {
       type: booking.type,
     },
   });
+
+  try {
+    const db = getFirestore(getAdminApp());
+    await maybeCreateFacilitatorCommission(
+      db,
+      booking,
+      booking.paymentId ?? "",
+    );
+  } catch (error) {
+    console.error("[Aprendiz Bay] Falha ao registrar comissão do facilitador:", error);
+  }
 }
 
 async function defaultOnFailed(booking: BookingRecord): Promise<void> {
@@ -494,6 +509,13 @@ async function defaultOnRefunded(booking: BookingRecord): Promise<void> {
     () => notifyRefundCompleted(booking.id, booking.refundAmount),
     "refund_completed",
   );
+
+  try {
+    const db = getFirestore(getAdminApp());
+    await reverseFacilitatorCommissionForBooking(db, booking.id);
+  } catch (error) {
+    console.error("[Aprendiz Bay] Falha ao estornar comissão do facilitador:", error);
+  }
 }
 
 export function buildVerifiedPaymentWebhookEvent(input: {
