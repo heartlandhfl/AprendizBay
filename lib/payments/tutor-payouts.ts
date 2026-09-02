@@ -34,10 +34,6 @@ function readNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
-function readString(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
-
 function resolveProvider(booking: BookingRecord, payment?: PaymentLedgerSnapshot): PaymentProvider {
   if (payment?.provider === "asaas" || payment?.provider === "mercadopago") {
     return payment.provider;

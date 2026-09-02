@@ -295,6 +295,7 @@ describe("createBookingCheckout", () => {
       {
         createCheckout,
         inspectCheckout: vi.fn(async () => null),
+        now: new Date("2026-09-01T12:00:00Z"),
       },
     );
 

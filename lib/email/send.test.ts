@@ -8,7 +8,7 @@ function createMockProvider(): EmailProvider & { send: ReturnType<typeof vi.fn> 
   return { send };
 }
 
-function createMockDb(booking: Record<string, unknown>) {
+function createMockDb() {
   const users = new Map<string, Record<string, unknown>>([
     ["student-1", { displayName: "Ana Silva", email: "ana@example.com" }],
     ["tutor-owner", { displayName: "João Tutor", email: "joao@example.com" }],
@@ -60,7 +60,7 @@ function createMockDb(booking: Record<string, unknown>) {
 describe("onEvent", () => {
   it("sends payment-confirmed email to the student", async () => {
     const provider = createMockProvider();
-    const db = createMockDb({});
+    const db = createMockDb();
 
     const result = await onEvent(
       EMAIL_EVENTS.PAYMENT_CONFIRMED,
@@ -78,7 +78,7 @@ describe("onEvent", () => {
 
   it("sends booking-created email to the tutor", async () => {
     const provider = createMockProvider();
-    const db = createMockDb({});
+    const db = createMockDb();
 
     const result = await onEvent(
       EMAIL_EVENTS.BOOKING_CREATED,
@@ -96,7 +96,7 @@ describe("onEvent", () => {
 
   it("skips when the booking is missing", async () => {
     const provider = createMockProvider();
-    const db = createMockDb({});
+    const db = createMockDb();
 
     const result = await onEvent(
       EMAIL_EVENTS.PAYMENT_FAILED,

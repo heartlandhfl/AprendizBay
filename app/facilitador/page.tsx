@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { Copy, Loader2, RefreshCw } from "lucide-react";
 import RequireAuth from "@/components/auth/RequireAuth";
 import { fetchFacilitatorDashboard } from "@/lib/facilitators/client";
@@ -64,7 +64,8 @@ export default function FacilitatorDashboardPage() {
   }
 
   return (
-    <RequireAuth>
+    <Suspense fallback={null}>
+      <RequireAuth>
       <div className="mx-auto max-w-6xl px-4 py-10">
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -146,6 +147,7 @@ export default function FacilitatorDashboardPage() {
           </div>
         )}
       </div>
-    </RequireAuth>
+      </RequireAuth>
+    </Suspense>
   );
 }

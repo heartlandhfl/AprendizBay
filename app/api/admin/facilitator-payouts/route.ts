@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import { getFirestore } from "firebase-admin/firestore";
-import {
-  listAdminFacilitatorPayouts,
-  listAvailableFacilitatorCommissionsSummary,
-} from "@/lib/admin/facilitator-payouts";
+import { listAdminFacilitatorPayouts } from "@/lib/admin/facilitator-payouts";
 import { statusFromAdminError } from "@/lib/admin/authorize";
 import { verifyAdminIdToken } from "@/lib/auth/admin-server";
 import { getAdminApp } from "@/lib/firebase/admin";

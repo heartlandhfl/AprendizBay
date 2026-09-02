@@ -2,7 +2,6 @@ import {
   ASAAS_CHECKOUT_MINUTES_TO_EXPIRE,
   asaasRequestHeaders,
   authorizeAsaasWebhook,
-  buildCheckoutUrl,
   createAsaasCheckout,
   getAsaasApiBaseUrl,
   inspectAsaasCheckout,

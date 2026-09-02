@@ -5,7 +5,6 @@ import {
   buildVerifiedPaymentWebhookEvent,
   processPaymentWebhook,
 } from "@/lib/payments/process-payment-webhook";
-import { WEBHOOK_INVALID_MESSAGE } from "@/lib/payments/webhook-receipts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
