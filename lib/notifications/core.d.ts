@@ -54,7 +54,7 @@ export interface SendEmailResult {
   sent: boolean;
   skipped?: boolean;
   reason?: string;
-  provider?: "resend" | "sendgrid";
+  provider?: "jetsend" | "resend" | "sendgrid";
 }
 
 export function escapeHtml(value: unknown): string;
@@ -64,7 +64,7 @@ export function buildPendingBookingEmail(input: PendingBookingEmailInput): Email
 export function buildConfirmedBookingEmail(input: ConfirmedBookingEmailInput): EmailContent;
 export function buildLessonReminderEmail(input: LessonReminderEmailInput): EmailContent;
 export function buildNewReviewEmail(input: NewReviewEmailInput): EmailContent;
-export function configuredProvider(): "resend" | "sendgrid" | null;
+export function configuredProvider(): "jetsend" | "resend" | "sendgrid" | null;
 export function resolveFromAddress(): string;
 export function sendEmail(input: SendEmailInput): Promise<SendEmailResult>;
 export function isWithinLessonReminderWindow(

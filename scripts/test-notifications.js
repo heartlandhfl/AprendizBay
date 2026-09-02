@@ -86,8 +86,10 @@ assert.equal(
 );
 
 async function main() {
+  const previousJetSend = process.env.JETSEND_API_KEY;
   const previousKey = process.env.RESEND_API_KEY;
   const previousSendgrid = process.env.SENDGRID_API_KEY;
+  delete process.env.JETSEND_API_KEY;
   delete process.env.RESEND_API_KEY;
   delete process.env.SENDGRID_API_KEY;
   assert.equal(configuredProvider(), null);
@@ -101,8 +103,29 @@ async function main() {
   assert.equal(skipped.skipped, true);
   assert.equal(skipped.reason, "missing_api_key");
 
-  process.env.RESEND_API_KEY = "re_test";
+  process.env.JETSEND_API_KEY = "sm_test";
   const originalFetch = globalThis.fetch;
+  const jetSendCalls = [];
+  globalThis.fetch = async (url, options) => {
+    jetSendCalls.push({ url, options });
+    return { ok: true, text: async () => "" };
+  };
+
+  const jetSendSent = await sendEmail({
+    to: "tutor@example.com",
+    subject: pending.subject,
+    text: pending.text,
+    html: pending.html,
+  });
+  assert.equal(jetSendSent.sent, true);
+  assert.equal(jetSendSent.provider, "jetsend");
+  assert.equal(jetSendCalls[0].url, "https://app.jetsend.com/api/v1/transmission/email");
+  assert.match(String(jetSendCalls[0].options.headers.Authorization), /Bearer sm_test/);
+  assert.match(String(jetSendCalls[0].options.body), /Nova reserva pendente/);
+  assert.match(String(jetSendCalls[0].options.body), /noreply@aprendizbay\.com\.br/);
+
+  delete process.env.JETSEND_API_KEY;
+  process.env.RESEND_API_KEY = "re_test";
   const calls = [];
   globalThis.fetch = async (url, options) => {
     calls.push({ url, options });
@@ -121,6 +144,11 @@ async function main() {
   assert.match(String(calls[0].options.body), /Nova reserva pendente/);
 
   globalThis.fetch = originalFetch;
+  if (previousJetSend) {
+    process.env.JETSEND_API_KEY = previousJetSend;
+  } else {
+    delete process.env.JETSEND_API_KEY;
+  }
   if (previousKey) {
     process.env.RESEND_API_KEY = previousKey;
   } else {
