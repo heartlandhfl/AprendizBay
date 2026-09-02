@@ -93,9 +93,27 @@ rules_version = '2';
 //     Readable by the booking student, tutor, or admin. Client writes denied.
 //
 //   tutorPayouts/{payoutId}             // Tutor disbursement batches (Admin SDK writes)
-//     payoutId, tutorId, amount, status: pending | processing | paid | failed | cancelled
+//     payoutId, tutorId, bookingId, amount, status: pending | processing | paid | failed | cancelled
 //     paymentIds[] (ledger payment document ids), createdAt?, paidAt?
-//     Readable by the tutor or admin. Client writes denied.
+//     Readable by the tutor or admin. Client writes denied. Queued after lesson completion.
+//
+//   facilitators/{facilitatorId}        // Referral partners (Admin SDK writes; facilitator reads own)
+//     userId, referralCode, displayName, email, phone?, cpf?, commissionRatePercent
+//     status: active | suspended, stats: { clicks, signups, activeUsers, paidBookings }
+//
+//   referrals/{referralId}              // referralId === referred userId (Admin SDK writes)
+//     facilitatorId, referralCode, userId, userEmail, userPhone?, userCpf?
+//     status: active | rejected | flagged, source, attributedAt
+//
+//   commissions/{commissionId}          // commissionId === booking_{bookingId}
+//     facilitatorId, referralId, studentId, bookingId, paymentId, grossAmount, platformFee
+//     commissionAmount, status: pending | locked | approved | available | paid | reversed
+//
+//   facilitatorPayouts/{payoutId}       // Facilitator disbursement batches (Admin SDK writes)
+//     facilitatorId, commissionIds[], amount, status: pending | approved | paid | cancelled
+//
+//   facilitatorReferralFlags/{flagId}   // Anti-fraud identity flags (Admin SDK only)
+//     facilitatorId, identityKey, reason, createdAt
 //
 //   adminAuditLogs/{logId}              // Admin SDK only (privileged admin actions)
 //     actorUid, action, targetType?, targetId?, metadata, createdAt
@@ -137,7 +155,8 @@ rules_version = '2';
 //        (asaasWebhookReceipts + booking write in one Admin transaction; e-mail after commit)
 // ADMIN  payments ledger (webhook)     → lib/payments/process-payment-webhook.ts
 //        (paymentWebhookReceipts + payments/{paymentId} + booking in one Admin transaction)
-// ADMIN  tutorPayouts                  → future payout jobs (Admin SDK only)
+// ADMIN  tutorPayouts                  → lib/payments/tutor-payouts.ts after lesson completion
+// ADMIN  tutorPayouts mark paid        → POST /api/admin/tutor-payouts/mark-paid
 // ADMIN  bookings lesson reminder      → lib/notifications (lessonReminderSentAt)
 // MATCH  bookings tutor cancel         → unpaid client-capable; paid via /api/bookings/cancel + refund
 // ADMIN  bookings tutor complete       → POST /api/bookings/complete
@@ -852,6 +871,37 @@ service cloud.firestore {
       allow read: if isAuthenticated()
         && (resource.data.tutorId == request.auth.uid || isAdmin());
       allow write: if false;
+    }
+
+    // Facilitator program — Admin SDK writes; facilitator reads own records
+    match /facilitators/{facilitatorId} {
+      allow read: if isAuthenticated()
+        && (facilitatorId == request.auth.uid || isAdmin());
+      allow write: if false;
+    }
+
+    match /referrals/{referralId} {
+      allow read: if isAuthenticated()
+        && (referralId == request.auth.uid
+          || resource.data.facilitatorId == request.auth.uid
+          || isAdmin());
+      allow write: if false;
+    }
+
+    match /commissions/{commissionId} {
+      allow read: if isAuthenticated()
+        && (resource.data.facilitatorId == request.auth.uid || isAdmin());
+      allow write: if false;
+    }
+
+    match /facilitatorPayouts/{payoutId} {
+      allow read: if isAuthenticated()
+        && (resource.data.facilitatorId == request.auth.uid || isAdmin());
+      allow write: if false;
+    }
+
+    match /facilitatorReferralFlags/{flagId} {
+      allow read, write: if false;
     }
 
     // Admin action audit trail — Admin SDK only (lib/admin/audit.js)

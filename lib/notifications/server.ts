@@ -5,124 +5,58 @@
  * server/api/notifications.js instead and must not require this file.
  */
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
+import { EMAIL_EVENTS } from "@/lib/email/events";
+import { onEvent, onNewReviewEmail } from "@/lib/email/send";
 import { getAdminApp } from "@/lib/firebase/admin";
-import {
-  buildConfirmedBookingEmail,
-  buildLessonReminderEmail,
-  buildNewReviewEmail,
-  buildPendingBookingEmail,
-  getSiteUrl,
-  isWithinLessonReminderWindow,
-  sendEmail,
-  toDate,
-} from "@/lib/notifications/core";
+import { isWithinLessonReminderWindow, toDate } from "@/lib/notifications/core";
 import type { NotificationRequest } from "@/lib/notifications/types";
-
-interface Person {
-  name: string;
-  email?: string;
-}
 
 function requireDb() {
   return getFirestore(getAdminApp());
 }
 
-async function loadUser(uid: string): Promise<Person> {
-  const snapshot = await requireDb().collection("users").doc(uid).get();
-  const data = snapshot.data() ?? {};
-  return {
-    name:
-      (typeof data.displayName === "string" && data.displayName.trim()) || "Usuário",
-    email: typeof data.email === "string" ? data.email : undefined,
-  };
-}
-
-async function loadTutor(tutorId: string): Promise<Person> {
-  const snapshot = await requireDb().collection("tutors").doc(tutorId).get();
-  const data = snapshot.data() ?? {};
-  const ownerId = typeof data.userId === "string" && data.userId.trim() ? data.userId : tutorId;
-  const owner = await loadUser(ownerId);
-  return {
-    name:
-      (typeof data.name === "string" && data.name.trim()) ||
-      owner.name ||
-      "Professor",
-    email: owner.email,
-  };
-}
-
 export async function notifyPendingBooking(bookingId: string): Promise<void> {
-  const snapshot = await requireDb().collection("bookings").doc(bookingId).get();
-  if (!snapshot.exists) {
-    return;
-  }
-
-  const booking = snapshot.data() ?? {};
-  const student = await loadUser(String(booking.studentId ?? ""));
-  const tutor = await loadTutor(String(booking.tutorId ?? ""));
-  const siteUrl = getSiteUrl();
-  const email = buildPendingBookingEmail({
-    tutorName: tutor.name,
-    studentName: student.name,
-    bookingType: String(booking.type ?? ""),
-    scheduledAt: toDate(booking.scheduledAt),
-    dashboardUrl: siteUrl ? `${siteUrl}/tutor/dashboard` : undefined,
-  });
-
-  await sendEmail({ to: tutor.email ?? "", ...email });
+  await onEvent(EMAIL_EVENTS.BOOKING_CREATED, { bookingId });
 }
 
 export async function notifyConfirmedBooking(bookingId: string): Promise<void> {
-  const snapshot = await requireDb().collection("bookings").doc(bookingId).get();
-  if (!snapshot.exists) {
-    return;
-  }
+  await onEvent(EMAIL_EVENTS.PAYMENT_CONFIRMED, { bookingId });
+}
 
-  const booking = snapshot.data() ?? {};
-  const student = await loadUser(String(booking.studentId ?? ""));
-  const tutor = await loadTutor(String(booking.tutorId ?? ""));
-  const siteUrl = getSiteUrl();
-  const email = buildConfirmedBookingEmail({
-    studentName: student.name,
-    tutorName: tutor.name,
-    bookingType: String(booking.type ?? ""),
-    scheduledAt: toDate(booking.scheduledAt),
-    meetingUrl: typeof booking.meetingUrl === "string" ? booking.meetingUrl : undefined,
-    bookingsUrl: siteUrl ? `${siteUrl}/bookings` : undefined,
-  });
+export async function notifyBookingAccepted(bookingId: string): Promise<void> {
+  await onEvent(EMAIL_EVENTS.BOOKING_ACCEPTED, { bookingId });
+}
 
-  await sendEmail({ to: student.email ?? "", ...email });
+export async function notifyPaymentFailed(bookingId: string): Promise<void> {
+  await onEvent(EMAIL_EVENTS.PAYMENT_FAILED, { bookingId });
+}
+
+export async function notifyLessonCancelled(bookingId: string): Promise<void> {
+  await onEvent(EMAIL_EVENTS.LESSON_CANCELLED, { bookingId });
+}
+
+export async function notifyRefundCompleted(
+  bookingId: string,
+  refundAmount?: number,
+): Promise<void> {
+  await onEvent(EMAIL_EVENTS.REFUND_COMPLETED, { bookingId, refundAmount });
+}
+
+export async function notifyLessonCompleted(bookingId: string): Promise<void> {
+  await onEvent(EMAIL_EVENTS.LESSON_COMPLETED, { bookingId });
+  await onEvent(EMAIL_EVENTS.REVIEW_REQUEST, { bookingId });
 }
 
 export async function notifyNewReview(reviewId: string): Promise<void> {
-  const snapshot = await requireDb().collection("reviews").doc(reviewId).get();
-  if (!snapshot.exists) {
-    return;
-  }
-
-  const review = snapshot.data() ?? {};
-  const student = await loadUser(String(review.studentId ?? ""));
-  const tutor = await loadTutor(String(review.tutorId ?? ""));
-  const siteUrl = getSiteUrl();
-  const email = buildNewReviewEmail({
-    tutorName: tutor.name,
-    studentName: student.name,
-    rating: Number(review.rating ?? 0),
-    comment: typeof review.comment === "string" ? review.comment : "",
-    dashboardUrl: siteUrl ? `${siteUrl}/tutor/dashboard` : undefined,
-  });
-
-  await sendEmail({ to: tutor.email ?? "", ...email });
+  await onNewReviewEmail(reviewId);
 }
 
 export async function notifyLessonReminders(now: Date = new Date()): Promise<{
   scanned: number;
   sent: number;
 }> {
-  const snapshot = await requireDb()
-    .collection("bookings")
-    .where("status", "==", "confirmed")
-    .get();
+  const db = requireDb();
+  const snapshot = await db.collection("bookings").where("status", "==", "confirmed").get();
 
   let sent = 0;
 
@@ -137,27 +71,17 @@ export async function notifyLessonReminders(now: Date = new Date()): Promise<{
       continue;
     }
 
-    const student = await loadUser(String(booking.studentId ?? ""));
-    const tutor = await loadTutor(String(booking.tutorId ?? ""));
-    const payload = {
-      studentName: student.name,
-      tutorName: tutor.name,
-      bookingType: String(booking.type ?? ""),
-      scheduledAt,
-      meetingUrl: typeof booking.meetingUrl === "string" ? booking.meetingUrl : undefined,
-    };
+    const studentId = String(booking.studentId ?? "");
+    const tutorId = String(booking.tutorId ?? "");
 
-    const studentEmail = buildLessonReminderEmail({
-      ...payload,
-      recipientName: student.name,
+    await onEvent(EMAIL_EVENTS.LESSON_REMINDER, {
+      bookingId: docSnap.id,
+      recipientUserId: studentId,
     });
-    const tutorEmail = buildLessonReminderEmail({
-      ...payload,
-      recipientName: tutor.name,
+    await onEvent(EMAIL_EVENTS.LESSON_REMINDER, {
+      bookingId: docSnap.id,
+      recipientUserId: tutorId,
     });
-
-    await sendEmail({ to: student.email ?? "", ...studentEmail });
-    await sendEmail({ to: tutor.email ?? "", ...tutorEmail });
 
     await docSnap.ref.update({
       lessonReminderSentAt: FieldValue.serverTimestamp(),
@@ -179,6 +103,12 @@ export async function dispatchNotification(
       }
       await notifyPendingBooking(request.bookingId);
       return { ok: true, type: request.type };
+    case "booking_accepted":
+      if (!request.bookingId) {
+        throw new Error("Informe o identificador da reserva.");
+      }
+      await notifyBookingAccepted(request.bookingId);
+      return { ok: true, type: request.type };
     case "confirmed_booking":
       if (!request.bookingId) {
         throw new Error("Informe o identificador da reserva.");
@@ -193,6 +123,34 @@ export async function dispatchNotification(
       return { ok: true, type: request.type };
     case "lesson_reminder":
       await notifyLessonReminders();
+      return { ok: true, type: request.type };
+    case "lesson_cancelled":
+      if (!request.bookingId) {
+        throw new Error("Informe o identificador da reserva.");
+      }
+      await notifyLessonCancelled(request.bookingId);
+      return { ok: true, type: request.type };
+    case "refund_completed":
+      if (!request.bookingId) {
+        throw new Error("Informe o identificador da reserva.");
+      }
+      await notifyRefundCompleted(request.bookingId, request.refundAmount);
+      return { ok: true, type: request.type };
+    case "lesson_completed":
+      if (!request.bookingId) {
+        throw new Error("Informe o identificador da reserva.");
+      }
+      await notifyLessonCompleted(request.bookingId);
+      return { ok: true, type: request.type };
+    case "new_message":
+      if (!request.conversationId || !request.messageId || !request.recipientUserId) {
+        throw new Error("Informe a conversa, a mensagem e o destinatário.");
+      }
+      await onEvent(EMAIL_EVENTS.NEW_MESSAGE, {
+        conversationId: request.conversationId,
+        messageId: request.messageId,
+        recipientUserId: request.recipientUserId,
+      });
       return { ok: true, type: request.type };
     default:
       throw new Error("Tipo de notificação inválido.");

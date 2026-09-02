@@ -1,12 +1,11 @@
-import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
-import { mapBookingRecord, type BookingRecord } from "@/lib/bookings/server";
+import { getFirestore } from "firebase-admin/firestore";
+import { type BookingRecord } from "@/lib/bookings/server";
 import { BOOKING_TYPE_LABELS } from "@/lib/bookings/types";
 import { getAdminApp } from "@/lib/firebase/admin";
 import {
   CHECKOUT_ERRORS,
   CHECKOUT_LOCK_MS,
   type CheckoutStore,
-  type CheckoutTransaction,
   createFirestoreCheckoutStore,
   type CreateBookingCheckoutFailure,
   type CreateBookingCheckoutResult,

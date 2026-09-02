@@ -4,7 +4,12 @@ import { trackServerEvent } from "@/lib/analytics/server";
 import { mapBookingRecord, type BookingRecord } from "@/lib/bookings/server";
 import { generateMeetingUrl } from "@/lib/bookings/meeting";
 import { getAdminApp } from "@/lib/firebase/admin";
-import { notifyConfirmedBooking, safeNotify } from "@/lib/notifications/server";
+import {
+  notifyConfirmedBooking,
+  notifyPaymentFailed,
+  notifyRefundCompleted,
+  safeNotify,
+} from "@/lib/notifications/server";
 import type { MercadoPagoPaymentResult } from "@/lib/payments/mercadopago";
 import { comparePaidAmountToExpected } from "@/lib/payments/money";
 import {
@@ -60,6 +65,8 @@ export interface MercadoPagoWebhookStore {
 export interface ProcessMercadoPagoWebhookDeps {
   store?: MercadoPagoWebhookStore;
   onApproved?: (booking: BookingRecord) => Promise<void>;
+  onFailed?: (booking: BookingRecord) => Promise<void>;
+  onRefunded?: (booking: BookingRecord) => Promise<void>;
 }
 
 export interface VerifiedMercadoPagoWebhookEvent {
@@ -527,6 +534,17 @@ async function defaultOnApproved(booking: BookingRecord): Promise<void> {
   });
 }
 
+async function defaultOnFailed(booking: BookingRecord): Promise<void> {
+  await safeNotify(() => notifyPaymentFailed(booking.id), "payment_failed");
+}
+
+async function defaultOnRefunded(booking: BookingRecord): Promise<void> {
+  await safeNotify(
+    () => notifyRefundCompleted(booking.id, booking.refundAmount),
+    "refund_completed",
+  );
+}
+
 export async function processMercadoPagoPaymentWebhook(
   event: VerifiedMercadoPagoWebhookEvent,
   deps: ProcessMercadoPagoWebhookDeps = {},
@@ -546,7 +564,12 @@ export async function processMercadoPagoPaymentWebhook(
     const claimed = await store.runAtomic((tx) =>
       claimUnsuccessfulPayment(tx, event, "rejected"),
     );
-    return toPublicResult(claimed.kind);
+    const result = toPublicResult(claimed.kind);
+    if (claimed.kind === "rejected" && claimed.booking) {
+      const onFailed = deps.onFailed ?? defaultOnFailed;
+      await onFailed(claimed.booking);
+    }
+    return result;
   }
 
   if (status === "cancelled") {
@@ -560,7 +583,12 @@ export async function processMercadoPagoPaymentWebhook(
     const claimed = await store.runAtomic((tx) =>
       claimUnsuccessfulPayment(tx, event, "refunded"),
     );
-    return toPublicResult(claimed.kind);
+    const result = toPublicResult(claimed.kind);
+    if (claimed.kind === "refunded" && claimed.booking) {
+      const onRefunded = deps.onRefunded ?? defaultOnRefunded;
+      await onRefunded(claimed.booking);
+    }
+    return result;
   }
 
   if (status !== "approved") {

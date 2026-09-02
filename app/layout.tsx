@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import CookieConsentBanner from "@/components/legal/CookieConsentBanner";
+import ReferralCapture from "@/components/referrals/ReferralCapture";
 import ObservabilityProvider from "@/components/observability/ObservabilityProvider";
 import { AuthProvider } from "@/lib/auth/AuthContext";
 import { getSiteUrl } from "@/lib/seo/site-url";
@@ -37,6 +39,9 @@ export default function RootLayout({
       <body className="flex min-h-screen flex-col font-sans">
         <AuthProvider>
           <ObservabilityProvider />
+          <Suspense fallback={null}>
+            <ReferralCapture />
+          </Suspense>
           <Navbar />
           <main className="flex-1">{children}</main>
           <Footer />

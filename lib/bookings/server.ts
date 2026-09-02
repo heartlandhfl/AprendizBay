@@ -21,7 +21,13 @@ import {
 import { createIndividualBookingForStudent } from "@/lib/bookings/create-booking";
 import { createCollectiveBookingForStudent } from "@/lib/hubs/join-and-book";
 import { generateMeetingUrl } from "@/lib/bookings/meeting";
-import { notifyConfirmedBooking, safeNotify } from "@/lib/notifications/server";
+import {
+  notifyConfirmedBooking,
+  notifyLessonCancelled,
+  notifyLessonCompleted,
+  notifyRefundCompleted,
+  safeNotify,
+} from "@/lib/notifications/server";
 import type { Booking, BookingStatus, BookingType, PaymentStatus } from "@/lib/bookings/types";
 import type { BookingFeeSplit } from "@/lib/payments/fees";
 
@@ -265,9 +271,21 @@ export async function completeLessonAsActor(input: {
   actorRole?: string;
 }): Promise<{ bookingId: string; status: "completed" }> {
   const db = requireAdminFirestore();
-  return completeLessonForActor(db, input, {
+  const result = await completeLessonForActor(db, input, {
     timestamp: FieldValue.serverTimestamp(),
   });
+
+  try {
+    const { queueTutorPayoutForCompletedLesson } = await import("@/lib/payments/tutor-payouts");
+    await queueTutorPayoutForCompletedLesson(db, { bookingId: result.bookingId });
+  } catch (error) {
+    const { captureServerException } = await import("@/lib/observability/sentry-server");
+    captureServerException(error);
+  }
+
+  await safeNotify(() => notifyLessonCompleted(result.bookingId), "lesson_completed");
+
+  return result;
 }
 
 export async function createIndividualBookingAsStudent(input: {
@@ -308,7 +326,17 @@ export async function cancelBookingWithRefund(
     bookingId: input.bookingId,
     actorUid: input.actorUid,
   };
-  return executeCancelBooking(cancelInput, {
+  const result = await executeCancelBooking(cancelInput, {
     store: createFirestoreCancelStore(requireAdminFirestore()),
   });
+
+  await safeNotify(() => notifyLessonCancelled(result.bookingId), "lesson_cancelled");
+  if (result.refunded) {
+    await safeNotify(
+      () => notifyRefundCompleted(result.bookingId, result.refundAmount),
+      "refund_completed",
+    );
+  }
+
+  return result;
 }
