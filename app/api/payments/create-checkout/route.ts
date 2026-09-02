@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { captureServerException } from "@/lib/observability/sentry-server";
 import { getUserProfile, verifyUserIdToken } from "@/lib/auth/admin-server";
 import { createBookingCheckout } from "@/lib/payments/create-checkout";
+import { createMercadoPagoBookingCheckout } from "@/lib/payments/create-mercadopago-checkout";
+import { getPaymentProvider } from "@/lib/payments/gateway/factory";
 import {
   digitsOnly,
   isValidCpf,
@@ -45,16 +47,48 @@ export async function POST(request: Request) {
       tutorAmount?: unknown;
     };
     const bookingId = body.bookingId?.trim();
+    const siteUrl = getSiteUrl(request);
+    const provider = getPaymentProvider();
+
+    if (!bookingId) {
+      return NextResponse.json({ error: "Informe o identificador da reserva." }, { status: 400 });
+    }
+
+    if (provider === "mercadopago") {
+      const profile = await getUserProfile(uid);
+      const email = body.email?.trim() || profile?.email || "";
+      if (!email.includes("@")) {
+        return NextResponse.json({ error: "Informe um e-mail válido." }, { status: 400 });
+      }
+
+      const cpf = digitsOnly(body.cpf ?? "");
+      const result = await createMercadoPagoBookingCheckout({
+        uid,
+        bookingId,
+        siteUrl,
+        customer: {
+          name: profile?.displayName?.trim() || "Aluno Aprendiz Bay",
+          email,
+          ...(isValidCpf(cpf) ? { cpfCnpj: cpf } : {}),
+        },
+      });
+
+      if (!result.ok) {
+        return NextResponse.json({ error: result.error }, { status: result.status });
+      }
+
+      return NextResponse.json({
+        checkoutId: result.checkoutId,
+        checkoutUrl: result.checkoutUrl,
+      });
+    }
+
     const cpf = digitsOnly(body.cpf ?? "");
     const phone = digitsOnly(body.phone ?? "");
     const postalCode = digitsOnly(body.postalCode ?? "");
     const address = body.address?.trim() ?? "";
     const addressNumber = body.addressNumber?.trim() ?? "";
     const province = body.province?.trim() ?? "";
-
-    if (!bookingId) {
-      return NextResponse.json({ error: "Informe o identificador da reserva." }, { status: 400 });
-    }
 
     if (!isValidCpf(cpf)) {
       return NextResponse.json({ error: "Informe um CPF válido." }, { status: 400 });
@@ -80,7 +114,7 @@ export async function POST(request: Request) {
     const result = await createBookingCheckout({
       uid,
       bookingId,
-      siteUrl: getSiteUrl(request),
+      siteUrl,
       customer: {
         name: profile?.displayName?.trim() || "Aluno Aprendiz Bay",
         cpfCnpj: cpf,
@@ -107,7 +141,9 @@ export async function POST(request: Request) {
     const status =
       message.includes("Token") || message.includes("autenticação")
         ? 401
-        : message.includes("ASAAS_API_KEY") || message.includes("Firebase Admin")
+        : message.includes("ASAAS_API_KEY") ||
+            message.includes("MERCADOPAGO_ACCESS_TOKEN") ||
+            message.includes("Firebase Admin")
           ? 503
           : 400;
     if (status >= 500) {

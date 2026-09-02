@@ -73,6 +73,9 @@ export interface BookingRecord {
   mercadopagoPaymentStatus?: string;
   asaasCheckoutId?: string;
   asaasCheckoutExpiresAt?: Date;
+  paymentCheckoutId?: string;
+  paymentCheckoutUrl?: string;
+  paymentCheckoutExpiresAt?: Date;
   checkoutLockUntil?: Date;
   refundId?: string;
   refundStatus?: string;
@@ -119,6 +122,9 @@ export function mapBookingRecord(
       : undefined,
     asaasCheckoutId: data.asaasCheckoutId ? String(data.asaasCheckoutId) : undefined,
     asaasCheckoutExpiresAt: optionalDate(data.asaasCheckoutExpiresAt),
+    paymentCheckoutId: data.paymentCheckoutId ? String(data.paymentCheckoutId) : undefined,
+    paymentCheckoutUrl: data.paymentCheckoutUrl ? String(data.paymentCheckoutUrl) : undefined,
+    paymentCheckoutExpiresAt: optionalDate(data.paymentCheckoutExpiresAt),
     checkoutLockUntil: optionalDate(data.checkoutLockUntil),
     refundId: data.refundId ? String(data.refundId) : undefined,
     refundStatus: data.refundStatus ? String(data.refundStatus) : undefined,

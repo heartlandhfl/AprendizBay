@@ -22,6 +22,7 @@ const RETRYABLE_PAYMENT_STATUSES = new Set<PaymentStatus>([
 export function getPaymentLifecycle(booking: {
   paymentStatus?: PaymentStatus;
   asaasCheckoutId?: string;
+  paymentCheckoutId?: string;
 }): PaymentLifecycle {
   const paymentStatus = booking.paymentStatus ?? "unpaid";
 
@@ -35,7 +36,9 @@ export function getPaymentLifecycle(booking: {
     return "expired";
   }
   if (paymentStatus === "awaiting_payment") {
-    return booking.asaasCheckoutId?.trim() ? "checkout_created" : "awaiting_payment";
+    return booking.asaasCheckoutId?.trim() || booking.paymentCheckoutId?.trim()
+      ? "checkout_created"
+      : "awaiting_payment";
   }
   return "not_started";
 }

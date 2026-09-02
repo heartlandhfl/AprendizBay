@@ -816,6 +816,16 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Unified payment webhook receipts — Admin SDK only (lib/payments/process-payment-webhook.ts)
+    match /paymentWebhookReceipts/{receiptId} {
+      allow read, write: if false;
+    }
+
+    // Payment records — Admin SDK only (lib/payments/process-payment-webhook.ts)
+    match /payments/{paymentId} {
+      allow read, write: if false;
+    }
+
     // Admin action audit trail — Admin SDK only (lib/admin/audit.js)
     match /adminAuditLogs/{logId} {
       allow read, write: if false;
