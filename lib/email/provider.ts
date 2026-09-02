@@ -10,7 +10,7 @@ export interface EmailResult {
   sent: boolean;
   skipped?: boolean;
   reason?: string;
-  provider?: "resend" | "sendgrid";
+  provider?: "jetsend" | "resend" | "sendgrid";
 }
 
 export interface EmailProvider {

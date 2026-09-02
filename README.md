@@ -174,8 +174,12 @@ npx tsx scripts/seed.ts
 | `MERCADOPAGO_ACCESS_TOKEN` | Mercado Pago server token (Checkout Bricks server calls) |
 | `MERCADOPAGO_WEBHOOK_SECRET` | HMAC secret for `POST /api/mercadopago/webhook` |
 | `NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY` | Mercado Pago public key (Bricks initialization) |
-| `RESEND_API_KEY` | [Resend](https://resend.com) API key (preferred mailer) |
-| `SENDGRID_API_KEY` | SendGrid API key (used if Resend is unset) |
+| `JETSEND_API_KEY` | [JetSend](https://jetsend.com) API key (preferred mailer) |
+| `JETSEND_TENANT_ID` | JetSend tenant UUID (optional, ops reference) |
+| `JETSEND_SLUG` | JetSend account slug (optional, ops reference) |
+| `JETSEND_TRACKING_DOMAIN` | JetSend verified tracking domain (optional) |
+| `RESEND_API_KEY` | [Resend](https://resend.com) API key (fallback if JetSend is unset) |
+| `SENDGRID_API_KEY` | SendGrid API key (used if JetSend and Resend are unset) |
 | `EMAIL_FROM` | From header, e.g. `Aprendiz Bay <noreply@aprendizbay.com.br>` |
 | `NOTIFICATIONS_CRON_SECRET` | Bearer token for `/api/notifications/reminders` (external cron or Vercel Cron on Pro) |
 | `PLATFORM_FEE_PERCENT` | Percent of each booking kept as the platform fee (`0`–`100`, default `10`) |
@@ -204,7 +208,7 @@ Every route sets `export const runtime = "nodejs"` and `export const dynamic = "
 | `/api/hubs/join` | POST | Collective hub join + booking | `firebase-admin` |
 | `/api/mercadopago/process-payment` | POST | Mercado Pago payment | `firebase-admin` + MP API |
 | `/api/mercadopago/webhook` | GET, POST | Mercado Pago webhook | `node:crypto` HMAC + `firebase-admin` |
-| `/api/notifications` | POST | Transactional e-mail | `firebase-admin` + Resend/SendGrid |
+| `/api/notifications` | POST | Transactional e-mail | `firebase-admin` + JetSend/Resend/SendGrid |
 | `/api/notifications/reminders` | GET, POST | 1-hour lesson reminders (cron) | `firebase-admin` + e-mail |
 | `/api/payments/create-checkout` | POST | Asaas checkout session | `firebase-admin` + Asaas API |
 | `/api/payments/webhook` | POST | Asaas payment webhook | `node:crypto` + `firebase-admin` |
@@ -259,7 +263,7 @@ After UI changes, run `npm run build:hostinger` locally and commit `hostinger-ne
 | Full `app/api/**` parity | Partial (`server/api/` only) | Yes |
 | Server Actions | No | Yes |
 
-Set `NEXT_PUBLIC_SITE_URL`, `FIREBASE_ADMIN_*`, `RESEND_API_KEY`, `EMAIL_FROM`, and `NOTIFICATIONS_CRON_SECRET` in Hostinger environment variables. Firebase web keys are also served at runtime from `GET /api/public-config`.
+Set `NEXT_PUBLIC_SITE_URL`, `FIREBASE_ADMIN_*`, `JETSEND_API_KEY`, `EMAIL_FROM`, and `NOTIFICATIONS_CRON_SECRET` in Hostinger environment variables. Firebase web keys are also served at runtime from `GET /api/public-config`.
 
 ### Rules vs app (known gaps)
 
