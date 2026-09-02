@@ -265,9 +265,19 @@ export async function completeLessonAsActor(input: {
   actorRole?: string;
 }): Promise<{ bookingId: string; status: "completed" }> {
   const db = requireAdminFirestore();
-  return completeLessonForActor(db, input, {
+  const result = await completeLessonForActor(db, input, {
     timestamp: FieldValue.serverTimestamp(),
   });
+
+  try {
+    const { queueTutorPayoutForCompletedLesson } = await import("@/lib/payments/tutor-payouts");
+    await queueTutorPayoutForCompletedLesson(db, { bookingId: result.bookingId });
+  } catch (error) {
+    const { captureServerException } = await import("@/lib/observability/sentry-server");
+    captureServerException(error);
+  }
+
+  return result;
 }
 
 export async function createIndividualBookingAsStudent(input: {
