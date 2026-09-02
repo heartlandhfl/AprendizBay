@@ -77,6 +77,6 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET(request: Request) {
-  return POST(request);
+export async function GET() {
+  return NextResponse.json({ ok: true });
 }

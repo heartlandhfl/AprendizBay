@@ -29,7 +29,7 @@ vi.mock("@/lib/observability/sentry-server", () => ({
   captureServerException: vi.fn(),
 }));
 
-import { POST } from "@/app/api/mercadopago/webhook/route";
+import { POST, GET } from "@/app/api/mercadopago/webhook/route";
 
 const TEST_SECRET = "test-webhook-secret";
 
@@ -124,5 +124,22 @@ describe("POST /api/mercadopago/webhook", () => {
     expect(payload.confirmed).toBe(true);
     expect(mockFetchPayment).toHaveBeenCalledWith("12345");
     expect(mockProcessWebhook).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("GET /api/mercadopago/webhook", () => {
+  beforeEach(() => {
+    mockFetchPayment.mockReset();
+    mockProcessWebhook.mockReset();
+  });
+
+  it("returns a harmless health response without touching payment state", async () => {
+    const response = await GET();
+    const payload = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(200);
+    expect(payload).toEqual({ ok: true });
+    expect(mockFetchPayment).not.toHaveBeenCalled();
+    expect(mockProcessWebhook).not.toHaveBeenCalled();
   });
 });
