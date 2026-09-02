@@ -2,7 +2,6 @@ import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import {
   COMMISSIONS_COLLECTION,
   FACILITATOR_PAYOUTS_COLLECTION,
-  type CommissionRecord,
   type FacilitatorPayoutRecord,
   type FacilitatorPayoutStatus,
 } from "@/lib/facilitators/schema";
