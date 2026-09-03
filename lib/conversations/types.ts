@@ -33,6 +33,7 @@ export interface Conversation {
   lastMessage?: string;
   lastMessageAt?: Timestamp;
   lastSenderId?: string;
+  lastMessageEmailSentAt?: Record<string, Timestamp>;
   createdAt?: Timestamp;
   updatedAt?: Timestamp;
 }

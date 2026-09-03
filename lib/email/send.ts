@@ -1,4 +1,4 @@
-import { getFirestore, type Firestore } from "firebase-admin/firestore";
+import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
 import {
   EMAIL_EVENTS,
   type EmailEventName,
@@ -19,10 +19,18 @@ import {
 import {
   buildEmailTemplate,
   buildNewReviewEmail,
+  bookingTypeLabel,
   formatBookingAcceptedStatusLabel,
+  formatDatePtBr,
   type EmailContent,
 } from "@/lib/email/templates";
+import { mapConversationDoc } from "@/lib/conversations/map";
 import { conversationIdFor } from "@/lib/conversations/ids";
+import {
+  isConversationParticipant,
+  readLastMessageEmailSentAt,
+  shouldSendMessageEmail,
+} from "@/lib/email/message-notification-policy";
 import { getAdminApp } from "@/lib/firebase/admin";
 import { lessonPath } from "@/lib/lessons/paths";
 import { getSiteOrigin } from "@/lib/seo/site-url";
@@ -167,6 +175,68 @@ async function sendContent(
     },
     { store, provider },
   );
+}
+
+async function recordMessageEmailSent(
+  db: Firestore,
+  conversationId: string,
+  recipientUserId: string,
+): Promise<void> {
+  await db.collection("conversations").doc(conversationId).update({
+    [`lastMessageEmailSentAt.${recipientUserId}`]: FieldValue.serverTimestamp(),
+  });
+}
+
+interface MessageBookingContext {
+  lessonContextLabel: string;
+  bookingUrl?: string;
+}
+
+async function resolveMessageBookingContext(
+  db: Firestore,
+  studentId: string,
+  tutorId: string,
+  tutorSubjectLabel: string | undefined,
+  baseUrl: string,
+): Promise<MessageBookingContext | null> {
+  const snapshot = await db
+    .collection("bookings")
+    .where("studentId", "==", studentId)
+    .where("tutorId", "==", tutorId)
+    .get();
+
+  const activeStatuses = new Set(["pending", "confirmed"]);
+  let best: { id: string; data: Record<string, unknown> } | null = null;
+  let bestTime = 0;
+
+  for (const docSnap of snapshot.docs) {
+    const data = docSnap.data();
+    const status = String(data.status ?? "");
+    if (!activeStatuses.has(status)) {
+      continue;
+    }
+
+    const scheduledAt = notificationCore.toDate(data.scheduledAt);
+    const time = scheduledAt.getTime();
+    if (!Number.isNaN(time) && time >= bestTime) {
+      bestTime = time;
+      best = { id: docSnap.id, data };
+    }
+  }
+
+  if (!best) {
+    return null;
+  }
+
+  const when = formatDatePtBr(notificationCore.toDate(best.data.scheduledAt));
+  const typeLabel = bookingTypeLabel(String(best.data.type ?? ""));
+  const subjectLine = tutorSubjectLabel?.trim() || "Aula";
+  const lessonContextLabel = `${subjectLine} · ${typeLabel} · ${when}`;
+
+  return {
+    lessonContextLabel,
+    bookingUrl: baseUrl ? `${baseUrl}${lessonPath(best.id)}` : undefined,
+  };
 }
 
 async function resolveBookingContext(db: Firestore, bookingId: string) {
@@ -569,7 +639,12 @@ export async function onEvent(
       if (!conversationSnap.exists) {
         return { sent: false, skipped: true, reason: "conversation_not_found" };
       }
-      const conversation = conversationSnap.data() ?? {};
+
+      const conversation = mapConversationDoc(
+        conversationSnap.id,
+        conversationSnap.data() as Record<string, unknown>,
+      );
+      const conversationData = conversationSnap.data() ?? {};
       const messageSnap = await db
         .collection("conversations")
         .doc(eventPayload.conversationId)
@@ -579,17 +654,58 @@ export async function onEvent(
       if (!messageSnap.exists) {
         return { sent: false, skipped: true, reason: "message_not_found" };
       }
+
       const message = messageSnap.data() ?? {};
       const senderId = String(message.senderId ?? "");
+      const recipientUserId = eventPayload.recipientUserId;
+
+      if (!isConversationParticipant(conversation, recipientUserId)) {
+        return { sent: false, skipped: true, reason: "unauthorized_recipient" };
+      }
+
+      if (senderId === recipientUserId) {
+        return { sent: false, skipped: true, reason: "self_notification" };
+      }
+
+      if (!isConversationParticipant(conversation, senderId)) {
+        return { sent: false, skipped: true, reason: "invalid_sender" };
+      }
+
+      const expectedRecipient =
+        senderId === conversation.studentId ? conversation.tutorId : conversation.studentId;
+      if (recipientUserId !== expectedRecipient) {
+        return { sent: false, skipped: true, reason: "unauthorized_recipient" };
+      }
+
+      const lastSentAt = readLastMessageEmailSentAt(conversationData, recipientUserId);
+      if (!shouldSendMessageEmail(lastSentAt)) {
+        return { sent: false, skipped: true, reason: "recently_notified" };
+      }
+
       const recipient =
-        eventPayload.recipientUserId === String(conversation.tutorId ?? "")
-          ? await loadTutor(db, String(conversation.tutorId ?? ""))
-          : await loadUser(db, eventPayload.recipientUserId);
+        recipientUserId === conversation.tutorId
+          ? await loadTutor(db, conversation.tutorId)
+          : await loadUser(db, recipientUserId);
       const sender =
-        senderId === String(conversation.tutorId ?? "")
+        senderId === conversation.tutorId
           ? await loadTutor(db, senderId)
           : await loadUser(db, senderId);
-      return sendContent(
+      const tutorProfile =
+        senderId === conversation.tutorId
+          ? (sender as TutorPerson)
+          : await loadTutor(db, conversation.tutorId);
+      const bookingContext = await resolveMessageBookingContext(
+        db,
+        conversation.studentId,
+        conversation.tutorId,
+        tutorProfile.subjectLabel,
+        baseUrl,
+      );
+      const messagesUrl = baseUrl
+        ? `${baseUrl}/mensagens/${encodeURIComponent(eventPayload.conversationId)}`
+        : undefined;
+
+      const result = await sendContent(
         db,
         provider,
         recipient.email,
@@ -597,9 +713,8 @@ export async function onEvent(
           recipientName: recipient.name,
           senderName: sender.name,
           preview: typeof message.text === "string" ? message.text : "",
-          messagesUrl: baseUrl
-            ? `${baseUrl}/mensagens/${encodeURIComponent(eventPayload.conversationId)}`
-            : undefined,
+          lessonContextLabel: bookingContext?.lessonContextLabel,
+          messagesUrl,
         }),
         {
           eventName: EMAIL_EVENTS.NEW_MESSAGE,
@@ -614,6 +729,12 @@ export async function onEvent(
         },
         deps,
       );
+
+      if (result.sent && !result.skipped) {
+        await recordMessageEmailSent(db, eventPayload.conversationId, recipientUserId);
+      }
+
+      return result;
     }
 
     default: {

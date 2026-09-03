@@ -8,6 +8,7 @@ import ConversationSafetyMenu from "@/components/conversations/ConversationSafet
 import { conversationErrorMessage } from "@/lib/conversations/errors";
 import { otherParticipantId, otherParticipantName } from "@/lib/conversations/ids";
 import { describeOffPlatformWarning, detectOffPlatformSignals } from "@/lib/conversations/moderation";
+import { requestNotification } from "@/lib/notifications/client";
 import {
   blockUser,
   formatMessageTime,
@@ -143,7 +144,15 @@ export default function ConversationThread({
     setError(null);
 
     try {
-      await sendMessage(conversationId, user.uid, text);
+      const messageId = await sendMessage(conversationId, user.uid, text);
+      if (otherId) {
+        void requestNotification({
+          type: "new_message",
+          conversationId,
+          messageId,
+          recipientUserId: otherId,
+        });
+      }
       setDraft("");
       setPendingSignals([]);
     } catch (sendError) {
