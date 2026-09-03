@@ -32,12 +32,9 @@ export async function POST(request: Request) {
   const persistFallback = hasFirebaseAdminConfig()
     ? async (
         input: { name: string; email: string; message: string },
-        meta: { emailSkipReason?: string },
+        meta: { emailDelivery: "sent" | "failed" | "skipped"; emailSkipReason?: string },
       ) => {
-        await persistContactMessage(getFirestore(getAdminApp()), input, {
-          emailDelivery: "skipped",
-          emailSkipReason: meta.emailSkipReason,
-        });
+        await persistContactMessage(getFirestore(getAdminApp()), input, meta);
         return true;
       }
     : undefined;

@@ -99,7 +99,34 @@ describe("sendContactMessage", () => {
         email: "ana@example.com",
         message: "Tenho uma dúvida.",
       },
-      { emailSkipReason: "missing_api_key" },
+      { emailDelivery: "skipped", emailSkipReason: "missing_api_key" },
+    );
+  });
+
+  it("stores send failures with emailDelivery failed", async () => {
+    const send = vi.fn(async () => {
+      throw new Error("network");
+    });
+    setActiveEmailProvider({ send });
+    const persistFallback = vi.fn(async () => true);
+
+    const result = await sendContactMessage(
+      {
+        name: "Ana Silva",
+        email: "ana@example.com",
+        message: "Tenho uma dúvida.",
+      },
+      { persistFallback },
+    );
+
+    expect(result).toEqual({ ok: true, delivery: "inbox" });
+    expect(persistFallback).toHaveBeenCalledWith(
+      {
+        name: "Ana Silva",
+        email: "ana@example.com",
+        message: "Tenho uma dúvida.",
+      },
+      { emailDelivery: "failed", emailSkipReason: "send_failed" },
     );
   });
 

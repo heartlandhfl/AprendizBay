@@ -21,5 +21,9 @@ describe("AdminNav", () => {
     expect(screen.getByRole("link", { name: "Pagamentos" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Avaliações" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Usuários" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Caixa de Entrada" })).toHaveAttribute(
+      "href",
+      "/admin/contact-inbox",
+    );
   });
 });

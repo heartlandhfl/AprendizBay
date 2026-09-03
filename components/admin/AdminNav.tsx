@@ -14,6 +14,7 @@ const LINKS = [
   { href: "/admin/payouts", label: "Repasses" },
   { href: "/admin/facilitator-payouts", label: "Facilitadores" },
   { href: "/admin/email", label: "E-mails" },
+  { href: "/admin/contact-inbox", label: "Caixa de Entrada" },
 ];
 
 export default function AdminNav() {
@@ -28,7 +29,9 @@ export default function AdminNav() {
           (link.href === "/admin/payouts" && pathname.startsWith("/admin/payouts")) ||
           (link.href === "/admin/facilitator-payouts" &&
             pathname.startsWith("/admin/facilitator-payouts")) ||
-          (link.href === "/admin/email" && pathname.startsWith("/admin/email"));
+          (link.href === "/admin/email" && pathname.startsWith("/admin/email")) ||
+          (link.href === "/admin/contact-inbox" &&
+            pathname.startsWith("/admin/contact-inbox"));
 
         return (
           <Link

@@ -117,6 +117,7 @@ rules_version = '2';
 //
 //   adminAuditLogs/{logId}              // Admin SDK only (privileged admin actions)
 //   emailOutbox/{emailId}               // Admin SDK only (transactional email outbox)
+//   contactInbox/{messageId}            // Admin SDK only (contact form inbox fallback)
 //     actorUid, action, targetType?, targetId?, metadata, createdAt
 //
 //   lessonSlots/{slotId}                // Admin SDK only (individual uniqueness lock)
@@ -912,6 +913,11 @@ service cloud.firestore {
 
     // Transactional email outbox — Admin SDK only (lib/email/outbox)
     match /emailOutbox/{emailId} {
+      allow read, write: if false;
+    }
+
+    // Contact form inbox fallback — Admin SDK only (lib/contact/persist-contact-message)
+    match /contactInbox/{messageId} {
       allow read, write: if false;
     }
 
