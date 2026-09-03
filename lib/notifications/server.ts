@@ -7,6 +7,11 @@
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { EMAIL_EVENTS } from "@/lib/email/events";
 import { onEvent, onNewReviewEmail } from "@/lib/email/send";
+import { getActiveEmailProvider } from "@/lib/email/resend-sendgrid-provider";
+import {
+  createFirestoreEmailOutboxStore,
+  processDueOutboxEmails,
+} from "@/lib/email/outbox";
 import { getAdminApp } from "@/lib/firebase/admin";
 import { isWithinLessonReminderWindow, toDate } from "@/lib/notifications/core";
 import type { NotificationRequest } from "@/lib/notifications/types";
@@ -51,9 +56,28 @@ export async function notifyNewReview(reviewId: string): Promise<void> {
   await onNewReviewEmail(reviewId);
 }
 
+export async function processEmailOutboxRetries(now: Date = new Date()): Promise<{
+  processed: number;
+  sent: number;
+}> {
+  const db = requireDb();
+  const results = await processDueOutboxEmails({
+    store: createFirestoreEmailOutboxStore(db),
+    provider: getActiveEmailProvider(),
+    now: () => now,
+  });
+
+  return {
+    processed: results.length,
+    sent: results.filter((result) => result.sent && result.status === "sent").length,
+  };
+}
+
 export async function notifyLessonReminders(now: Date = new Date()): Promise<{
   scanned: number;
   sent: number;
+  outboxProcessed: number;
+  outboxSent: number;
 }> {
   const db = requireDb();
   const snapshot = await db.collection("bookings").where("status", "==", "confirmed").get();
@@ -90,7 +114,14 @@ export async function notifyLessonReminders(now: Date = new Date()): Promise<{
     sent += 1;
   }
 
-  return { scanned: snapshot.size, sent };
+  const outboxRetry = await processEmailOutboxRetries(now);
+
+  return {
+    scanned: snapshot.size,
+    sent,
+    outboxProcessed: outboxRetry.processed,
+    outboxSent: outboxRetry.sent,
+  };
 }
 
 export async function dispatchNotification(

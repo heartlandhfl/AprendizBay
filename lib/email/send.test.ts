@@ -65,7 +65,7 @@ describe("onEvent", () => {
     const result = await onEvent(
       EMAIL_EVENTS.PAYMENT_CONFIRMED,
       { bookingId: "booking-1" },
-      { db: db as never, provider },
+      { db: db as never, provider, outbox: false },
     );
 
     expect(result).toMatchObject({ sent: true });
@@ -83,7 +83,7 @@ describe("onEvent", () => {
     const result = await onEvent(
       EMAIL_EVENTS.BOOKING_CREATED,
       { bookingId: "booking-1" },
-      { db: db as never, provider },
+      { db: db as never, provider, outbox: false },
     );
 
     expect(result).toMatchObject({ sent: true });
@@ -101,7 +101,7 @@ describe("onEvent", () => {
     const result = await onEvent(
       EMAIL_EVENTS.PAYMENT_FAILED,
       { bookingId: "missing" },
-      { db: db as never, provider },
+      { db: db as never, provider, outbox: false },
     );
 
     expect(result).toMatchObject({ sent: false, skipped: true, reason: "booking_not_found" });
