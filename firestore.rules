@@ -9,7 +9,8 @@ rules_version = '2';
 //   users/{userId}                      // PRIVATE account document
 //     Public profile:     displayName, photoUrl  → copied to public/profile
 //     Private account:    email, createdAt, updatedAt
-//     Security-sensitive: role ("student" | "tutor" | "admin")
+//     Security-sensitive: role ("student" | "lecturer" | "tutor" | "admin" | "facilitator" | "support")
+//     Privileged authorization uses Firebase Auth custom claims (request.auth.token.role).
 //     Administrative:     admin list/update/delete; role changes
 //     Get is owner or admin only. Marketplace must NOT read this doc.
 //
@@ -235,16 +236,43 @@ service cloud.firestore {
       return userDoc().data.role;
     }
 
-    function isAdmin() {
-      return userExists() && userRole() == "admin";
+    function authClaimRole() {
+      return isAuthenticated() && "role" in request.auth.token
+        ? request.auth.token.role
+        : null;
     }
 
+    function hasClaimRole(role) {
+      return authClaimRole() == role;
+    }
+
+    // Admin access requires a custom claim — profile role alone is not sufficient.
+    function isAdmin() {
+      return hasClaimRole("admin");
+    }
+
+    // Lecturer (professor) access: custom claim is authoritative. Profile tutor/lecturer
+    // is accepted only for self-service professor signup before the server syncs claims.
+    function isLecturer() {
+      return hasClaimRole("lecturer")
+        || (userExists() && userRole() in ["lecturer", "tutor"]);
+    }
+
+    // Backward-compatible alias used throughout existing rules.
     function isTutor() {
-      return userExists() && userRole() == "tutor";
+      return isLecturer();
+    }
+
+    function isFacilitator() {
+      return hasClaimRole("facilitator");
+    }
+
+    function isSupport() {
+      return hasClaimRole("support");
     }
 
     function isStudent() {
-      return userExists() && userRole() == "student";
+      return userExists() && userRole() == "student" && !hasClaimRole("admin");
     }
 
     function isVerifiedTutor(tutorId) {
@@ -484,7 +512,7 @@ service cloud.firestore {
         && data.keys().hasOnly([
           "role", "displayName", "email", "photoUrl", "createdAt", "updatedAt"
         ])
-        && data.role in ["student", "tutor"]
+        && data.role in ["student", "tutor", "lecturer"]
         && data.email == request.auth.token.email;
     }
 

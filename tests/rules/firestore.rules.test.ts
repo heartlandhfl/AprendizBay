@@ -171,7 +171,9 @@ function tutorBDb() {
 }
 
 function adminDb() {
-  return testEnv.authenticatedContext(ADMIN_ID, { email: "admin@test.com" }).firestore();
+  return testEnv
+    .authenticatedContext(ADMIN_ID, { email: "admin@test.com", role: "admin" })
+    .firestore();
 }
 
 function newStudentDb() {

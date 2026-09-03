@@ -7,7 +7,8 @@ const {
   applyTutorVerificationResubmit,
 } = require("../../lib/tutors/verification");
 const { writeAdminAuditLogSafe } = require("../../lib/admin/audit");
-const { assertAdminUser } = require("../../lib/admin/authorize");
+const { assertAdminFromClaims } = require("../../lib/admin/authorize");
+const { roleFromDecodedToken } = require("../../lib/auth/role-server.js");
 const {
   getAdminFirestore,
   readBearerToken,
@@ -23,16 +24,20 @@ const { captureException } = require("./sentry");
  */
 
 async function requireAdminUid(idToken) {
-  const { uid } = await verifyIdToken(idToken);
-  const snapshot = await getAdminFirestore().collection("users").doc(uid).get();
-  assertAdminUser(snapshot.exists ? snapshot.data() : null);
+  const { uid, customClaims } = await verifyIdToken(idToken);
+  assertAdminFromClaims(customClaims);
   return uid;
 }
 
 async function requireTutorUid(idToken) {
-  const { uid } = await verifyIdToken(idToken);
+  const { uid, customClaims } = await verifyIdToken(idToken);
+  const claimRole = roleFromDecodedToken(customClaims);
   const snapshot = await getAdminFirestore().collection("users").doc(uid).get();
-  if (!snapshot.exists || snapshot.data()?.role !== "tutor") {
+  const profileRole = snapshot.exists ? snapshot.data()?.role : null;
+  const isLecturer =
+    claimRole === "lecturer" || profileRole === "tutor" || profileRole === "lecturer";
+
+  if (!isLecturer) {
     const error = new Error("Apenas professores podem reenviar a verificação.");
     error.code = "FORBIDDEN";
     throw error;

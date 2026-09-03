@@ -17,6 +17,11 @@
     "test:unit": "vitest run --project unit",
     "test:rules": "firebase emulators:exec --only firestore,storage --project demo-aprendiz-bay \"vitest run --project rules\"",
     "test:node": "tsx --test lib/conversations/ids.test.ts lib/legal/cookie-consent.test.ts && node --test server/serve-static-ui.test.js server/api/public-config.test.js server/api/contact.test.js && npx tsx scripts/test-seo-pages.ts && node scripts/test-account-api.js && node scripts/test-reviews-api.js && node scripts/test-tutors-api.js && node scripts/test-bookings-api.js && node scripts/test-admin-api.js && node scripts/test-users-api.js && node scripts/test-notifications.js && node scripts/assert-no-mock-tutors-in-build.js hostinger-next",
+    "bootstrap:admin": "tsx scripts/bootstrap-admin.ts",
+    "roles:get": "tsx scripts/manage-role.ts get",
+    "roles:set": "tsx scripts/manage-role.ts set",
+    "roles:remove": "tsx scripts/manage-role.ts remove",
+    "roles:migrate-claims": "tsx scripts/migrate-role-claims.ts",
     "test:watch": "vitest"
   },
   "dependencies": {

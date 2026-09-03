@@ -4,10 +4,12 @@
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { getAdminApp } from "@/lib/firebase/admin";
+import { assertAdminFromClaims } from "@/lib/auth/role-server";
+import { normalizeRole } from "@/lib/auth/roles";
 
 export async function verifyUserIdToken(
   idToken: string,
-): Promise<{ uid: string; email?: string }> {
+): Promise<{ uid: string; email?: string; customClaims?: Record<string, unknown> }> {
   if (!idToken.trim()) {
     throw new Error("Token de autenticação ausente.");
   }
@@ -16,6 +18,7 @@ export async function verifyUserIdToken(
   return {
     uid: decoded.uid,
     email: decoded.email,
+    customClaims: decoded,
   };
 }
 
@@ -30,8 +33,9 @@ export async function getUserProfile(uid: string): Promise<{
   }
 
   const data = snapshot.data() ?? {};
+  const profileRole = typeof data.role === "string" ? data.role : undefined;
   return {
-    role: typeof data.role === "string" ? data.role : undefined,
+    role: profileRole ? (normalizeRole(profileRole) ?? profileRole) : undefined,
     displayName: typeof data.displayName === "string" ? data.displayName : undefined,
     email: typeof data.email === "string" ? data.email : undefined,
   };
@@ -44,15 +48,7 @@ export async function verifyAdminIdToken(idToken: string): Promise<string> {
 
   const auth = getAuth(getAdminApp());
   const decoded = await auth.verifyIdToken(idToken);
-
-  const userSnap = await getFirestore(getAdminApp())
-    .collection("users")
-    .doc(decoded.uid)
-    .get();
-
-  if (!userSnap.exists || userSnap.data()?.role !== "admin") {
-    throw new Error("Acesso restrito a administradores.");
-  }
+  assertAdminFromClaims(decoded);
 
   return decoded.uid;
 }

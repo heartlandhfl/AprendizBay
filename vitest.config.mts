@@ -32,6 +32,7 @@ export default defineConfig({
             "lib/hubs/**/*.test.ts",
             "lib/lessons/**/*.test.ts",
             "lib/reviews/**/*.test.ts",
+            "lib/auth/**/*.test.ts",
             "lib/admin/**/*.test.ts",
             "lib/users/**/*.test.ts",
             "lib/facilitators/**/*.test.ts",
