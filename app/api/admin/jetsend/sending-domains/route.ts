@@ -17,7 +17,11 @@ function readBearerToken(request: Request): string {
   return header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : "";
 }
 
-function mapJetSendError(error: unknown): { status: number; message: string } {
+function mapJetSendError(error: unknown): {
+  status: number;
+  message: string;
+  jetsendDetail?: string;
+} {
   if (error instanceof JetSendApiError) {
     if (error.details.code === "missing_api_key") {
       return {
@@ -28,10 +32,12 @@ function mapJetSendError(error: unknown): { status: number; message: string } {
     }
 
     if (error.details.status === 401) {
+      const jetsendDetail = error.details.body.slice(0, 400);
       return {
         status: 502,
         message:
           "JetSend recusou a autenticação. Verifique se JET_SEND_API_KEY está correto no servidor.",
+        jetsendDetail: jetsendDetail || undefined,
       };
     }
 
@@ -48,6 +54,16 @@ function mapJetSendError(error: unknown): { status: number; message: string } {
   return { status: 500, message: "Não foi possível consultar o JetSend." };
 }
 
+function jetsendErrorResponse(mapped: ReturnType<typeof mapJetSendError>) {
+  return NextResponse.json(
+    {
+      error: mapped.message,
+      ...(mapped.jetsendDetail ? { jetsendDetail: mapped.jetsendDetail } : {}),
+    },
+    { status: mapped.status },
+  );
+}
+
 export async function GET(request: Request) {
   try {
     await verifyAdminIdToken(readBearerToken(request));
@@ -61,7 +77,7 @@ export async function GET(request: Request) {
         { status: statusFromAdminError(error) },
       );
     }
-    return NextResponse.json({ error: mapped.message }, { status: mapped.status });
+    return jetsendErrorResponse(mapped);
   }
 }
 
@@ -96,6 +112,6 @@ export async function POST(request: Request) {
         { status: statusFromAdminError(error) },
       );
     }
-    return NextResponse.json({ error: mapped.message }, { status: mapped.status });
+    return jetsendErrorResponse(mapped);
   }
 }

@@ -2,6 +2,7 @@
 
 const { Router } = require("express");
 const { buildAdminOperationsDashboard } = require("../../lib/admin/dashboard");
+const { buildEmailDiagnosticsPayload } = require("../../lib/admin/email-diagnostics.ts");
 const { statusFromAdminError } = require("../../lib/admin/authorize");
 const { requireAdminUid } = require("./authorize");
 const { getAdminFirestore, readBearerToken } = require("./firebase-admin");
@@ -19,6 +20,7 @@ const {
 /**
  * Hostinger Express counterpart to:
  *   GET /api/admin/dashboard
+ *   GET /api/admin/email-diagnostics
  *   GET|POST /api/admin/jetsend/sending-domains
  * (app/api/admin/* on Vercel / next start).
  */
@@ -37,10 +39,12 @@ function mapJetSendError(error) {
     }
 
     if (error.details.status === 401) {
+      const jetsendDetail = error.details.body.slice(0, 400);
       return {
         status: 502,
         message:
           "JetSend recusou a autenticação. Verifique se JET_SEND_API_KEY está correto no servidor.",
+        jetsendDetail: jetsendDetail || undefined,
       };
     }
 
@@ -59,6 +63,30 @@ function mapJetSendError(error) {
 
   return { status: 500, message: "Não foi possível consultar o JetSend." };
 }
+
+function sendJetSendErrorResponse(res, mapped) {
+  res.status(mapped.status).json({
+    error: mapped.message,
+    ...(mapped.jetsendDetail ? { jetsendDetail: mapped.jetsendDetail } : {}),
+  });
+}
+
+adminRouter.get("/email-diagnostics", async (req, res) => {
+  try {
+    await requireAdminUid(readBearerToken(req));
+    res.json(buildEmailDiagnosticsPayload());
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Não foi possível carregar o diagnóstico de e-mail.";
+    const status = statusFromAdminError(error);
+    if (status >= 500) {
+      captureException(error);
+    }
+    res.status(status).json({ error: message });
+  }
+});
 
 adminRouter.get("/dashboard", async (req, res) => {
   try {
@@ -89,7 +117,7 @@ adminRouter.get("/jetsend/sending-domains", async (req, res) => {
       return;
     }
     const mapped = mapJetSendError(error);
-    res.status(mapped.status).json({ error: mapped.message });
+    sendJetSendErrorResponse(res, mapped);
   }
 });
 
@@ -112,7 +140,7 @@ adminRouter.post("/jetsend/sending-domains", async (req, res) => {
       return;
     }
     const mapped = mapJetSendError(error);
-    res.status(mapped.status).json({ error: mapped.message });
+    sendJetSendErrorResponse(res, mapped);
   }
 });
 
