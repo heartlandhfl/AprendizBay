@@ -2,11 +2,22 @@ import { FieldValue, type Firestore, type Timestamp } from "firebase-admin/fires
 import { toOutboxDocumentId } from "@/lib/email/outbox/event-keys";
 import {
   EMAIL_OUTBOX_COLLECTION,
+  type EmailDeliveryStatus,
   type EmailOutboxCreateInput,
   type EmailOutboxRecord,
   type EmailOutboxStatus,
   type EnqueueEmailResult,
 } from "@/lib/email/outbox/types";
+
+export interface EmailOutboxDeliveryUpdate {
+  providerMessageId: string;
+  deliveryStatus: EmailDeliveryStatus;
+  providerEventId: string;
+  deliveredAt?: Date;
+  bouncedAt?: Date;
+  complainedAt?: Date;
+  deliveryFailedAt?: Date;
+}
 
 export interface EmailOutboxStore {
   enqueue(input: EmailOutboxCreateInput): Promise<EnqueueEmailResult>;
@@ -15,6 +26,13 @@ export interface EmailOutboxStore {
     emailId: string,
     update: { provider?: string; providerMessageId?: string; sentAt?: Date },
   ): Promise<void>;
+  updateDeliveryStatus(
+    emailId: string,
+    update: EmailOutboxDeliveryUpdate,
+  ): Promise<void>;
+  findByProviderMessageId(
+    providerMessageId: string,
+  ): Promise<{ emailId: string } | null>;
   markFailed(
     emailId: string,
     update: {
@@ -65,6 +83,16 @@ function mapRecord(emailId: string, data: Record<string, unknown>): EmailOutboxR
     provider: typeof data.provider === "string" ? data.provider : undefined,
     providerMessageId:
       typeof data.providerMessageId === "string" ? data.providerMessageId : undefined,
+    deliveryStatus:
+      typeof data.deliveryStatus === "string"
+        ? (data.deliveryStatus as EmailDeliveryStatus)
+        : undefined,
+    deliveredAt: toDate(data.deliveredAt),
+    bouncedAt: toDate(data.bouncedAt),
+    complainedAt: toDate(data.complainedAt),
+    deliveryFailedAt: toDate(data.deliveryFailedAt),
+    providerEventId:
+      typeof data.providerEventId === "string" ? data.providerEventId : undefined,
     createdAt: toDate(data.createdAt) ?? new Date(0),
     sentAt: toDate(data.sentAt),
     failedAt: toDate(data.failedAt),
@@ -155,6 +183,44 @@ export function createFirestoreEmailOutboxStore(db: Firestore): EmailOutboxStore
         nextRetryAt: FieldValue.delete(),
         updatedAt: FieldValue.serverTimestamp(),
       });
+    },
+
+    async updateDeliveryStatus(emailId, update) {
+      const patch: Record<string, unknown> = {
+        providerMessageId: update.providerMessageId,
+        deliveryStatus: update.deliveryStatus,
+        providerEventId: update.providerEventId,
+        updatedAt: FieldValue.serverTimestamp(),
+      };
+
+      if (update.deliveredAt) {
+        patch.deliveredAt = update.deliveredAt;
+      }
+      if (update.bouncedAt) {
+        patch.bouncedAt = update.bouncedAt;
+      }
+      if (update.complainedAt) {
+        patch.complainedAt = update.complainedAt;
+      }
+      if (update.deliveryFailedAt) {
+        patch.deliveryFailedAt = update.deliveryFailedAt;
+      }
+
+      await collection.doc(emailId).update(patch);
+    },
+
+    async findByProviderMessageId(providerMessageId) {
+      const snapshot = await collection
+        .where("providerMessageId", "==", providerMessageId)
+        .limit(1)
+        .get();
+
+      const docSnap = snapshot.docs[0];
+      if (!docSnap) {
+        return null;
+      }
+
+      return { emailId: docSnap.id };
     },
 
     async markFailed(emailId, update) {
@@ -293,6 +359,35 @@ export function createMemoryEmailOutboxStore(): EmailOutboxStore & {
           nextRetryAt: undefined,
         });
       });
+    },
+
+    async updateDeliveryStatus(emailId, update) {
+      await withLock(emailId, async () => {
+        const record = records.get(emailId);
+        if (!record) {
+          return;
+        }
+
+        records.set(emailId, {
+          ...record,
+          providerMessageId: update.providerMessageId,
+          deliveryStatus: update.deliveryStatus,
+          providerEventId: update.providerEventId,
+          deliveredAt: update.deliveredAt ?? record.deliveredAt,
+          bouncedAt: update.bouncedAt ?? record.bouncedAt,
+          complainedAt: update.complainedAt ?? record.complainedAt,
+          deliveryFailedAt: update.deliveryFailedAt ?? record.deliveryFailedAt,
+        });
+      });
+    },
+
+    async findByProviderMessageId(providerMessageId) {
+      for (const [emailId, record] of records.entries()) {
+        if (record.providerMessageId === providerMessageId) {
+          return { emailId };
+        }
+      }
+      return null;
     },
 
     async markFailed(emailId, update) {

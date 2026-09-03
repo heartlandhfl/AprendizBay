@@ -110,7 +110,7 @@ describe("JetSendEmailProvider", () => {
       html: "<p>Corpo em HTML</p>",
     });
 
-    expect(result).toEqual({ sent: true, provider: "jetsend" });
+    expect(result).toEqual({ sent: true, provider: "jetsend", providerMessageId: undefined });
     expect(fetchMock).toHaveBeenCalledTimes(1);
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
@@ -246,6 +246,46 @@ describe("JetSendEmailProvider", () => {
         html: "<p>html</p>",
       }),
     ).rejects.toBeInstanceOf(JetSendEmailError);
+  });
+
+  it("includes emailOutboxId metadata for webhook correlation", () => {
+    const request = buildJetSendTransmissionRequest(
+      {
+        to: "student@example.com",
+        subject: "Sua aula foi confirmada",
+        text: "Texto simples",
+        html: "<p>HTML</p>",
+        emailOutboxId: "outbox-123",
+      },
+      "Aprendiz Bay <noreply@aprendizbay.com.br>",
+    );
+
+    expect(request.email.recipients[0]?.metadata).toEqual({
+      emailOutboxId: "outbox-123",
+    });
+  });
+
+  it("captures the JetSend transmission id when present", async () => {
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ results: { id: "transmission-123" } }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+
+    const provider = new JetSendEmailProvider();
+    const result = await provider.send({
+      to: "student@example.com",
+      subject: "Teste",
+      text: "texto",
+      html: "<p>html</p>",
+    });
+
+    expect(result).toEqual({
+      sent: true,
+      provider: "jetsend",
+      providerMessageId: "transmission-123",
+    });
   });
 });
 

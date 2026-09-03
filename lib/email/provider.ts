@@ -4,6 +4,8 @@ export interface EmailMessage {
   text: string;
   html: string;
   from?: string;
+  /** Correlates JetSend webhook events back to emailOutbox/{emailOutboxId}. */
+  emailOutboxId?: string;
 }
 
 export interface EmailResult {
@@ -11,6 +13,7 @@ export interface EmailResult {
   skipped?: boolean;
   reason?: string;
   provider?: "jetsend" | "resend" | "sendgrid";
+  providerMessageId?: string;
 }
 
 export interface EmailProvider {

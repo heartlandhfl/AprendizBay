@@ -1446,6 +1446,22 @@ describe("firestore.rules", () => {
     });
   });
 
+  describe("emailDeliveryEvents", () => {
+    it("denies clients from reading or writing JetSend delivery webhook receipts", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      const receiptRef = doc(studentDb(), "emailDeliveryEvents", "evt_1");
+
+      await assertFails(
+        setDoc(receiptRef, {
+          providerEventId: "evt_1",
+          providerMessageId: "msg_1",
+          deliveryStatus: "delivered",
+          createdAt: new Date(),
+        }),
+      );
+    });
+  });
+
   describe("lessonSlots", () => {
     it("denies clients from reading or writing individual slot locks", async () => {
       await seedBaseDocs({ tutorVerified: true });

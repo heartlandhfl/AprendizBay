@@ -28,5 +28,6 @@ export {
   type EmailOutboxCreateInput,
   type EmailOutboxRecord,
   type EmailOutboxStatus,
+  type EmailDeliveryStatus,
   type EnqueueEmailResult,
 } from "@/lib/email/outbox/types";
