@@ -1,16 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import LegalDocument, { LegalSection } from "@/components/legal/LegalDocument";
-import {
-  LEGAL_LAST_UPDATED_LABEL,
-  PRIVACY_CONTACT_EMAIL,
-  SUPPORT_CONTACT_EMAIL,
-} from "@/lib/legal/constants";
+import { SUPPORT_CONTACT_EMAIL } from "@/lib/legal/constants";
 
 export const metadata: Metadata = {
-  title: "Termos de Uso — Aprendiz Bay",
+  title: "Termos de Uso | AprendizBay",
   description:
-    "Rascunho dos Termos de Uso da Aprendiz Bay, a plataforma brasileira de tutoria e aulas coletivas. Pendente de revisão jurídica.",
+    "Termos de Uso da AprendizBay, a plataforma brasileira que conecta alunos e professores para aulas particulares e coletivas.",
   alternates: {
     canonical: "/termos",
   },
@@ -19,317 +15,621 @@ export const metadata: Metadata = {
 export default function TermosPage() {
   return (
     <LegalDocument
+      variant="published"
       title="Termos de Uso"
-      description="Estas condições regulam o uso da plataforma Aprendiz Bay por alunos, professores e visitantes. Ao criar uma conta ou usar o site, você declara que leu este documento."
+      description="Bem-vindo à AprendizBay. Estes Termos de Uso regulam o acesso e a utilização da plataforma por alunos, professores e visitantes."
     >
-      <LegalSection id="aceitacao" title="1. Aceitação e natureza do serviço">
+      <p>
+        Ao criar uma conta, solicitar ou reservar uma aula, cadastrar-se como
+        professor ou utilizar os serviços da plataforma, você declara que leu e
+        compreendeu estes Termos e concorda com eles, observada a legislação
+        brasileira aplicável.
+      </p>
+
+      <LegalSection id="sobre" title="1. Sobre a AprendizBay">
         <p>
-          A Aprendiz Bay é uma plataforma digital brasileira que conecta, de forma
-          independente, <strong>alunos</strong> e <strong>professores</strong> para
-          aulas individuais e coletivas, presenciais ou online. A plataforma
-          oferece ferramentas de busca, perfil, agendamento, mensagens e
-          pagamento, mas <strong>não ministra as aulas em nome próprio</strong>.
+          A AprendizBay é uma plataforma digital brasileira que conecta alunos e
+          professores para aulas particulares e coletivas, presenciais ou online.
         </p>
         <p>
-          O contrato de prestação de serviços educacionais é celebrado diretamente
-          entre aluno e professor. A Aprendiz Bay atua como intermediadora
-          tecnológica (marketplace), e não como empregadora, sócia, preposta ou
-          mandatária dos professores cadastrados. Professores definem preços,
-          disponibilidade e conteúdo; alunos escolhem com quem estudar.
+          A plataforma oferece recursos tecnológicos que podem incluir busca de
+          professores, criação e gestão de perfis, comunicação entre usuários,
+          solicitação e gerenciamento de reservas, pagamentos, avaliações e outros
+          recursos relacionados à contratação de aulas.
         </p>
         <p>
-          A Aprendiz Bay não é instituição de ensino, não emite certificado
-          oficial e <strong>não estabelece vínculo empregatício</strong> com
-          professores, facilitadores de indicação ou demais usuários. A relação
-          entre professor e plataforma é de parceria comercial/autônoma, sujeita
-          a revisão jurídica quanto à forma societária aplicável.
+          A AprendizBay atua como plataforma de intermediação tecnológica entre
+          alunos e professores. O serviço educacional objeto de cada reserva é
+          prestado pelo professor responsável pela aula, e as condições
+          específicas da aula são apresentadas ao aluno antes da contratação.
+        </p>
+        <p>
+          A AprendizBay não é instituição de ensino e não substitui o professor na
+          prestação do serviço educacional. A plataforma também não garante
+          determinado resultado acadêmico, aprovação em provas ou exames ou
+          qualquer resultado específico de aprendizagem.
+        </p>
+        <p>
+          Nada nestes Termos exclui ou limita direitos ou responsabilidades que
+          não possam ser excluídos ou limitados pela legislação brasileira.
         </p>
       </LegalSection>
 
       <LegalSection id="cadastro" title="2. Cadastro e conta">
         <p>
-          Para reservar aulas, enviar mensagens ou se cadastrar como professor,
-          é necessário criar uma conta com e-mail e senha ou com uma conta
-          Google. Você deve informar dados verdadeiros, manter a senha em sigilo
-          e ter pelo menos 18 anos — ou usar a plataforma com autorização e
-          supervisão de responsável legal, se for menor.
+          Algumas funcionalidades da plataforma exigem a criação de uma conta.
         </p>
         <p>
-          Há dois perfis principais: <strong>aluno</strong> e{" "}
-          <strong>professor</strong>. O perfil de administrador não é aberto ao
-          público e só é atribuído internamente. Cada pessoa é responsável pelo
-          uso da própria conta.
+          Para criar e utilizar uma conta, o usuário deve fornecer informações
+          verdadeiras, completas e atualizadas e manter seus dados de acesso
+          protegidos.
+        </p>
+        <p>
+          A conta é pessoal e não deve ser compartilhada com terceiros. O usuário
+          é responsável pelas atividades realizadas por meio de sua conta, salvo
+          quando demonstrar que não deu causa ao uso indevido.
+        </p>
+        <p>
+          A AprendizBay poderá solicitar informações adicionais quando
+          necessárias para segurança, prevenção de fraude, verificação de
+          identidade, credenciamento de professores ou cumprimento de obrigações
+          legais.
+        </p>
+        <p>
+          O cadastro como professor está sujeito às condições específicas
+          aplicáveis a essa categoria de usuário.
         </p>
       </LegalSection>
 
-      <LegalSection id="alunos" title="3. Regras para alunos">
+      <LegalSection id="menores" title="3. Idade e participação de menores">
         <p>
-          O aluno pode buscar professores, solicitar reservas, pagar aulas
-          aceitas, participar da aula no horário combinado e avaliar a
-          experiência após a conclusão. O aluno deve comparecer pontualmente,
-          tratar o professor com respeito e não gravar a aula sem autorização
-          expressa.
+          A plataforma pode ser utilizada por pessoas menores de 18 anos nas
+          condições permitidas pela legislação brasileira e mediante a
+          participação ou autorização do responsável legal quando exigida.
+        </p>
+        <p>
+          Quando necessário, a AprendizBay poderá solicitar informações ou
+          procedimentos destinados a verificar a autorização do responsável
+          legal.
+        </p>
+        <p>
+          Pais e responsáveis devem supervisionar a utilização da plataforma por
+          crianças e adolescentes e são responsáveis por acompanhar as reservas,
+          comunicações e demais atividades realizadas em seu nome quando
+          aplicável.
+        </p>
+        <p>
+          A AprendizBay adotará medidas compatíveis com a legislação brasileira
+          para proteção de crianças e adolescentes e de seus dados pessoais.
         </p>
       </LegalSection>
 
-      <LegalSection id="professores" title="4. Regras para professores">
-        <p>
-          O professor declara ter qualificação para as matérias que oferece,
-          define preços e disponibilidade e pode abrir turmas coletivas. O
-          perfil público só aparece na busca depois de aprovação da
-          verificação pela plataforma (status <span className="font-medium">approved</span>).
-          Perfis pendentes, recusados ou suspensos não aparecem como
-          professores verificados. Documentos enviados para credenciamento
-          devem ser autênticos e ficam visíveis só para o professor e
-          administradores.
-        </p>
-        <p>
-          O professor deve honrar reservas confirmadas, iniciar a sala online
-          (quando aplicável) e cancelar com antecedência se não puder ministrar
-          a aula. Cancelamento de aula já paga pelo professor gera estorno
-          integral ao aluno.
-        </p>
-      </LegalSection>
-
-      <LegalSection id="coletivas" title="5. Aulas coletivas">
-        <p>
-          Turmas coletivas (hubs) têm vagas limitadas e preço compartilhado
-          informado no anúncio. Ao entrar em uma turma, o aluno ocupa uma vaga.
-          A realização da aula depende do professor e das regras da turma. A
-          plataforma pode encerrar turmas inativas ou de contas excluídas.
-        </p>
-      </LegalSection>
-
-      <LegalSection id="pagamentos" title="6. Pagamentos e taxa da plataforma">
-        <p>
-          Depois que o professor aceita a reserva, o aluno realiza o pagamento
-          por checkout hospedado do processador de pagamentos contratado pela
-          plataforma. Conforme a configuração vigente do serviço, o processamento
-          financeiro pode ser feito pelo <strong>Mercado Pago</strong> e/ou pelo{" "}
-          <strong>Asaas</strong>. Na implantação atual, novos pagamentos podem
-          ser direcionados prioritariamente ao Mercado Pago; a forma final de
-          roteamento entre processadores deve ser confirmada na revisão jurídica
-          e na comunicação ao usuário no momento do checkout.
-        </p>
-        <p>
-          O checkout pode oferecer meios como PIX, cartão de crédito e outros
-          disponibilizados pelo processador ativo. Uma taxa da plataforma
-          (padrão de 10%, configurável) é destacada antes do pagamento e
-          registrada na reserva como valor do professor e taxa da Aprendiz Bay.
-        </p>
-        <p>
-          A confirmação da reserva como <strong>paga</strong> depende da
-          confirmação do pagamento pelo processador (incluindo notificações
-          automáticas de webhook). Pagamentos recusados, expirados ou cancelados
-          não confirmam a aula. A Aprendiz Bay não armazena o número completo do
-          cartão; dados de cobrança informados no checkout (como nome, e-mail,
-          CPF e telefone) são tratados conforme a{" "}
-          <Link href="/privacidade" className="font-medium text-primary-700 hover:text-primary-600">
-            Política de Privacidade
-          </Link>{" "}
-          e as regras do processador de pagamentos utilizado.
-        </p>
-      </LegalSection>
-
-      <LegalSection id="cancelamento" title="7. Cancelamento e reembolso">
-        <p>
-          As regras abaixo refletem o fluxo implementado na plataforma e podem
-          ser ajustadas após revisão jurídica, desde que respeitados direitos
-          irrenunciáveis do consumidor:
-        </p>
+      <LegalSection id="alunos" title="4. Regras para alunos">
+        <p>O aluno pode, conforme as funcionalidades disponíveis:</p>
         <ul className="list-disc space-y-2 pl-5">
+          <li>pesquisar professores;</li>
+          <li>consultar perfis, disciplinas, preços e disponibilidade;</li>
+          <li>solicitar ou realizar reservas;</li>
+          <li>efetuar pagamentos;</li>
+          <li>participar das aulas;</li>
+          <li>enviar e receber mensagens relacionadas às aulas; e</li>
+          <li>avaliar aulas e professores após sua conclusão.</li>
+        </ul>
+        <p>O aluno deve:</p>
+        <ul className="list-disc space-y-2 pl-5">
+          <li>fornecer informações verdadeiras;</li>
+          <li>respeitar professores e demais usuários;</li>
+          <li>comparecer às aulas nos horários combinados;</li>
+          <li>utilizar a plataforma de forma lícita e responsável;</li>
+          <li>não compartilhar indevidamente dados pessoais de terceiros; e</li>
           <li>
-            reservas <strong>ainda não pagas</strong> podem ser canceladas pelo
-            aluno ou pelo professor sem cobrança;
+            não gravar, reproduzir ou distribuir aulas ou comunicações sem
+            autorização, salvo quando permitido pela legislação aplicável.
           </li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection id="professores" title="5. Regras para professores">
+        <p>
+          O professor declara que possui qualificação, experiência ou
+          conhecimento compatível com as disciplinas e serviços que anuncia na
+          plataforma.
+        </p>
+        <p>O professor é responsável por:</p>
+        <ul className="list-disc space-y-2 pl-5">
+          <li>manter suas informações profissionais atualizadas;</li>
           <li>
-            reservas <strong>pagas</strong> só entram na política de estorno
-            quando o status de pagamento da reserva é{" "}
-            <span className="font-medium">paid</span> (pago confirmado pelo
-            processador);
+            informar corretamente suas qualificações, experiência, disciplinas,
+            preços e disponibilidade;
           </li>
+          <li>cumprir as reservas que aceitar;</li>
+          <li>prestar as aulas conforme anunciado;</li>
+          <li>comunicar e cancelar compromissos que não possa cumprir;</li>
+          <li>respeitar alunos e demais usuários; e</li>
           <li>
-            o aluno tem cancelamento com <strong>estorno integral</strong> se
-            cancelar com <strong>24 horas ou mais</strong> de antecedência em
-            relação ao horário agendado da aula;
-          </li>
-          <li>
-            cancelamento do aluno com <strong>menos de 24 horas</strong> de
-            antecedência, em reserva já paga, não é permitido pela plataforma e{" "}
-            <strong>não gera estorno automático</strong>, salvo determinação legal
-            em contrário;
-          </li>
-          <li>
-            se o professor cancelar uma aula já paga, o aluno recebe{" "}
-            <strong>estorno integral</strong>, inclusive a menos de 24 horas;
-          </li>
-          <li>
-            reservas já canceladas ou aulas já concluídas não podem ser
-            canceladas novamente pela mesma reserva;
-          </li>
-          <li>
-            o valor estornado nunca excede o valor efetivamente pago na reserva.
+            fornecer informações verdadeiras e documentos autênticos quando
+            solicitados para verificação.
           </li>
         </ul>
         <p>
-          Quando aplicável, o estorno é solicitado ao processador de pagamentos
-          (Mercado Pago ou Asaas, conforme o pagamento original). O prazo para
-          o crédito aparecer no extrato, na fatura do cartão ou na conta PIX
-          depende do meio de pagamento e das regras do processador e da
-          instituição financeira. A plataforma pode registrar o pedido de
-          estorno e atualizar o status da reserva após a confirmação do
-          processador.
+          A AprendizBay poderá realizar procedimentos de verificação e poderá
+          aprovar, recusar, suspender ou retirar um perfil da divulgação pública
+          quando houver motivo legítimo, inclusive inconsistências nas
+          informações fornecidas, suspeita de fraude, descumprimento destes
+          Termos ou necessidade de proteção dos usuários.
         </p>
         <p>
-          <strong>Revisão jurídica recomendada:</strong> validar se a política
-          de 24 horas para o aluno atende integralmente ao Código de Defesa do
-          Consumidor e se textos de exceção, chargeback e disputa precisam ser
-          ampliados para cada processador.
-        </p>
-      </LegalSection>
-
-      <LegalSection id="facilitadores" title="8. Programa de indicação (facilitadores)">
-        <p>
-          A Aprendiz Bay pode oferecer um programa de indicação para pessoas
-          cadastradas como <strong>facilitadores</strong>, que divulgam a
-          plataforma por meio de links próprios (por exemplo,{" "}
-          <code className="rounded bg-muted px-1.5 py-0.5 text-sm">
-            aprendizbay.com.br/r/{"{codigo}"}
-          </code>
-          ).
+          A verificação realizada pela AprendizBay não constitui garantia
+          absoluta da qualificação, conduta ou qualidade futura do professor.
         </p>
         <p>
-          <strong>Rastreamento:</strong> ao acessar um link de indicação, a
-          plataforma pode registrar o clique e armazenar um identificador de
-          indicação em cookie ou parâmetro equivalente no dispositivo do
-          visitante, pelo prazo informado na Política de Privacidade. Se o
-          visitante criar conta, a indicação pode ser associada ao novo usuário,
-          desde que ainda válida e não bloqueada por regras antifraude.
+          Documentos enviados para fins de credenciamento serão tratados de
+          acordo com a{" "}
+          <Link
+            href="/privacidade"
+            className="font-medium text-primary-700 hover:text-primary-600"
+          >
+            Política de Privacidade
+          </Link>{" "}
+          e ficarão sujeitos às medidas de segurança e acesso aplicáveis.
         </p>
         <p>
-          <strong>Comissão:</strong> a comissão do facilitador, quando prevista,
-          tende a ser creditada somente na <strong>primeira reserva paga</strong>{" "}
-          do usuário indicado, após confirmação do pagamento pelo processador. A
-          comissão permanece em status pendente durante um período de carência
-          para reembolso (padrão de 7 dias após o pagamento, configurável) e
-          só se torna disponível para repasse se não houver estorno da aula
-          correspondente. Comissões podem ser estornadas ou anuladas se o
-          pagamento subjacente for reembolsado.
-        </p>
-        <p>
-          <strong>Fraude e autoindicação:</strong> são vedados autoindicação,
-          indicações com e-mail, telefone ou CPF coincidentes com os do
-          facilitador, contas duplicadas, indícios de fraude ou qualquer
-          manipulação do programa. A plataforma pode recusar, cancelar ou não
-          pagar comissões suspeitas, bloquear identidades repetidas e encerrar
-          a participação do facilitador, sem prejuízo de outras medidas.
-        </p>
-        <p>
-          Valores percentuais, prazos de repasse, elegibilidade e tributação das
-          comissões devem ser confirmados em contrato ou regulamento específico
-          do programa após <strong>revisão jurídica e contábil</strong>.
+          Quando uma aula já paga for cancelada pelo professor, serão aplicadas
+          as regras de cancelamento e reembolso descritas nestes Termos e na
+          legislação aplicável.
         </p>
       </LegalSection>
 
-      <LegalSection id="avaliacoes" title="9. Avaliações e mensagens">
+      <LegalSection id="coletivas" title="6. Aulas coletivas">
         <p>
-          Avaliações exigem reserva concluída e devem ser honestas, sem ofensas
-          ou dados de terceiros. A nota pública do professor é recalculada a
-          partir dessas avaliações. Mensagens entre aluno e professor destinam-se
-          apenas ao combinado da aula; spam, assédio ou conteúdo ilícito são
-          proibidos.
+          A AprendizBay poderá oferecer funcionalidades para criação e
+          participação em aulas coletivas ou turmas.
+        </p>
+        <p>
+          Cada anúncio informará, quando aplicável, o número de vagas, preço,
+          horário, professor e demais condições relevantes.
+        </p>
+        <p>
+          A entrada do aluno em uma turma poderá ocupar uma das vagas
+          disponíveis.
+        </p>
+        <p>
+          A realização, alteração ou cancelamento de uma aula coletiva observará
+          as condições informadas no anúncio, estes Termos e a legislação
+          aplicável.
+        </p>
+        <p>
+          A AprendizBay poderá encerrar ou remover turmas inativas,
+          indisponíveis ou associadas a contas suspensas ou encerradas,
+          respeitando as obrigações existentes perante os usuários.
         </p>
       </LegalSection>
 
-      <LegalSection id="condutas" title="10. Condutas proibidas">
+      <LegalSection id="pagamentos" title="7. Preços, pagamentos e taxa da plataforma">
         <p>
-          É vedado usar a plataforma para fraudar pagamentos, burlar a
-          verificação de professores, publicar conteúdo discriminatório,
-          ofensivo ou ilegal, coletar dados de outros usuários, atacar a
-          segurança do sistema ou desviar reservas para fora da plataforma com
-          o fim de evitar a taxa após o uso dos recursos de busca e agendamento.
+          Os preços das aulas são definidos pelos professores, salvo quando
+          expressamente indicado de outra forma.
+        </p>
+        <p>
+          Antes da conclusão do pagamento, o usuário verá o valor aplicável à
+          reserva e eventuais taxas cobradas pela plataforma.
+        </p>
+        <p>
+          A AprendizBay poderá cobrar uma taxa de intermediação ou utilização da
+          plataforma. Quando aplicável, o valor ou percentual da taxa será
+          informado ao usuário antes da conclusão do pagamento.
+        </p>
+        <p>
+          Os pagamentos são processados por provedores de pagamento
+          disponibilizados pela AprendizBay e identificados no momento do
+          checkout.
+        </p>
+        <p>
+          Os meios de pagamento disponíveis poderão incluir PIX, cartão de
+          crédito e outros métodos disponibilizados pelo processador de
+          pagamentos.
+        </p>
+        <p>
+          A confirmação de uma reserva como paga depende da confirmação do
+          pagamento pelo respectivo provedor.
+        </p>
+        <p>
+          Pagamentos recusados, expirados, cancelados ou não confirmados não
+          serão considerados pagamentos concluídos para fins de confirmação da
+          reserva.
+        </p>
+        <p>
+          A AprendizBay não armazena o número completo do cartão de pagamento. Os
+          dados necessários para processamento, cobrança, prevenção de fraude e
+          demais finalidades relacionadas ao pagamento poderão ser tratados pelo
+          respectivo provedor de pagamento, de acordo com suas próprias
+          políticas e com a legislação aplicável.
         </p>
       </LegalSection>
 
-      <LegalSection id="propriedade" title="11. Propriedade intelectual">
+      <LegalSection id="cancelamento" title="8. Cancelamento, remarcação e reembolso">
         <p>
-          Marca, layout, textos institucionais e software da Aprendiz Bay
-          pertencem à plataforma ou a seus licenciadores. O professor mantém
-          os direitos sobre o conteúdo didático que cria, e concede à
-          plataforma licença limitada para exibir o perfil, a bio e os
-          materiais que ele próprio publica.
+          As regras de cancelamento e reembolso aplicam-se às reservas realizadas
+          pela plataforma, sem prejuízo dos direitos assegurados pela legislação
+          brasileira.
+        </p>
+        <p>Como regra operacional da plataforma:</p>
+        <ul className="list-disc space-y-2 pl-5">
+          <li>
+            reservas ainda não pagas poderão ser canceladas antes da confirmação
+            do pagamento;
+          </li>
+          <li>
+            reservas pagas estarão sujeitas às condições de cancelamento
+            apresentadas ao usuário;
+          </li>
+          <li>
+            o aluno poderá solicitar cancelamento com antecedência mínima de 24
+            horas para obter o reembolso previsto na política da plataforma;
+          </li>
+          <li>
+            cancelamentos realizados com menos de 24 horas de antecedência
+            poderão estar sujeitos às condições específicas informadas no momento
+            da reserva;
+          </li>
+          <li>
+            quando o professor cancelar uma aula já paga, o aluno terá direito ao
+            reembolso aplicável, observada a legislação vigente;
+          </li>
+          <li>
+            reservas já canceladas ou concluídas não poderão ser canceladas
+            novamente pela mesma operação; e
+          </li>
+          <li>
+            nenhum reembolso será superior ao valor efetivamente pago pelo
+            usuário em relação à reserva correspondente.
+          </li>
+        </ul>
+        <p>
+          <strong>
+            As regras acima não afastam direitos legais do consumidor.
+          </strong>{" "}
+          Quando houver direito de arrependimento, cancelamento, restituição ou
+          outro direito previsto em norma obrigatória, ele prevalecerá sobre
+          qualquer regra operacional destes Termos.
+        </p>
+        <p>
+          Quando aplicável, o pedido de reembolso será encaminhado ao provedor de
+          pagamento utilizado na transação.
+        </p>
+        <p>
+          O prazo para que o valor seja efetivamente disponibilizado ao usuário
+          poderá depender do meio de pagamento, do provedor de pagamento e da
+          instituição financeira envolvida.
         </p>
       </LegalSection>
 
-      <LegalSection id="responsabilidade" title="12. Limitação de responsabilidade">
+      <LegalSection id="indicacao" title="9. Programa de indicação">
         <p>
-          A qualidade pedagógica da aula, pontualidade e ambiente (online ou
-          presencial) são de responsabilidade do professor e, no que couber, do
-          aluno. A plataforma envida esforços razoáveis de disponibilidade e
-          verificação, mas não garante resultado de aprendizado, aprovação em
-          exames ou funcionamento ininterrupto de serviços de terceiros (Firebase,
-          Mercado Pago, Asaas, salas de videoconferência).
+          A AprendizBay poderá oferecer programa de indicação ou parceria para
+          usuários autorizados a divulgar a plataforma por meio de links ou
+          códigos próprios.
         </p>
         <p>
-          Nada neste rascunho afasta direitos irrenunciáveis do consumidor
-          previstos no Código de Defesa do Consumidor.
-        </p>
-      </LegalSection>
-
-      <LegalSection id="exclusao" title="13. Encerramento da conta">
-        <p>
-          Você pode solicitar a exclusão da conta em{" "}
-          <Link href="/configuracoes" className="font-medium text-primary-700 hover:text-primary-600">
-            Configurações
-          </Link>
-          . O documento <code className="rounded bg-muted px-1.5 py-0.5 text-sm">users/{"{uid}"}</code>{" "}
-          é apagado. Reservas e avaliações são{" "}
-          <strong>anonimizadas e mantidas</strong>, para preservar o histórico
-          da outra parte, notas públicas e obrigações fiscais ou de defesa do
-          consumidor. Mensagens e o perfil público de professor são
-          anonimizados. A plataforma pode encerrar contas que violem estes
-          Termos.
+          Quando o programa estiver disponível, suas condições específicas,
+          incluindo critérios de elegibilidade, comissão, prazo de confirmação,
+          regras de pagamento e hipóteses de cancelamento, poderão ser
+          estabelecidas em regulamento próprio.
         </p>
         <p>
-          A exclusão pode ser recusada temporariamente se existirem reservas
-          pagas ainda pendentes ou confirmadas: cancele-as (ou aguarde a aula)
-          antes de encerrar a conta.
+          São proibidas autoindicações, contas duplicadas criadas
+          artificialmente, manipulação de links ou códigos, fraude, uso indevido
+          de dados de terceiros ou qualquer tentativa de obter comissões de
+          maneira artificial.
+        </p>
+        <p>
+          A AprendizBay poderá investigar, suspender ou cancelar indicações e
+          comissões que apresentem indícios de fraude ou descumprimento das
+          regras aplicáveis.
         </p>
       </LegalSection>
 
-      <LegalSection id="lei" title="14. Lei aplicável e foro">
+      <LegalSection id="avaliacoes" title="10. Avaliações e mensagens">
+        <p>As avaliações devem representar a experiência real do usuário.</p>
+        <p>É proibido utilizar avaliações ou mensagens para:</p>
+        <ul className="list-disc space-y-2 pl-5">
+          <li>ameaçar, assediar ou intimidar outras pessoas;</li>
+          <li>publicar conteúdo discriminatório ou ilegal;</li>
+          <li>divulgar dados pessoais de terceiros sem autorização;</li>
+          <li>publicar spam ou publicidade não autorizada;</li>
+          <li>manipular artificialmente avaliações; ou</li>
+          <li>
+            praticar qualquer outra conduta proibida por estes Termos ou pela
+            legislação brasileira.
+          </li>
+        </ul>
         <p>
-          Aplica-se a legislação brasileira, em especial o Código de Defesa do
-          Consumidor, o Marco Civil da Internet (Lei nº 12.965/2014) e a LGPD
-          (Lei nº 13.709/2018). Em relações de consumo, o foro é o do domicílio
-          do usuário. Demais controvérsias serão submetidas ao foro competente
-          no Brasil, a ser confirmado após revisão jurídica e definição da
-          sede da pessoa jurídica.
+          A AprendizBay poderá moderar, ocultar ou remover conteúdo que viole
+          estes Termos ou a legislação aplicável.
+        </p>
+        <p>
+          As mensagens disponibilizadas pela plataforma destinam-se
+          principalmente à comunicação relacionada às aulas e à utilização dos
+          serviços.
         </p>
       </LegalSection>
 
-      <LegalSection id="contato" title="15. Contato e alterações">
+      <LegalSection id="condutas" title="11. Condutas proibidas">
+        <p>É proibido utilizar a AprendizBay para:</p>
+        <ul className="list-disc space-y-2 pl-5">
+          <li>fraudar ou tentar fraudar pagamentos;</li>
+          <li>criar contas falsas ou duplicadas;</li>
+          <li>utilizar identidade ou dados de terceiros sem autorização;</li>
+          <li>burlar mecanismos de verificação;</li>
+          <li>
+            atacar, testar ou comprometer a segurança da plataforma sem
+            autorização;
+          </li>
+          <li>
+            introduzir vírus, códigos maliciosos ou outros mecanismos destinados
+            a prejudicar sistemas;
+          </li>
+          <li>coletar dados de outros usuários de forma indevida;</li>
+          <li>
+            publicar conteúdo ilegal, discriminatório, ameaçador ou ofensivo;
+          </li>
+          <li>praticar assédio ou abuso;</li>
+          <li>utilizar a plataforma para atividades fraudulentas;</li>
+          <li>manipular reservas, avaliações, pagamentos ou comissões; ou</li>
+          <li>
+            utilizar os recursos da plataforma para desviar deliberadamente uma
+            contratação para fora dela com o objetivo de evitar taxas devidas à
+            AprendizBay.
+          </li>
+        </ul>
         <p>
-          Dúvidas sobre estes Termos:{" "}
+          A AprendizBay poderá adotar medidas proporcionais à gravidade da
+          conduta, incluindo advertência, remoção de conteúdo, suspensão de
+          funcionalidades, cancelamento de reservas ou encerramento da conta,
+          observada a legislação aplicável.
+        </p>
+      </LegalSection>
+
+      <LegalSection id="propriedade" title="12. Propriedade intelectual">
+        <p>
+          A marca AprendizBay, seu nome, identidade visual, software, código,
+          layout, textos institucionais e demais elementos desenvolvidos pela
+          plataforma pertencem à AprendizBay ou aos respectivos licenciadores,
+          conforme aplicável.
+        </p>
+        <p>
+          É proibida a reprodução, distribuição, modificação ou exploração
+          comercial desses elementos sem autorização.
+        </p>
+        <p>
+          O professor mantém os direitos sobre os conteúdos didáticos e demais
+          materiais de sua autoria que publicar na plataforma.
+        </p>
+        <p>
+          Ao publicar conteúdo na AprendizBay, o usuário concede à plataforma
+          uma licença não exclusiva, limitada ao necessário para hospedar,
+          reproduzir, exibir e disponibilizar esse conteúdo dentro das
+          funcionalidades da plataforma e para divulgação relacionada aos
+          serviços, sempre respeitados os direitos do autor e a legislação
+          aplicável.
+        </p>
+      </LegalSection>
+
+      <LegalSection id="terceiros" title="13. Disponibilidade e serviços de terceiros">
+        <p>
+          A AprendizBay envidará esforços razoáveis para manter a plataforma
+          disponível e funcionando adequadamente.
+        </p>
+        <p>
+          Entretanto, determinados recursos dependem de serviços de terceiros,
+          incluindo provedores de hospedagem, autenticação, pagamentos,
+          comunicação e videoconferência.
+        </p>
+        <p>
+          A indisponibilidade temporária de um serviço de terceiro poderá afetar
+          determinadas funcionalidades da plataforma.
+        </p>
+        <p>
+          A AprendizBay não garante funcionamento ininterrupto, ausência
+          absoluta de erros ou disponibilidade permanente de todos os serviços.
+        </p>
+        <p>
+          Isso não prejudica os direitos do consumidor ou outras
+          responsabilidades legalmente aplicáveis à AprendizBay.
+        </p>
+      </LegalSection>
+
+      <LegalSection id="responsabilidades" title="14. Responsabilidades relacionadas às aulas">
+        <p>
+          O professor é responsável pela preparação e execução do conteúdo
+          educacional que oferece, bem como pelas informações profissionais que
+          apresenta em seu perfil.
+        </p>
+        <p>
+          O aluno é responsável pelas informações fornecidas, por seu
+          comportamento durante as aulas e pelo cumprimento de suas obrigações
+          relacionadas à reserva.
+        </p>
+        <p>
+          A AprendizBay oferece a infraestrutura tecnológica para facilitar a
+          relação entre as partes, mas não controla todos os aspectos da
+          interação ou da prestação da aula.
+        </p>
+        <p>
+          A plataforma poderá, entretanto, adotar medidas de segurança,
+          moderação, verificação, prevenção de fraude e atendimento quando
+          necessário.
+        </p>
+        <p>
+          Nada nesta seção limita direitos ou responsabilidades previstos na
+          legislação brasileira.
+        </p>
+      </LegalSection>
+
+      <LegalSection id="seguranca" title="15. Segurança e uso responsável">
+        <p>
+          O usuário deve manter seus dispositivos, credenciais e métodos de
+          acesso protegidos.
+        </p>
+        <p>
+          Caso suspeite de acesso não autorizado à sua conta, deverá comunicar a
+          AprendizBay imediatamente por meio do canal de contato
+          disponibilizado.
+        </p>
+        <p>
+          A AprendizBay poderá adotar medidas de segurança e prevenção de fraude,
+          incluindo análise de atividades suspeitas e restrição temporária de
+          determinadas funcionalidades quando necessário para proteger usuários,
+          pagamentos ou a própria plataforma.
+        </p>
+      </LegalSection>
+
+      <LegalSection id="exclusao" title="16. Exclusão e encerramento da conta">
+        <p>
+          O usuário poderá solicitar a exclusão de sua conta por meio das
+          funcionalidades disponibilizadas pela plataforma ou entrando em contato
+          com a AprendizBay.
+        </p>
+        <p>
+          A exclusão da conta não significa necessariamente a eliminação imediata
+          de todas as informações relacionadas ao usuário.
+        </p>
+        <p>
+          Determinados dados poderão ser mantidos quando houver fundamento legal
+          para isso, inclusive para cumprimento de obrigações legais ou
+          regulatórias, exercício regular de direitos, prevenção de fraude,
+          resolução de disputas ou preservação de registros necessários.
+        </p>
+        <p>
+          Quando tecnicamente e legalmente aplicável, informações relacionadas a
+          reservas, avaliações e outras interações poderão ser anonimizadas em
+          vez de integralmente eliminadas, de modo a preservar registros
+          necessários sem manter a identificação direta do usuário.
+        </p>
+        <p>
+          A AprendizBay poderá suspender ou encerrar contas em caso de violação
+          destes Termos, fraude, risco de segurança, atividade ilegal ou outras
+          situações justificadas.
+        </p>
+        <p>
+          Quando apropriado, o usuário poderá solicitar esclarecimentos sobre a
+          medida adotada por meio do canal de contato da plataforma.
+        </p>
+      </LegalSection>
+
+      <LegalSection id="dados" title="17. Proteção de dados pessoais">
+        <p>
+          O tratamento de dados pessoais realizado pela AprendizBay é descrito na{" "}
+          <Link
+            href="/privacidade"
+            className="font-medium text-primary-700 hover:text-primary-600"
+          >
+            Política de Privacidade
+          </Link>{" "}
+          da plataforma.
+        </p>
+        <p>
+          A Política de Privacidade informa, entre outros aspectos, quais dados
+          podem ser coletados, para quais finalidades podem ser utilizados, com
+          quem podem ser compartilhados, os períodos de retenção aplicáveis e os
+          direitos dos titulares.
+        </p>
+        <p>
+          Solicitações relacionadas a dados pessoais e ao exercício de direitos
+          previstos na LGPD podem ser encaminhadas para:{" "}
           <a
             href={`mailto:${SUPPORT_CONTACT_EMAIL}`}
             className="font-medium text-primary-700 hover:text-primary-600"
           >
             {SUPPORT_CONTACT_EMAIL}
           </a>
-          . Pedidos da LGPD:{" "}
-          <a
-            href={`mailto:${PRIVACY_CONTACT_EMAIL}`}
-            className="font-medium text-primary-700 hover:text-primary-600"
-          >
-            {PRIVACY_CONTACT_EMAIL}
-          </a>
-          . Podemos atualizar este documento; a data do rascunho vigente é{" "}
-          {LEGAL_LAST_UPDATED_LABEL}. Uso continuado após a publicação de uma
-          versão revisada juridicamente implica aceitação das novas condições,
-          salvo direito de recusa com exclusão da conta.
         </p>
       </LegalSection>
+
+      <LegalSection id="comunicacoes" title="18. Comunicações">
+        <p>
+          A AprendizBay poderá enviar comunicações necessárias à prestação dos
+          serviços, incluindo confirmações de cadastro, reservas, pagamentos,
+          cancelamentos, alterações de conta, segurança e atendimento.
+        </p>
+        <p>
+          Comunicações promocionais serão tratadas de acordo com as opções
+          disponibilizadas ao usuário e com a legislação aplicável.
+        </p>
+        <p>
+          O usuário poderá solicitar informações ou atendimento pelo endereço:{" "}
+          <a
+            href={`mailto:${SUPPORT_CONTACT_EMAIL}`}
+            className="font-medium text-primary-700 hover:text-primary-600"
+          >
+            {SUPPORT_CONTACT_EMAIL}
+          </a>
+        </p>
+      </LegalSection>
+
+      <LegalSection id="alteracoes" title="19. Alterações destes Termos">
+        <p>
+          A AprendizBay poderá atualizar estes Termos para refletir alterações na
+          plataforma, nos serviços oferecidos, na legislação ou nas práticas
+          operacionais.
+        </p>
+        <p>
+          A versão vigente será disponibilizada na plataforma com sua respectiva
+          data de atualização.
+        </p>
+        <p>
+          Alterações relevantes poderão ser comunicadas aos usuários por meios
+          razoáveis, especialmente quando puderem afetar direitos ou obrigações.
+        </p>
+        <p>
+          A continuidade da utilização da plataforma após a entrada em vigor de
+          uma nova versão significará a ciência dos Termos atualizados, sem
+          prejuízo dos direitos que não possam ser afastados por esse mecanismo.
+        </p>
+      </LegalSection>
+
+      <LegalSection id="lei" title="20. Lei aplicável e solução de controvérsias">
+        <p>
+          Estes Termos são regidos pelas leis da República Federativa do Brasil.
+        </p>
+        <p>
+          As relações de consumo serão interpretadas e executadas em conformidade
+          com a legislação brasileira aplicável, incluindo o Código de Defesa do
+          Consumidor, o Marco Civil da Internet e a Lei Geral de Proteção de Dados
+          Pessoais.
+        </p>
+        <p>
+          Nas relações de consumo, será respeitado o foro legalmente competente,
+          inclusive o foro assegurado ao consumidor pela legislação aplicável.
+        </p>
+        <p>
+          Nada nestes Termos impede o usuário de exercer direitos perante órgãos
+          administrativos, autoridades competentes ou o Poder Judiciário.
+        </p>
+      </LegalSection>
+
+      <LegalSection id="contato" title="21. Contato">
+        <p>
+          Para dúvidas, reclamações, solicitações relacionadas à conta,
+          pagamentos, reservas, estes Termos ou questões de privacidade e
+          proteção de dados pessoais:{" "}
+          <a
+            href={`mailto:${SUPPORT_CONTACT_EMAIL}`}
+            className="font-medium text-primary-700 hover:text-primary-600"
+          >
+            {SUPPORT_CONTACT_EMAIL}
+          </a>
+        </p>
+      </LegalSection>
+
+      <footer className="border-t border-border pt-8 text-sm text-muted-foreground">
+        <p className="font-semibold text-foreground">AprendizBay</p>
+        <p className="mt-1">
+          Plataforma brasileira que conecta alunos e professores com aulas
+          particulares e coletivas.
+        </p>
+        <p className="mt-4">© 2026 AprendizBay. Todos os direitos reservados.</p>
+      </footer>
     </LegalDocument>
   );
 }
