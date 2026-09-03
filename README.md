@@ -205,6 +205,7 @@ Every route sets `export const runtime = "nodejs"` and `export const dynamic = "
 |-------|---------|---------|--------------------------|
 | `/api/account/delete` | POST | LGPD account deletion | `firebase-admin` (Auth, Firestore, Storage) |
 | `/api/admin/dashboard` | GET | Admin metrics | `firebase-admin` |
+| `/api/admin/email-outbox` | GET | Email delivery monitor (admin only) | `firebase-admin` |
 | `/api/bookings` | POST | Create individual booking | `firebase-admin` (transaction) |
 | `/api/bookings/cancel` | POST | Cancel + Asaas refund | `firebase-admin` + Asaas HTTP |
 | `/api/bookings/complete` | POST | Mark lesson completed | `firebase-admin` |

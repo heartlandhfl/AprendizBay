@@ -1462,6 +1462,24 @@ describe("firestore.rules", () => {
     });
   });
 
+  describe("emailOutbox", () => {
+    it("denies clients from reading or writing transactional email outbox records", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      const outboxRef = doc(studentDb(), "emailOutbox", "email-1");
+
+      await assertFails(
+        setDoc(outboxRef, {
+          eventName: "BOOKING_ACCEPTED",
+          recipientEmail: "student@example.com",
+          subject: "Confirmação",
+          status: "sent",
+          createdAt: new Date(),
+        }),
+      );
+      await assertFails(getDoc(outboxRef));
+    });
+  });
+
   describe("lessonSlots", () => {
     it("denies clients from reading or writing individual slot locks", async () => {
       await seedBaseDocs({ tutorVerified: true });

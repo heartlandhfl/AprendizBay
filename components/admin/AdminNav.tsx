@@ -13,6 +13,7 @@ const LINKS = [
   { href: "/admin/tutors", label: "Verificação" },
   { href: "/admin/payouts", label: "Repasses" },
   { href: "/admin/facilitator-payouts", label: "Facilitadores" },
+  { href: "/admin/email", label: "E-mails" },
 ];
 
 export default function AdminNav() {
@@ -26,7 +27,8 @@ export default function AdminNav() {
           (link.href === "/admin/tutors" && pathname.startsWith("/admin/tutors")) ||
           (link.href === "/admin/payouts" && pathname.startsWith("/admin/payouts")) ||
           (link.href === "/admin/facilitator-payouts" &&
-            pathname.startsWith("/admin/facilitator-payouts"));
+            pathname.startsWith("/admin/facilitator-payouts")) ||
+          (link.href === "/admin/email" && pathname.startsWith("/admin/email"));
 
         return (
           <Link
