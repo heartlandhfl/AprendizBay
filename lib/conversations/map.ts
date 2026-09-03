@@ -24,6 +24,7 @@ export function mapConversationDoc(
     lastMessage: asOptionalString(data.lastMessage),
     lastMessageAt: data.lastMessageAt as Conversation["lastMessageAt"],
     lastSenderId: asOptionalString(data.lastSenderId),
+    lastMessageEmailSentAt: data.lastMessageEmailSentAt as Conversation["lastMessageEmailSentAt"],
     createdAt: data.createdAt as Conversation["createdAt"],
     updatedAt: data.updatedAt as Conversation["updatedAt"],
   };

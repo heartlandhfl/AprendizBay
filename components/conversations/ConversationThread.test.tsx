@@ -7,6 +7,7 @@ import { ConversationError } from "@/lib/conversations/errors";
 const {
   authState,
   mockSendMessage,
+  mockRequestNotification,
   mockBlockUser,
   mockUnblockUser,
   mockReportConversation,
@@ -20,6 +21,7 @@ const {
     loading: false,
   },
   mockSendMessage: vi.fn(),
+  mockRequestNotification: vi.fn(),
   mockBlockUser: vi.fn(),
   mockUnblockUser: vi.fn(),
   mockReportConversation: vi.fn(),
@@ -30,6 +32,10 @@ const {
 
 vi.mock("@/lib/auth/AuthContext", () => ({
   useAuth: () => authState,
+}));
+
+vi.mock("@/lib/notifications/client", () => ({
+  requestNotification: (...args: unknown[]) => mockRequestNotification(...args),
 }));
 
 vi.mock("@/lib/conversations/service", () => ({
@@ -70,6 +76,7 @@ function emitDefaults() {
 describe("ConversationThread", () => {
   beforeEach(() => {
     mockSendMessage.mockReset();
+    mockRequestNotification.mockReset();
     mockBlockUser.mockReset();
     mockUnblockUser.mockReset();
     mockReportConversation.mockReset();
@@ -77,6 +84,7 @@ describe("ConversationThread", () => {
     mockSubscribeToMessages.mockReset();
     mockSubscribeToPairBlock.mockReset();
     mockSendMessage.mockResolvedValue("msg-1");
+    mockRequestNotification.mockResolvedValue(undefined);
     mockBlockUser.mockResolvedValue(undefined);
     mockUnblockUser.mockResolvedValue(undefined);
     mockReportConversation.mockResolvedValue(undefined);
@@ -100,6 +108,14 @@ describe("ConversationThread", () => {
 
     await user.click(screen.getByRole("button", { name: "Enviar mesmo assim" }));
     await waitFor(() => expect(mockSendMessage).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(mockRequestNotification).toHaveBeenCalledWith({
+        type: "new_message",
+        conversationId: "student-1_tutor-1",
+        messageId: "msg-1",
+        recipientUserId: "tutor-1",
+      }),
+    );
   });
 
   it("shows Denunciar conversa and Bloquear usuário actions", async () => {

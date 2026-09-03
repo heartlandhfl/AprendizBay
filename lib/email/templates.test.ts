@@ -3,6 +3,7 @@ import { EMAIL_EVENTS } from "@/lib/email/events";
 import {
   buildBookingAcceptedEmail,
   buildEmailTemplate,
+  buildNewMessageEmail,
   firstDisplayName,
   formatBookingAcceptedStatusLabel,
 } from "@/lib/email/templates";
@@ -120,9 +121,10 @@ describe("buildEmailTemplate", () => {
       {
         event: EMAIL_EVENTS.NEW_MESSAGE,
         input: {
-          recipientName: "Ana",
+          recipientName: "Ana Silva",
           senderName: "Prof. João",
           preview: "Olá! Podemos remarcar?",
+          lessonContextLabel: "Inglês · Individual · terça-feira, 8 de setembro de 2026 às 19:00",
           messagesUrl: "https://aprendizbay.com/mensagens/conv-1",
         },
       },
@@ -222,5 +224,22 @@ describe("formatBookingAcceptedStatusLabel", () => {
     expect(formatBookingAcceptedStatusLabel("pending", "awaiting_payment")).toBe(
       "Pedido aceito — aguardando pagamento",
     );
+  });
+});
+
+describe("buildNewMessageEmail", () => {
+  it("uses the sender name in the subject and CTA copy", () => {
+    const content = buildNewMessageEmail({
+      recipientName: "Ana Silva",
+      senderName: "Prof. João",
+      preview: "Podemos combinar a aula?",
+      messagesUrl: "https://aprendizbay.com/mensagens/student-1_tutor-1",
+    });
+
+    expect(content.subject).toBe("Você recebeu uma nova mensagem de Prof. João");
+    expect(content.text).toContain("Olá, Ana!");
+    expect(content.text).toContain("Responder na AprendizBay:");
+    expect(content.html).toContain("Responder na AprendizBay");
+    expect(content.html).toContain('lang="pt-BR"');
   });
 });

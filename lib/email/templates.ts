@@ -1,4 +1,5 @@
 import { EMAIL_EVENTS, type EmailEventName } from "@/lib/email/events";
+import { previewMessage } from "@/lib/conversations/ids";
 import {
   BOOKING_STATUS_LABELS,
   PAYMENT_STATUS_LABELS,
@@ -448,21 +449,44 @@ export interface NewMessageTemplateInput {
   recipientName: string;
   senderName: string;
   preview: string;
+  lessonContextLabel?: string;
   messagesUrl?: string;
 }
 
 export function buildNewMessageEmail(input: NewMessageTemplateInput): EmailContent {
-  const title = "Nova mensagem no Aprendiz Bay";
-  const preview = input.preview.trim().slice(0, 180);
+  const subject = `Você recebeu uma nova mensagem de ${input.senderName}`;
+  const firstName = firstDisplayName(input.recipientName);
+  const preview = previewMessage(input.preview, 180);
 
-  return wrapEmail(
-    title,
-    `<p>Olá, ${escapeHtml(input.recipientName)}!</p>
-     <p><strong>${escapeHtml(input.senderName)}</strong> enviou uma nova mensagem:</p>
-     <p style="margin:16px 0;padding:12px 16px;background:#f8fafc;border-radius:12px">${escapeHtml(preview)}</p>
-     ${input.messagesUrl ? `<p><a href="${escapeHtml(input.messagesUrl)}" style="color:#059669">Responder no Aprendiz Bay</a></p>` : ""}`,
-    `Olá, ${input.recipientName}!\n\n${input.senderName} enviou uma nova mensagem:\n${preview}${input.messagesUrl ? `\n${input.messagesUrl}` : ""}`,
-  );
+  const lessonContextHtml = input.lessonContextLabel
+    ? `<p style="margin:0 0 16px;font-size:14px;line-height:1.7;color:#64748b"><strong style="color:#0f172a">Contexto da aula:</strong> ${escapeHtml(input.lessonContextLabel)}</p>`
+    : "";
+
+  const buttonHtml = input.messagesUrl
+    ? `<div style="margin:8px 0 4px">${renderEmailButton("Responder na AprendizBay", input.messagesUrl, "primary")}</div>`
+    : "";
+
+  const bodyHtml = `<p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#334155">Olá, ${escapeHtml(firstName)}!</p>
+     <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#334155"><strong>${escapeHtml(input.senderName)}</strong> enviou uma nova mensagem para você na Aprendiz Bay.</p>
+     ${lessonContextHtml}
+     <blockquote style="margin:0 0 20px;padding:14px 16px;background:#f8fafc;border-left:4px solid #059669;border-radius:0 12px 12px 0;font-size:14px;line-height:1.7;color:#334155">${escapeHtml(preview)}</blockquote>
+     <p style="margin:0 0 16px;font-size:14px;line-height:1.7;color:#64748b">Para responder com segurança, use a mensageria da Aprendiz Bay. Não compartilhamos telefone, e-mail ou endereço dos participantes por aqui.</p>
+     ${buttonHtml}`;
+
+  const textLines = [
+    `Olá, ${firstName}!`,
+    "",
+    `${input.senderName} enviou uma nova mensagem para você na Aprendiz Bay.`,
+    "",
+    input.lessonContextLabel ? `Contexto da aula: ${input.lessonContextLabel}` : "",
+    "",
+    `"${preview}"`,
+    "",
+    "Para responder com segurança, use a mensageria da Aprendiz Bay.",
+    input.messagesUrl ? `Responder na AprendizBay: ${input.messagesUrl}` : "",
+  ].filter(Boolean);
+
+  return wrapEmail(subject, bodyHtml, textLines.join("\n"));
 }
 
 const TEMPLATE_BUILDERS = {
