@@ -18,6 +18,7 @@ export default defineConfig({
           environment: "jsdom",
           setupFiles: ["./vitest.setup.ts"],
           include: [
+            "app/api/admin/**/*.test.ts",
             "app/**/*.test.tsx",
             "app/**/*.test.ts",
             "components/**/*.test.tsx",
@@ -35,6 +36,7 @@ export default defineConfig({
             "lib/users/**/*.test.ts",
             "lib/facilitators/**/*.test.ts",
             "lib/contact/**/*.test.ts",
+            "lib/jetsend/**/*.test.ts",
             "lib/email/**/*.test.ts",
             "lib/notifications/**/*.test.ts",
             "lib/conversations/rate-limit.test.ts",

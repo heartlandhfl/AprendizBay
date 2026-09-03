@@ -178,7 +178,7 @@ npx tsx scripts/seed.ts
 | `EMAIL_TEST_RECIPIENT` | Safe inbox for **Development** and redirected **Preview/Staging** mail (required outside production) |
 | `EMAIL_STAGING_ALLOWLIST` | Optional comma-separated staging recipients that may receive mail at their real address |
 | `EMAIL_PROVIDER` | `jetsend` selects `JetSendEmailProvider`; omit to use the legacy Resend/SendGrid fallback |
-| `JETSEND_API_KEY` | [JetSend](https://jetsend.com) API key (required when `EMAIL_PROVIDER=jetsend`) |
+| `JET_SEND_API_KEY` | [JetSend](https://jetsend.com) API key — **server-only** (required when `EMAIL_PROVIDER=jetsend`). `JETSEND_API_KEY` is a legacy alias. |
 | `JETSEND_FROM_EMAIL` | JetSend sender address, e.g. `Aprendiz Bay <noreply@aprendizbay.com.br>` |
 | `JETSEND_TENANT_ID` | JetSend tenant UUID (optional, ops reference) |
 | `JETSEND_SLUG` | JetSend account slug (optional, ops reference) |
@@ -200,7 +200,7 @@ npx tsx scripts/seed.ts
 
 `FIREBASE_ADMIN_*` is required for all server routes below. Client features only need `NEXT_PUBLIC_FIREBASE_*`. Sentry and Plausible are optional.
 
-`GET /api/public-config` also exposes Firebase web keys at runtime (useful for previews); on Vercel you typically set `NEXT_PUBLIC_*` directly and rebuild when they change. Email provider secrets (`JETSEND_API_KEY`, `RESEND_API_KEY`, etc.) are **never** exposed through this endpoint or any `NEXT_PUBLIC_*` variable.
+`GET /api/public-config` also exposes Firebase web keys at runtime (useful for previews); on Vercel you typically set `NEXT_PUBLIC_*` directly and rebuild when they change. Email provider secrets (`JET_SEND_API_KEY`, `JETSEND_API_KEY`, `RESEND_API_KEY`, etc.) are **never** exposed through this endpoint or any `NEXT_PUBLIC_*` variable.
 
 #### Transactional email safety (`EMAIL_ENV`)
 
@@ -284,7 +284,7 @@ After UI changes, run `npm run build:hostinger` locally and commit `hostinger-ne
 | Full `app/api/**` parity | Partial (`server/api/` only) | Yes |
 | Server Actions | No | Yes |
 
-Set `NEXT_PUBLIC_SITE_URL`, `FIREBASE_ADMIN_*`, `EMAIL_PROVIDER=jetsend`, `JETSEND_API_KEY`, `JETSEND_FROM_EMAIL`, and `NOTIFICATIONS_CRON_SECRET` in Hostinger environment variables. Firebase web keys are also served at runtime from `GET /api/public-config`.
+Set `NEXT_PUBLIC_SITE_URL`, `FIREBASE_ADMIN_*`, `EMAIL_PROVIDER=jetsend`, `JET_SEND_API_KEY`, `JETSEND_FROM_EMAIL`, and `NOTIFICATIONS_CRON_SECRET` in Hostinger environment variables. Firebase web keys are also served at runtime from `GET /api/public-config`.
 
 ### Rules vs app (known gaps)
 
