@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { EMAIL_EVENTS } from "@/lib/email/events";
-import { buildEmailTemplate } from "@/lib/email/templates";
+import {
+  buildBookingAcceptedEmail,
+  buildEmailTemplate,
+  firstDisplayName,
+  formatBookingAcceptedStatusLabel,
+} from "@/lib/email/templates";
 
 const scheduledAt = new Date("2026-09-08T19:00:00.000Z");
 
@@ -24,11 +29,15 @@ describe("buildEmailTemplate", () => {
       {
         event: EMAIL_EVENTS.BOOKING_ACCEPTED,
         input: {
-          studentName: "Ana",
+          studentName: "Ana Silva",
           tutorName: "Prof. João",
+          subjectLabel: "Inglês",
           bookingType: "individual",
           scheduledAt,
+          statusLabel: "Pedido aceito — aguardando pagamento",
           priceLabel: "R$ 80,00",
+          bookingUrl: "https://aprendizbay.com/aulas/booking-1",
+          messagesUrl: "https://aprendizbay.com/mensagens/student-1_tutor-1",
           bookingsUrl: "https://aprendizbay.com/bookings",
         },
       },
@@ -140,5 +149,78 @@ describe("buildEmailTemplate", () => {
 
     expect(content.subject).toBe("Sua aula foi confirmada");
     expect(content.text).toContain("está confirmada");
+  });
+});
+
+describe("buildBookingAcceptedEmail", () => {
+  const baseInput = {
+    studentName: "Ana Silva",
+    tutorName: "Prof. João",
+    subjectLabel: "Inglês",
+    bookingType: "individual" as const,
+    scheduledAt,
+    statusLabel: "Pedido aceito — aguardando pagamento",
+    priceLabel: "R$ 80,00",
+    bookingUrl: "https://aprendizbay.com/aulas/booking-1",
+    messagesUrl: "https://aprendizbay.com/mensagens/student-1_tutor-1",
+    bookingsUrl: "https://aprendizbay.com/bookings",
+  };
+
+  it("uses a warm Portuguese subject with the tutor name", () => {
+    const content = buildBookingAcceptedEmail(baseInput);
+
+    expect(content.subject).toBe("Prof. João aceitou seu pedido de aula");
+  });
+
+  it("greets the student by first name and includes lesson details", () => {
+    const content = buildBookingAcceptedEmail(baseInput);
+
+    expect(firstDisplayName(baseInput.studentName)).toBe("Ana");
+    expect(content.text).toContain("Olá, Ana!");
+    expect(content.text).toContain("Prof. João aceitou seu pedido de aula");
+    expect(content.text).toContain("Matéria: Inglês");
+    expect(content.text).toContain("Tipo de aula: Individual");
+    expect(content.text).toContain("Status: Pedido aceito — aguardando pagamento");
+    expect(content.text).toMatch(/Valor: R\$\s?80,00/);
+    expect(content.text).toContain("Ver minha aula: https://aprendizbay.com/aulas/booking-1");
+    expect(content.text).toContain(
+      "Conversar com o professor: https://aprendizbay.com/mensagens/student-1_tutor-1",
+    );
+    expect(content.text).toContain("Aprendiz Bay");
+  });
+
+  it("renders responsive HTML with CTAs and footer without private contact info", () => {
+    const content = buildBookingAcceptedEmail(baseInput);
+
+    expect(content.html).toContain('lang="pt-BR"');
+    expect(content.html).toContain('name="viewport"');
+    expect(content.html).toContain("Ver minha aula");
+    expect(content.html).toContain("Conversar com o professor");
+    expect(content.html).toContain("Aprendiz Bay");
+    expect(content.html).toContain("Matéria:");
+    expect(content.html).toContain("Inglês");
+    expect(content.html).not.toMatch(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i);
+    expect(content.html).not.toMatch(/\+55\s?\(?\d{2}\)?\s?\d{4,5}-?\d{4}/);
+  });
+
+  it("directs the student to messaging when there is no price", () => {
+    const content = buildBookingAcceptedEmail({
+      ...baseInput,
+      priceLabel: undefined,
+      statusLabel: "Pedido aceito",
+    });
+
+    expect(content.text).toContain(
+      "Agora você pode conversar com Prof. João pela Aprendiz Bay para combinar os detalhes da sua aula.",
+    );
+    expect(content.text).not.toContain("finalize o pagamento");
+  });
+});
+
+describe("formatBookingAcceptedStatusLabel", () => {
+  it("prioritizes awaiting payment after tutor acceptance", () => {
+    expect(formatBookingAcceptedStatusLabel("pending", "awaiting_payment")).toBe(
+      "Pedido aceito — aguardando pagamento",
+    );
   });
 });

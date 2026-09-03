@@ -19,9 +19,12 @@ import {
 import {
   buildEmailTemplate,
   buildNewReviewEmail,
+  formatBookingAcceptedStatusLabel,
   type EmailContent,
 } from "@/lib/email/templates";
+import { conversationIdFor } from "@/lib/conversations/ids";
 import { getAdminApp } from "@/lib/firebase/admin";
+import { lessonPath } from "@/lib/lessons/paths";
 import { getSiteOrigin } from "@/lib/seo/site-url";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const notificationCore = require("../notifications/core.js") as {
@@ -77,7 +80,22 @@ async function loadUser(db: Firestore, uid: string): Promise<Person> {
   };
 }
 
-async function loadTutor(db: Firestore, tutorId: string): Promise<Person> {
+interface TutorPerson extends Person {
+  subjectLabel?: string;
+}
+
+function tutorSubjectLabel(data: Record<string, unknown>): string | undefined {
+  const subjects = Array.isArray(data.subjects)
+    ? data.subjects.filter((value): value is string => typeof value === "string" && value.trim())
+    : [];
+  if (subjects.length > 0) {
+    return subjects[0]?.trim();
+  }
+  const subject = typeof data.subject === "string" ? data.subject.trim() : "";
+  return subject || undefined;
+}
+
+async function loadTutor(db: Firestore, tutorId: string): Promise<TutorPerson> {
   const snapshot = await db.collection("tutors").doc(tutorId).get();
   const data = snapshot.data() ?? {};
   const ownerId = typeof data.userId === "string" && data.userId.trim() ? data.userId : tutorId;
@@ -88,6 +106,7 @@ async function loadTutor(db: Firestore, tutorId: string): Promise<Person> {
       owner.name ||
       "Professor",
     email: owner.email,
+    subjectLabel: tutorSubjectLabel(data),
   };
 }
 
@@ -172,6 +191,9 @@ async function resolveBookingContext(db: Firestore, bookingId: string) {
     price,
     studentId: String(data.studentId ?? ""),
     tutorId: String(data.tutorId ?? ""),
+    status: typeof data.status === "string" ? data.status : undefined,
+    paymentStatus: typeof data.paymentStatus === "string" ? data.paymentStatus : undefined,
+    subjectLabel: tutor.subjectLabel,
   };
 }
 
@@ -247,6 +269,7 @@ export async function onEvent(
       if (!context) {
         return { sent: false, skipped: true, reason: "booking_not_found" };
       }
+      const conversationId = conversationIdFor(context.studentId, context.tutorId);
       return sendContent(
         db,
         provider,
@@ -254,9 +277,20 @@ export async function onEvent(
         buildEmailTemplate(EMAIL_EVENTS.BOOKING_ACCEPTED, {
           studentName: context.student.name,
           tutorName: context.tutor.name,
+          subjectLabel: context.subjectLabel,
           bookingType: context.bookingType,
           scheduledAt: context.scheduledAt,
+          statusLabel: formatBookingAcceptedStatusLabel(
+            context.status,
+            context.paymentStatus,
+          ),
           priceLabel: context.price != null ? formatMoney(context.price) : undefined,
+          bookingUrl: baseUrl
+            ? `${baseUrl}${lessonPath(eventPayload.bookingId)}`
+            : undefined,
+          messagesUrl: baseUrl
+            ? `${baseUrl}/mensagens/${encodeURIComponent(conversationId)}`
+            : undefined,
           bookingsUrl: baseUrl ? `${baseUrl}/bookings` : undefined,
         }),
         {
