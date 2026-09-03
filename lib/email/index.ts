@@ -15,6 +15,12 @@ export {
 } from "@/lib/email/resend-sendgrid-provider";
 export { onEvent, onNewReviewEmail, type OnEmailEventDeps } from "@/lib/email/send";
 export {
+  EMAIL_OUTBOX_COLLECTION,
+  createFirestoreEmailOutboxStore,
+  enqueueAndDeliverTransactionalEmail,
+  processDueOutboxEmails,
+} from "@/lib/email/outbox";
+export {
   buildEmailTemplate,
   buildNewReviewEmail,
   type EmailContent,

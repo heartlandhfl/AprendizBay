@@ -7,6 +7,16 @@ import {
 import type { EmailProvider, EmailResult } from "@/lib/email/provider";
 import { getActiveEmailProvider } from "@/lib/email/resend-sendgrid-provider";
 import {
+  buildBookingParticipantEventKey,
+  buildLessonReminderEventKey,
+  buildNewMessageEventKey,
+  buildNewReviewEventKey,
+  buildUserRegisteredEventKey,
+  createFirestoreEmailOutboxStore,
+  enqueueAndDeliverTransactionalEmail,
+  type EmailOutboxStore,
+} from "@/lib/email/outbox";
+import {
   buildEmailTemplate,
   buildNewReviewEmail,
   type EmailContent,
@@ -27,6 +37,8 @@ interface Person {
 export interface OnEmailEventDeps {
   db?: Firestore;
   provider?: EmailProvider;
+  /** Pass `false` to send directly without the outbox (unit tests). */
+  outbox?: EmailOutboxStore | false;
 }
 
 function requireDb(deps: OnEmailEventDeps = {}): Firestore {
@@ -90,15 +102,52 @@ async function loadBooking(db: Firestore, bookingId: string) {
   };
 }
 
+interface SendContentOutboxMeta {
+  eventName: EmailEventName;
+  eventKey: string;
+  recipientUserId?: string;
+  bookingId?: string;
+  conversationId?: string;
+  messageId?: string;
+  reviewId?: string;
+  templateName: string;
+}
+
 async function sendContent(
+  db: Firestore,
   provider: EmailProvider,
   to: string | undefined,
   content: EmailContent,
+  meta: SendContentOutboxMeta,
+  deps: OnEmailEventDeps,
 ): Promise<EmailResult> {
   if (!to?.trim()) {
     return { sent: false, skipped: true, reason: "missing_recipient" };
   }
-  return provider.send({ to, ...content });
+
+  if (deps.outbox === false) {
+    return provider.send({ to, ...content });
+  }
+
+  const store = deps.outbox ?? createFirestoreEmailOutboxStore(db);
+
+  return enqueueAndDeliverTransactionalEmail(
+    {
+      eventName: meta.eventName,
+      eventKey: meta.eventKey,
+      recipientUserId: meta.recipientUserId,
+      recipientEmail: to.trim(),
+      bookingId: meta.bookingId,
+      conversationId: meta.conversationId,
+      messageId: meta.messageId,
+      reviewId: meta.reviewId,
+      subject: content.subject,
+      templateName: meta.templateName,
+      text: content.text,
+      html: content.html,
+    },
+    { store, provider },
+  );
 }
 
 async function resolveBookingContext(db: Firestore, bookingId: string) {
@@ -142,6 +191,7 @@ export async function onEvent(
       const roleSnapshot = await db.collection("users").doc(eventPayload.userId).get();
       const role = typeof roleSnapshot.data()?.role === "string" ? roleSnapshot.data()?.role : undefined;
       return sendContent(
+        db,
         provider,
         user.email,
         buildEmailTemplate(EMAIL_EVENTS.USER_REGISTERED, {
@@ -149,6 +199,13 @@ export async function onEvent(
           roleLabel: roleLabel(role),
           bookingsUrl: baseUrl ? `${baseUrl}/bookings` : undefined,
         }),
+        {
+          eventName: EMAIL_EVENTS.USER_REGISTERED,
+          eventKey: buildUserRegisteredEventKey(eventPayload.userId),
+          recipientUserId: eventPayload.userId,
+          templateName: EMAIL_EVENTS.USER_REGISTERED,
+        },
+        deps,
       );
     }
 
@@ -159,6 +216,7 @@ export async function onEvent(
         return { sent: false, skipped: true, reason: "booking_not_found" };
       }
       return sendContent(
+        db,
         provider,
         context.tutor.email,
         buildEmailTemplate(EMAIL_EVENTS.BOOKING_CREATED, {
@@ -168,6 +226,18 @@ export async function onEvent(
           scheduledAt: context.scheduledAt,
           dashboardUrl: baseUrl ? `${baseUrl}/tutor/dashboard` : undefined,
         }),
+        {
+          eventName: EMAIL_EVENTS.BOOKING_CREATED,
+          eventKey: buildBookingParticipantEventKey(
+            EMAIL_EVENTS.BOOKING_CREATED,
+            eventPayload.bookingId,
+            context.tutorId,
+          ),
+          recipientUserId: context.tutorId,
+          bookingId: eventPayload.bookingId,
+          templateName: EMAIL_EVENTS.BOOKING_CREATED,
+        },
+        deps,
       );
     }
 
@@ -178,6 +248,7 @@ export async function onEvent(
         return { sent: false, skipped: true, reason: "booking_not_found" };
       }
       return sendContent(
+        db,
         provider,
         context.student.email,
         buildEmailTemplate(EMAIL_EVENTS.BOOKING_ACCEPTED, {
@@ -188,6 +259,18 @@ export async function onEvent(
           priceLabel: context.price != null ? formatMoney(context.price) : undefined,
           bookingsUrl: baseUrl ? `${baseUrl}/bookings` : undefined,
         }),
+        {
+          eventName: EMAIL_EVENTS.BOOKING_ACCEPTED,
+          eventKey: buildBookingParticipantEventKey(
+            EMAIL_EVENTS.BOOKING_ACCEPTED,
+            eventPayload.bookingId,
+            context.studentId,
+          ),
+          recipientUserId: context.studentId,
+          bookingId: eventPayload.bookingId,
+          templateName: EMAIL_EVENTS.BOOKING_ACCEPTED,
+        },
+        deps,
       );
     }
 
@@ -198,6 +281,7 @@ export async function onEvent(
         return { sent: false, skipped: true, reason: "booking_not_found" };
       }
       return sendContent(
+        db,
         provider,
         context.student.email,
         buildEmailTemplate(EMAIL_EVENTS.PAYMENT_CONFIRMED, {
@@ -208,6 +292,18 @@ export async function onEvent(
           meetingUrl: context.meetingUrl,
           bookingsUrl: baseUrl ? `${baseUrl}/bookings` : undefined,
         }),
+        {
+          eventName: EMAIL_EVENTS.PAYMENT_CONFIRMED,
+          eventKey: buildBookingParticipantEventKey(
+            EMAIL_EVENTS.PAYMENT_CONFIRMED,
+            eventPayload.bookingId,
+            context.studentId,
+          ),
+          recipientUserId: context.studentId,
+          bookingId: eventPayload.bookingId,
+          templateName: EMAIL_EVENTS.PAYMENT_CONFIRMED,
+        },
+        deps,
       );
     }
 
@@ -218,6 +314,7 @@ export async function onEvent(
         return { sent: false, skipped: true, reason: "booking_not_found" };
       }
       return sendContent(
+        db,
         provider,
         context.student.email,
         buildEmailTemplate(EMAIL_EVENTS.PAYMENT_FAILED, {
@@ -227,6 +324,18 @@ export async function onEvent(
           scheduledAt: context.scheduledAt,
           bookingsUrl: baseUrl ? `${baseUrl}/bookings` : undefined,
         }),
+        {
+          eventName: EMAIL_EVENTS.PAYMENT_FAILED,
+          eventKey: buildBookingParticipantEventKey(
+            EMAIL_EVENTS.PAYMENT_FAILED,
+            eventPayload.bookingId,
+            context.studentId,
+          ),
+          recipientUserId: context.studentId,
+          bookingId: eventPayload.bookingId,
+          templateName: EMAIL_EVENTS.PAYMENT_FAILED,
+        },
+        deps,
       );
     }
 
@@ -239,6 +348,7 @@ export async function onEvent(
       const recipient =
         eventPayload.recipientUserId === context.tutorId ? context.tutor : context.student;
       return sendContent(
+        db,
         provider,
         recipient.email,
         buildEmailTemplate(EMAIL_EVENTS.LESSON_REMINDER, {
@@ -249,6 +359,17 @@ export async function onEvent(
           scheduledAt: context.scheduledAt,
           meetingUrl: context.meetingUrl,
         }),
+        {
+          eventName: EMAIL_EVENTS.LESSON_REMINDER,
+          eventKey: buildLessonReminderEventKey(
+            eventPayload.bookingId,
+            eventPayload.recipientUserId,
+          ),
+          recipientUserId: eventPayload.recipientUserId,
+          bookingId: eventPayload.bookingId,
+          templateName: EMAIL_EVENTS.LESSON_REMINDER,
+        },
+        deps,
       );
     }
 
@@ -258,15 +379,19 @@ export async function onEvent(
       if (!context) {
         return { sent: false, skipped: true, reason: "booking_not_found" };
       }
-      const recipients = [context.student, context.tutor];
+      const recipients = [
+        { person: context.student, userId: context.studentId },
+        { person: context.tutor, userId: context.tutorId },
+      ];
       const results: EmailResult[] = [];
       for (const recipient of recipients) {
         results.push(
           await sendContent(
+            db,
             provider,
-            recipient.email,
+            recipient.person.email,
             buildEmailTemplate(EMAIL_EVENTS.LESSON_CANCELLED, {
-              recipientName: recipient.name,
+              recipientName: recipient.person.name,
               studentName: context.student.name,
               tutorName: context.tutor.name,
               bookingType: context.bookingType,
@@ -274,6 +399,18 @@ export async function onEvent(
               cancelledByLabel: "um dos participantes",
               bookingsUrl: baseUrl ? `${baseUrl}/bookings` : undefined,
             }),
+            {
+              eventName: EMAIL_EVENTS.LESSON_CANCELLED,
+              eventKey: buildBookingParticipantEventKey(
+                EMAIL_EVENTS.LESSON_CANCELLED,
+                eventPayload.bookingId,
+                recipient.userId,
+              ),
+              recipientUserId: recipient.userId,
+              bookingId: eventPayload.bookingId,
+              templateName: EMAIL_EVENTS.LESSON_CANCELLED,
+            },
+            deps,
           ),
         );
       }
@@ -287,6 +424,7 @@ export async function onEvent(
         return { sent: false, skipped: true, reason: "booking_not_found" };
       }
       return sendContent(
+        db,
         provider,
         context.student.email,
         buildEmailTemplate(EMAIL_EVENTS.REFUND_COMPLETED, {
@@ -298,6 +436,18 @@ export async function onEvent(
             eventPayload.refundAmount != null ? formatMoney(eventPayload.refundAmount) : undefined,
           bookingsUrl: baseUrl ? `${baseUrl}/bookings` : undefined,
         }),
+        {
+          eventName: EMAIL_EVENTS.REFUND_COMPLETED,
+          eventKey: buildBookingParticipantEventKey(
+            EMAIL_EVENTS.REFUND_COMPLETED,
+            eventPayload.bookingId,
+            context.studentId,
+          ),
+          recipientUserId: context.studentId,
+          bookingId: eventPayload.bookingId,
+          templateName: EMAIL_EVENTS.REFUND_COMPLETED,
+        },
+        deps,
       );
     }
 
@@ -307,21 +457,37 @@ export async function onEvent(
       if (!context) {
         return { sent: false, skipped: true, reason: "booking_not_found" };
       }
-      const recipients = [context.student, context.tutor];
+      const recipients = [
+        { person: context.student, userId: context.studentId },
+        { person: context.tutor, userId: context.tutorId },
+      ];
       const results: EmailResult[] = [];
       for (const recipient of recipients) {
         results.push(
           await sendContent(
+            db,
             provider,
-            recipient.email,
+            recipient.person.email,
             buildEmailTemplate(EMAIL_EVENTS.LESSON_COMPLETED, {
-              recipientName: recipient.name,
+              recipientName: recipient.person.name,
               studentName: context.student.name,
               tutorName: context.tutor.name,
               bookingType: context.bookingType,
               scheduledAt: context.scheduledAt,
               bookingsUrl: baseUrl ? `${baseUrl}/bookings` : undefined,
             }),
+            {
+              eventName: EMAIL_EVENTS.LESSON_COMPLETED,
+              eventKey: buildBookingParticipantEventKey(
+                EMAIL_EVENTS.LESSON_COMPLETED,
+                eventPayload.bookingId,
+                recipient.userId,
+              ),
+              recipientUserId: recipient.userId,
+              bookingId: eventPayload.bookingId,
+              templateName: EMAIL_EVENTS.LESSON_COMPLETED,
+            },
+            deps,
           ),
         );
       }
@@ -335,6 +501,7 @@ export async function onEvent(
         return { sent: false, skipped: true, reason: "booking_not_found" };
       }
       return sendContent(
+        db,
         provider,
         context.student.email,
         buildEmailTemplate(EMAIL_EVENTS.REVIEW_REQUEST, {
@@ -344,6 +511,18 @@ export async function onEvent(
           scheduledAt: context.scheduledAt,
           reviewUrl: baseUrl ? `${baseUrl}/bookings` : undefined,
         }),
+        {
+          eventName: EMAIL_EVENTS.REVIEW_REQUEST,
+          eventKey: buildBookingParticipantEventKey(
+            EMAIL_EVENTS.REVIEW_REQUEST,
+            eventPayload.bookingId,
+            context.studentId,
+          ),
+          recipientUserId: context.studentId,
+          bookingId: eventPayload.bookingId,
+          templateName: EMAIL_EVENTS.REVIEW_REQUEST,
+        },
+        deps,
       );
     }
 
@@ -377,6 +556,7 @@ export async function onEvent(
           ? await loadTutor(db, senderId)
           : await loadUser(db, senderId);
       return sendContent(
+        db,
         provider,
         recipient.email,
         buildEmailTemplate(EMAIL_EVENTS.NEW_MESSAGE, {
@@ -387,6 +567,18 @@ export async function onEvent(
             ? `${baseUrl}/mensagens/${encodeURIComponent(eventPayload.conversationId)}`
             : undefined,
         }),
+        {
+          eventName: EMAIL_EVENTS.NEW_MESSAGE,
+          eventKey: buildNewMessageEventKey(
+            eventPayload.messageId,
+            eventPayload.recipientUserId,
+          ),
+          recipientUserId: eventPayload.recipientUserId,
+          conversationId: eventPayload.conversationId,
+          messageId: eventPayload.messageId,
+          templateName: EMAIL_EVENTS.NEW_MESSAGE,
+        },
+        deps,
       );
     }
 
@@ -413,7 +605,10 @@ export async function onNewReviewEmail(
   const tutor = await loadTutor(db, String(review.tutorId ?? ""));
   const baseUrl = siteUrl();
 
+  const tutorId = String(review.tutorId ?? "");
+
   return sendContent(
+    db,
     provider,
     tutor.email,
     buildNewReviewEmail({
@@ -423,6 +618,14 @@ export async function onNewReviewEmail(
       comment: typeof review.comment === "string" ? review.comment : "",
       dashboardUrl: baseUrl ? `${baseUrl}/tutor/dashboard` : undefined,
     }),
+    {
+      eventName: "NEW_REVIEW",
+      eventKey: buildNewReviewEventKey(reviewId, tutorId),
+      recipientUserId: tutorId,
+      reviewId,
+      templateName: "NEW_REVIEW",
+    },
+    deps,
   );
 }
 

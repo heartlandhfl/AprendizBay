@@ -116,6 +116,7 @@ rules_version = '2';
 //     facilitatorId, identityKey, reason, createdAt
 //
 //   adminAuditLogs/{logId}              // Admin SDK only (privileged admin actions)
+//   emailOutbox/{emailId}               // Admin SDK only (transactional email outbox)
 //     actorUid, action, targetType?, targetId?, metadata, createdAt
 //
 //   lessonSlots/{slotId}                // Admin SDK only (individual uniqueness lock)
@@ -906,6 +907,11 @@ service cloud.firestore {
 
     // Admin action audit trail — Admin SDK only (lib/admin/audit.js)
     match /adminAuditLogs/{logId} {
+      allow read, write: if false;
+    }
+
+    // Transactional email outbox — Admin SDK only (lib/email/outbox)
+    match /emailOutbox/{emailId} {
       allow read, write: if false;
     }
 
