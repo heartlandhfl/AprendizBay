@@ -37,6 +37,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" className={fontVariables}>
+      <head>
+        <script
+          defer
+          src="https://cloud.umami.is/script.js"
+          data-website-id="407772be-87c5-4ca7-bc37-671330d3aea7"
+        />
+      </head>
       <body className="flex min-h-screen flex-col font-sans">
         <AuthProvider>
           <ObservabilityProvider />
