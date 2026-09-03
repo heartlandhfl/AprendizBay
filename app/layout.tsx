@@ -7,6 +7,7 @@ import ReferralCapture from "@/components/referrals/ReferralCapture";
 import ObservabilityProvider from "@/components/observability/ObservabilityProvider";
 import { AuthProvider } from "@/lib/auth/AuthContext";
 import { getSiteUrl } from "@/lib/seo/site-url";
+import { fontVariables } from "@/app/fonts";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -35,7 +36,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" className={fontVariables}>
       <body className="flex min-h-screen flex-col font-sans">
         <AuthProvider>
           <ObservabilityProvider />

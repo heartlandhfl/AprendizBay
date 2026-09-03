@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 import { captureClientException } from "@/lib/observability/sentry-client";
+import { fontVariables } from "@/app/fonts";
+import "./globals.css";
 
 export default function GlobalError({
   error,
@@ -15,7 +17,7 @@ export default function GlobalError({
   }, [error]);
 
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" className={fontVariables}>
       <body className="flex min-h-screen flex-col items-center justify-center bg-background px-6 font-sans text-foreground">
         <h1 className="text-2xl font-bold">Algo deu errado</h1>
         <p className="mt-2 max-w-md text-center text-sm text-muted-foreground">
