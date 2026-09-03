@@ -21,6 +21,10 @@ describe("buildSitemapEntries", () => {
     expect(urls).toContain(`${origin}/search`);
     expect(urls).toContain(`${origin}/termos`);
     expect(urls).toContain(`${origin}/privacidade`);
+    expect(urls).toContain(`${origin}/aulas-coletivas`);
+    expect(urls).toContain(`${origin}/como-funciona`);
+    expect(urls).toContain(`${origin}/ajuda`);
+    expect(urls).toContain(`${origin}/contato`);
     expect(urls).toContain(`${origin}/professores/ingles/sao-paulo`);
     expect(urls).toContain(`${origin}/tutor/1`);
 
@@ -43,7 +47,11 @@ describe("buildSitemapEntries", () => {
       origin,
       `${origin}/professores`,
       `${origin}/seja-professor`,
+      `${origin}/aulas-coletivas`,
+      `${origin}/como-funciona`,
       `${origin}/search`,
+      `${origin}/ajuda`,
+      `${origin}/contato`,
       `${origin}/termos`,
       `${origin}/privacidade`,
     ]);

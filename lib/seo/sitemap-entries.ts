@@ -28,7 +28,11 @@ export const STATIC_SITEMAP_PATHS: readonly StaticSitemapPath[] = [
   { path: "/", changeFrequency: "weekly", priority: 1 },
   { path: "/professores", changeFrequency: "weekly", priority: 0.9 },
   { path: "/seja-professor", changeFrequency: "monthly", priority: 0.8 },
+  { path: "/aulas-coletivas", changeFrequency: "monthly", priority: 0.8 },
+  { path: "/como-funciona", changeFrequency: "monthly", priority: 0.7 },
   { path: "/search", changeFrequency: "weekly", priority: 0.6 },
+  { path: "/ajuda", changeFrequency: "monthly", priority: 0.5 },
+  { path: "/contato", changeFrequency: "yearly", priority: 0.4 },
   { path: "/termos", changeFrequency: "yearly", priority: 0.3 },
   { path: "/privacidade", changeFrequency: "yearly", priority: 0.3 },
 ];
