@@ -6,12 +6,14 @@ interface LegalDocumentProps {
   title: string;
   description: string;
   children: ReactNode;
+  variant?: "draft" | "published";
 }
 
 export default function LegalDocument({
   title,
   description,
   children,
+  variant = "draft",
 }: LegalDocumentProps) {
   return (
     <article className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
@@ -22,9 +24,11 @@ export default function LegalDocument({
         </h1>
         <p className="text-base leading-relaxed text-muted-foreground">{description}</p>
         <p className="text-sm text-muted-foreground">
-          Última atualização do rascunho: {LEGAL_LAST_UPDATED_LABEL}.
+          {variant === "published"
+            ? `Última atualização: ${LEGAL_LAST_UPDATED_LABEL}.`
+            : `Última atualização do rascunho: ${LEGAL_LAST_UPDATED_LABEL}.`}
         </p>
-        <LegalReviewBanner />
+        {variant === "draft" ? <LegalReviewBanner /> : null}
       </header>
 
       <div className="legal-prose mt-10 space-y-8 text-[15px] leading-relaxed text-foreground">
