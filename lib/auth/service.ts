@@ -12,6 +12,23 @@ import { auth, db, requireFirebaseApp } from "@/lib/firebase/client";
 import type { SignupRole } from "@/lib/auth/types";
 import { writeOwnPublicProfile } from "@/lib/users/public-profile";
 
+async function syncSignupRoleClaim(user: User): Promise<void> {
+  const idToken = await user.getIdToken();
+  const response = await fetch("/api/auth/sync-signup-role", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${idToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(payload?.error ?? "Não foi possível concluir o cadastro do papel.");
+  }
+
+  await user.getIdToken(true);
+}
+
 const googleProvider = new GoogleAuthProvider();
 
 interface CreateUserDocumentInput {
@@ -53,6 +70,10 @@ export async function signUpWithEmail(
     photoUrl: credential.user.photoURL,
   });
 
+  if (role === "tutor") {
+    await syncSignupRoleClaim(credential.user);
+  }
+
   return credential.user;
 }
 
@@ -76,6 +97,10 @@ export async function signUpWithGoogle(role: SignupRole): Promise<User> {
     email: user.email,
     photoUrl: user.photoURL,
   });
+
+  if (role === "tutor") {
+    await syncSignupRoleClaim(user);
+  }
 
   return user;
 }
@@ -115,6 +140,10 @@ export async function completeGoogleSignup(role: SignupRole): Promise<User> {
     email: user.email,
     photoUrl: user.photoURL,
   });
+
+  if (role === "tutor") {
+    await syncSignupRoleClaim(user);
+  }
 
   return user;
 }

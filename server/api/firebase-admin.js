@@ -67,6 +67,7 @@ async function verifyIdToken(idToken) {
   return {
     uid: decoded.uid,
     email: decoded.email,
+    customClaims: decoded,
   };
 }
 

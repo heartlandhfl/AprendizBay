@@ -47,12 +47,22 @@ service firebase.storage {
 
     function isAdmin() {
       return isAuthenticated()
-        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "admin";
+        && "role" in request.auth.token
+        && request.auth.token.role == "admin";
+    }
+
+    function isLecturer() {
+      return isAuthenticated() && (
+        ("role" in request.auth.token && request.auth.token.role == "lecturer")
+        || (
+          firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+          && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role in ["lecturer", "tutor"]
+        )
+      );
     }
 
     function isTutor() {
-      return isAuthenticated()
-        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "tutor";
+      return isLecturer();
     }
 
     // Raster images only — never image/svg+xml or other scriptable types.

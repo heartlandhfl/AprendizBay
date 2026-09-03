@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getUserProfile, verifyUserIdToken } from "@/lib/auth/admin-server";
+import { roleFromDecodedToken } from "@/lib/auth/role-server";
 import { resubmitTutorVerification } from "@/lib/tutors/admin-server";
 
 export const runtime = "nodejs";
@@ -16,10 +17,17 @@ function readBearerToken(request: Request): string {
  */
 export async function POST(request: Request) {
   try {
-    const { uid } = await verifyUserIdToken(readBearerToken(request));
+    const token = readBearerToken(request);
+    const { uid, customClaims } = await verifyUserIdToken(token);
     const profile = await getUserProfile(uid);
+    const claimRole = roleFromDecodedToken(customClaims);
+    const profileRole = profile?.role;
+    const isLecturer =
+      claimRole === "lecturer" ||
+      profileRole === "tutor" ||
+      profileRole === "lecturer";
 
-    if (profile?.role !== "tutor") {
+    if (!isLecturer) {
       return NextResponse.json(
         { error: "Apenas professores podem reenviar a verificação." },
         { status: 403 },

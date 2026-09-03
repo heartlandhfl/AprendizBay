@@ -36,6 +36,7 @@ import {
 import { getAdminApp } from "@/lib/firebase/admin";
 import { lessonPath } from "@/lib/lessons/paths";
 import { getSiteOrigin } from "@/lib/seo/site-url";
+import { roleDisplayLabel } from "@/lib/auth/roles";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const notificationCore = require("../notifications/core.js") as {
   toDate(value: unknown): Date;
@@ -71,13 +72,7 @@ function formatMoney(value: number): string {
 }
 
 function roleLabel(role: string | undefined): string {
-  if (role === "tutor") {
-    return "professor";
-  }
-  if (role === "admin") {
-    return "administrador";
-  }
-  return "aluno";
+  return roleDisplayLabel(role).toLowerCase();
 }
 
 async function loadUser(db: Firestore, uid: string): Promise<Person> {

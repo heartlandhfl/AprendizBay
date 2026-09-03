@@ -59,8 +59,8 @@ async function seedUsers() {
   });
 }
 
-function storageFor(uid: string, email: string) {
-  return testEnv.authenticatedContext(uid, { email }).storage();
+function storageFor(uid: string, email: string, token: Record<string, unknown> = {}) {
+  return testEnv.authenticatedContext(uid, { email, ...token }).storage();
 }
 
 const PDF_BYTES = new Uint8Array([
@@ -183,7 +183,7 @@ describe("storage.rules credentials", () => {
   it("lets an admin access a verification document", async () => {
     await seedCredential();
 
-    await assertSucceeds(getBytes(ref(storageFor(ADMIN_ID, "admin@test.com"), path)));
+    await assertSucceeds(getBytes(ref(storageFor(ADMIN_ID, "admin@test.com", { role: "admin" }), path)));
   });
 
   it("lets the owner tutor read their own verification document", async () => {
@@ -294,7 +294,7 @@ describe("storage.rules administrative verification records", () => {
   }
 
   it("lets an admin create, read, and replace an administrative verification record", async () => {
-    const admin = storageFor(ADMIN_ID, "admin@test.com");
+    const admin = storageFor(ADMIN_ID, "admin@test.com", { role: "admin" });
 
     await assertSucceeds(
       uploadBytes(ref(admin, adminPath), PDF_BYTES, { contentType: "application/pdf" }),

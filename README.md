@@ -100,16 +100,37 @@ firebase deploy --only firestore:rules,firestore:indexes,storage
 
 Add each site hostname under **Firebase Console → Authentication → Authorized domains** for its project before testing sign-in.
 
-### Primeiro administrador (manual no Firestore)
+### Primeiro administrador (custom claims via bootstrap)
 
-Não há fluxo de cadastro para `role: "admin"`. O primeiro administrador deve ser promovido manualmente no **Firebase Console**:
+Não há fluxo de cadastro para `admin`. O primeiro administrador deve receber a custom claim `role: "admin"` via script server-side (Firebase Admin SDK):
 
-1. Abra [Firebase Console](https://console.firebase.google.com/) → seu projeto → **Firestore Database**.
-2. Coleção `users` → documento do usuário (`users/{uid}`) que será administrador.
-3. Edite o campo `role` e altere de `student` ou `tutor` para **`admin`**.
-4. Salve o documento.
+```bash
+# O usuário deve já existir no Firebase Authentication (cadastre-se normalmente antes).
+ADMIN_EMAIL=admin-test@aprendizbay.test npx tsx scripts/bootstrap-admin.ts
+```
 
-Somente usuários com `users/{uid}.role == "admin"` podem acessar `/admin` (painel operacional) e `/admin/tutors` (verificação). O painel lê totais reais via `GET /api/admin/dashboard` (`app/api/admin/dashboard` no Vercel; `server/api/admin.js` no Hostinger legado) — o navegador não lista `users` nem `bookings` para montar as métricas. Se uma métrica ainda não puder ser calculada com segurança, a interface mostra **Indisponível**. A revisão operacional (`approve`, `reject`, `request_changes`, `suspend`) grava `verificationStatus`, mantém `isVerified` sincronizado (`true` só quando o status é `approved`) e registra a ação em `adminAuditLogs`. O caminho ao vivo é `POST /api/tutors/review` (`app/api/tutors/review` no Vercel). Professores reenviam com `POST /api/tutors/resubmit` após recusa ou pedido de ajustes. Tutores nunca podem alterar o próprio status.
+Editar `users/{uid}.role` no Firestore **não** concede mais acesso administrativo — a autorização usa `request.auth.token.role == "admin"`.
+
+Para migrar contas existentes com `role: "admin"` ou `role: "tutor"` no perfil:
+
+```bash
+npx tsx scripts/migrate-role-claims.ts --dry-run
+npx tsx scripts/migrate-role-claims.ts
+```
+
+### Papéis de teste (desenvolvimento)
+
+| Papel | Como criar |
+|---|---|
+| **Aluno (student)** | Cadastro normal em `/signup` (papel Aluno). |
+| **Professor (lecturer)** | Cadastro em `/signup?role=tutor` — o perfil usa `tutor` (alias legado); a API `POST /api/auth/sync-signup-role` concede a claim `lecturer`. |
+| **Administrador (admin)** | `ADMIN_EMAIL=... npx tsx scripts/bootstrap-admin.ts` |
+| **Facilitador (facilitator)** | `npx tsx scripts/manage-role.ts set <uid> facilitator` |
+| **Suporte (support)** | `npx tsx scripts/manage-role.ts set <uid> support` |
+
+Consulte `docs/role-migration-plan.md` para o plano completo de migração.
+
+Somente usuários com custom claim `admin` podem acessar `/admin` (painel operacional) e `/admin/tutors` (verificação). O painel lê totais reais via `GET /api/admin/dashboard` (`app/api/admin/dashboard` no Vercel; `server/api/admin.js` no Hostinger legado) — o navegador não lista `users` nem `bookings` para montar as métricas. Se uma métrica ainda não puder ser calculada com segurança, a interface mostra **Indisponível**. A revisão operacional (`approve`, `reject`, `request_changes`, `suspend`) grava `verificationStatus`, mantém `isVerified` sincronizado (`true` só quando o status é `approved`) e registra a ação em `adminAuditLogs`. O caminho ao vivo é `POST /api/tutors/review` (`app/api/tutors/review` no Vercel). Professores reenviam com `POST /api/tutors/resubmit` após recusa ou pedido de ajustes. Tutores nunca podem alterar o próprio status.
 
 
 ### 1. Firebase (Firestore + Storage rules)

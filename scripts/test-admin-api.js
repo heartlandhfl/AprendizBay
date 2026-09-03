@@ -3,16 +3,17 @@
 const assert = require("node:assert/strict");
 const http = require("node:http");
 const express = require("express");
-const { assertAdminUser, statusFromAdminError } = require("../lib/admin/authorize");
+const { assertAdminUser, assertAdminFromClaims, statusFromAdminError } = require("../lib/admin/authorize");
 const { adminRouter } = require("../server/api/admin");
 const { isAllowedFirebaseAdminCaller } = require("../server/next-runtime-guard");
 
 assert.equal(isAllowedFirebaseAdminCaller("/workspace/server/api/admin.js"), true);
 assert.equal(isAllowedFirebaseAdminCaller("/workspace/server/api/authorize.js"), true);
 
-assert.doesNotThrow(() => assertAdminUser({ role: "admin" }));
+assert.doesNotThrow(() => assertAdminFromClaims({ role: "admin" }));
+assert.throws(() => assertAdminFromClaims({ role: "student" }), /administradores/);
+assert.throws(() => assertAdminFromClaims({ role: "lecturer" }), /administradores/);
 assert.throws(() => assertAdminUser({ role: "student" }), /administradores/);
-assert.throws(() => assertAdminUser({ role: "tutor" }), /administradores/);
 assert.equal(statusFromAdminError({ code: "FORBIDDEN" }), 403);
 assert.equal(statusFromAdminError(new Error("Token de autenticação ausente.")), 401);
 

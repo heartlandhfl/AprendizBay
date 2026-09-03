@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { assertAdminUser, statusFromAdminError } from "@/lib/admin/authorize";
+import {
+  assertAdminFromClaims,
+  assertAdminUser,
+  statusFromAdminError,
+} from "@/lib/admin/authorize";
 
 describe("assertAdminUser", () => {
-  it("allows only users with the admin role", () => {
+  it("allows only users with the admin role (legacy profile check)", () => {
     expect(() => assertAdminUser({ role: "admin" })).not.toThrow();
   });
 
@@ -17,6 +21,26 @@ describe("assertAdminUser", () => {
         expect((error as Error & { code?: string }).code).toBe("FORBIDDEN");
         expect(statusFromAdminError(error)).toBe(403);
       }
+    }
+  });
+});
+
+describe("assertAdminFromClaims", () => {
+  it("allows only admin custom claims", () => {
+    expect(() => assertAdminFromClaims({ role: "admin" })).not.toThrow();
+  });
+
+  it("rejects profile-only admin and other privileged roles", () => {
+    for (const claims of [
+      null,
+      undefined,
+      {},
+      { role: "student" },
+      { role: "lecturer" },
+      { role: "facilitator" },
+      { role: "support" },
+    ]) {
+      expect(() => assertAdminFromClaims(claims)).toThrow(/administradores/);
     }
   });
 
