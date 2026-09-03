@@ -40,10 +40,10 @@ const confirmed = buildConfirmedBookingEmail({
   bookingsUrl: "https://www.aprendizbay.com.br/bookings",
 });
 
-assert.match(confirmed.subject, /aula foi confirmada/);
-assert.match(confirmed.text, /https:\/\/meet\.jit\.si\/aprendizbay-aula-1/);
-assert.match(confirmed.text, /Individual/);
-assert.doesNotMatch(confirmed.html, /confirmed booking/i);
+assert.match(confirmed.subject, /Pagamento confirmado/);
+assert.match(confirmed.text, /Recebemos o pagamento/);
+assert.doesNotMatch(confirmed.subject, /pending booking/i);
+assert.match(confirmed.html, /Ver comprovante/);
 
 const reminder = buildLessonReminderEmail({
   recipientName: "Ana Souza",

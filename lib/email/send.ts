@@ -8,9 +8,11 @@ import type { EmailProvider, EmailResult } from "@/lib/email/provider";
 import { getActiveEmailProvider } from "@/lib/email/resend-sendgrid-provider";
 import {
   buildBookingParticipantEventKey,
+  buildEmailVerificationEventKey,
   buildLessonReminderEventKey,
   buildNewMessageEventKey,
   buildNewReviewEventKey,
+  buildTutorLifecycleEventKey,
   buildUserRegisteredEventKey,
   createFirestoreEmailOutboxStore,
   enqueueAndDeliverTransactionalEmail,
@@ -282,6 +284,7 @@ export async function onEvent(
       const user = await loadUser(db, eventPayload.userId);
       const roleSnapshot = await db.collection("users").doc(eventPayload.userId).get();
       const role = typeof roleSnapshot.data()?.role === "string" ? roleSnapshot.data()?.role : undefined;
+      const isTutor = role === "tutor";
       return sendContent(
         db,
         provider,
@@ -290,12 +293,71 @@ export async function onEvent(
           displayName: user.name,
           roleLabel: roleLabel(role),
           bookingsUrl: baseUrl ? `${baseUrl}/bookings` : undefined,
+          actionUrl: baseUrl
+            ? isTutor
+              ? `${baseUrl}/tutor/onboarding`
+              : `${baseUrl}/bookings`
+            : undefined,
         }),
         {
           eventName: EMAIL_EVENTS.USER_REGISTERED,
           eventKey: buildUserRegisteredEventKey(eventPayload.userId),
           recipientUserId: eventPayload.userId,
           templateName: EMAIL_EVENTS.USER_REGISTERED,
+        },
+        deps,
+      );
+    }
+
+    case EMAIL_EVENTS.EMAIL_VERIFICATION: {
+      const eventPayload = payload as EmailEventPayloadMap[typeof EMAIL_EVENTS.EMAIL_VERIFICATION];
+      const user = await loadUser(db, eventPayload.userId);
+      return sendContent(
+        db,
+        provider,
+        user.email,
+        buildEmailTemplate(EMAIL_EVENTS.EMAIL_VERIFICATION, {
+          displayName: user.name,
+          verificationUrl: eventPayload.verificationUrl,
+        }),
+        {
+          eventName: EMAIL_EVENTS.EMAIL_VERIFICATION,
+          eventKey: buildEmailVerificationEventKey(eventPayload.userId),
+          recipientUserId: eventPayload.userId,
+          templateName: EMAIL_EVENTS.EMAIL_VERIFICATION,
+        },
+        deps,
+      );
+    }
+
+    case EMAIL_EVENTS.BOOKING_REQUESTED: {
+      const eventPayload = payload as EmailEventPayloadMap[typeof EMAIL_EVENTS.BOOKING_REQUESTED];
+      const context = await resolveBookingContext(db, eventPayload.bookingId);
+      if (!context) {
+        return { sent: false, skipped: true, reason: "booking_not_found" };
+      }
+      return sendContent(
+        db,
+        provider,
+        context.student.email,
+        buildEmailTemplate(EMAIL_EVENTS.BOOKING_REQUESTED, {
+          studentName: context.student.name,
+          tutorName: context.tutor.name,
+          subjectLabel: context.subjectLabel,
+          bookingType: context.bookingType,
+          scheduledAt: context.scheduledAt,
+          bookingsUrl: baseUrl ? `${baseUrl}/bookings` : undefined,
+        }),
+        {
+          eventName: EMAIL_EVENTS.BOOKING_REQUESTED,
+          eventKey: buildBookingParticipantEventKey(
+            EMAIL_EVENTS.BOOKING_REQUESTED,
+            eventPayload.bookingId,
+            context.studentId,
+          ),
+          recipientUserId: context.studentId,
+          bookingId: eventPayload.bookingId,
+          templateName: EMAIL_EVENTS.BOOKING_REQUESTED,
         },
         deps,
       );
@@ -378,6 +440,41 @@ export async function onEvent(
       );
     }
 
+    case EMAIL_EVENTS.PAYMENT_REQUIRED: {
+      const eventPayload = payload as EmailEventPayloadMap[typeof EMAIL_EVENTS.PAYMENT_REQUIRED];
+      const context = await resolveBookingContext(db, eventPayload.bookingId);
+      if (!context) {
+        return { sent: false, skipped: true, reason: "booking_not_found" };
+      }
+      return sendContent(
+        db,
+        provider,
+        context.student.email,
+        buildEmailTemplate(EMAIL_EVENTS.PAYMENT_REQUIRED, {
+          studentName: context.student.name,
+          tutorName: context.tutor.name,
+          bookingType: context.bookingType,
+          scheduledAt: context.scheduledAt,
+          priceLabel: context.price != null ? formatMoney(context.price) : undefined,
+          paymentUrl: baseUrl
+            ? `${baseUrl}${lessonPath(eventPayload.bookingId)}`
+            : undefined,
+        }),
+        {
+          eventName: EMAIL_EVENTS.PAYMENT_REQUIRED,
+          eventKey: buildBookingParticipantEventKey(
+            EMAIL_EVENTS.PAYMENT_REQUIRED,
+            eventPayload.bookingId,
+            context.studentId,
+          ),
+          recipientUserId: context.studentId,
+          bookingId: eventPayload.bookingId,
+          templateName: EMAIL_EVENTS.PAYMENT_REQUIRED,
+        },
+        deps,
+      );
+    }
+
     case EMAIL_EVENTS.PAYMENT_CONFIRMED: {
       const eventPayload = payload as EmailEventPayloadMap[typeof EMAIL_EVENTS.PAYMENT_CONFIRMED];
       const context = await resolveBookingContext(db, eventPayload.bookingId);
@@ -393,6 +490,7 @@ export async function onEvent(
           tutorName: context.tutor.name,
           bookingType: context.bookingType,
           scheduledAt: context.scheduledAt,
+          amountLabel: context.price != null ? formatMoney(context.price) : undefined,
           meetingUrl: context.meetingUrl,
           bookingsUrl: baseUrl ? `${baseUrl}/bookings` : undefined,
         }),
@@ -406,6 +504,88 @@ export async function onEvent(
           recipientUserId: context.studentId,
           bookingId: eventPayload.bookingId,
           templateName: EMAIL_EVENTS.PAYMENT_CONFIRMED,
+        },
+        deps,
+      );
+    }
+
+    case EMAIL_EVENTS.LESSON_CONFIRMED: {
+      const eventPayload = payload as EmailEventPayloadMap[typeof EMAIL_EVENTS.LESSON_CONFIRMED];
+      const context = await resolveBookingContext(db, eventPayload.bookingId);
+      if (!context) {
+        return { sent: false, skipped: true, reason: "booking_not_found" };
+      }
+      const recipients = [
+        { person: context.student, userId: context.studentId, audience: "student" as const },
+        { person: context.tutor, userId: context.tutorId, audience: "tutor" as const },
+      ];
+      const results: EmailResult[] = [];
+      for (const recipient of recipients) {
+        results.push(
+          await sendContent(
+            db,
+            provider,
+            recipient.person.email,
+            buildEmailTemplate(EMAIL_EVENTS.LESSON_CONFIRMED, {
+              recipientName: recipient.person.name,
+              studentName: context.student.name,
+              tutorName: context.tutor.name,
+              bookingType: context.bookingType,
+              scheduledAt: context.scheduledAt,
+              meetingUrl: context.meetingUrl,
+              lessonUrl: baseUrl
+                ? recipient.audience === "tutor"
+                  ? `${baseUrl}/tutor/dashboard`
+                  : `${baseUrl}${lessonPath(eventPayload.bookingId)}`
+                : undefined,
+              audience: recipient.audience,
+            }),
+            {
+              eventName: EMAIL_EVENTS.LESSON_CONFIRMED,
+              eventKey: buildBookingParticipantEventKey(
+                EMAIL_EVENTS.LESSON_CONFIRMED,
+                eventPayload.bookingId,
+                recipient.userId,
+              ),
+              recipientUserId: recipient.userId,
+              bookingId: eventPayload.bookingId,
+              templateName: EMAIL_EVENTS.LESSON_CONFIRMED,
+            },
+            deps,
+          ),
+        );
+      }
+      return results;
+    }
+
+    case EMAIL_EVENTS.TUTOR_PAYMENT_RECEIVED: {
+      const eventPayload = payload as EmailEventPayloadMap[typeof EMAIL_EVENTS.TUTOR_PAYMENT_RECEIVED];
+      const context = await resolveBookingContext(db, eventPayload.bookingId);
+      if (!context) {
+        return { sent: false, skipped: true, reason: "booking_not_found" };
+      }
+      return sendContent(
+        db,
+        provider,
+        context.tutor.email,
+        buildEmailTemplate(EMAIL_EVENTS.TUTOR_PAYMENT_RECEIVED, {
+          tutorName: context.tutor.name,
+          studentName: context.student.name,
+          bookingType: context.bookingType,
+          scheduledAt: context.scheduledAt,
+          amountLabel: context.price != null ? formatMoney(context.price) : undefined,
+          dashboardUrl: baseUrl ? `${baseUrl}/tutor/dashboard` : undefined,
+        }),
+        {
+          eventName: EMAIL_EVENTS.TUTOR_PAYMENT_RECEIVED,
+          eventKey: buildBookingParticipantEventKey(
+            EMAIL_EVENTS.TUTOR_PAYMENT_RECEIVED,
+            eventPayload.bookingId,
+            context.tutorId,
+          ),
+          recipientUserId: context.tutorId,
+          bookingId: eventPayload.bookingId,
+          templateName: EMAIL_EVENTS.TUTOR_PAYMENT_RECEIVED,
         },
         deps,
       );
@@ -449,6 +629,7 @@ export async function onEvent(
       if (!context) {
         return { sent: false, skipped: true, reason: "booking_not_found" };
       }
+      const reminderType = eventPayload.reminderType ?? "one_hour";
       const recipient =
         eventPayload.recipientUserId === context.tutorId ? context.tutor : context.student;
       return sendContent(
@@ -462,12 +643,14 @@ export async function onEvent(
           bookingType: context.bookingType,
           scheduledAt: context.scheduledAt,
           meetingUrl: context.meetingUrl,
+          reminderType,
         }),
         {
           eventName: EMAIL_EVENTS.LESSON_REMINDER,
           eventKey: buildLessonReminderEventKey(
             eventPayload.bookingId,
             eventPayload.recipientUserId,
+            reminderType,
           ),
           recipientUserId: eventPayload.recipientUserId,
           bookingId: eventPayload.bookingId,
@@ -737,6 +920,112 @@ export async function onEvent(
       return result;
     }
 
+    case EMAIL_EVENTS.NEW_REVIEW: {
+      const eventPayload = payload as EmailEventPayloadMap[typeof EMAIL_EVENTS.NEW_REVIEW];
+      return onNewReviewEmail(eventPayload.reviewId, deps);
+    }
+
+    case EMAIL_EVENTS.TUTOR_PROFILE_INCOMPLETE: {
+      const eventPayload =
+        payload as EmailEventPayloadMap[typeof EMAIL_EVENTS.TUTOR_PROFILE_INCOMPLETE];
+      const tutor = await loadTutor(db, eventPayload.tutorId);
+      return sendContent(
+        db,
+        provider,
+        tutor.email,
+        buildEmailTemplate(EMAIL_EVENTS.TUTOR_PROFILE_INCOMPLETE, {
+          tutorName: tutor.name,
+          onboardingUrl: baseUrl ? `${baseUrl}/tutor/onboarding` : undefined,
+        }),
+        {
+          eventName: EMAIL_EVENTS.TUTOR_PROFILE_INCOMPLETE,
+          eventKey: buildTutorLifecycleEventKey(
+            EMAIL_EVENTS.TUTOR_PROFILE_INCOMPLETE,
+            eventPayload.tutorId,
+          ),
+          recipientUserId: eventPayload.tutorId,
+          templateName: EMAIL_EVENTS.TUTOR_PROFILE_INCOMPLETE,
+        },
+        deps,
+      );
+    }
+
+    case EMAIL_EVENTS.TUTOR_VERIFICATION_SUBMITTED: {
+      const eventPayload =
+        payload as EmailEventPayloadMap[typeof EMAIL_EVENTS.TUTOR_VERIFICATION_SUBMITTED];
+      const tutor = await loadTutor(db, eventPayload.tutorId);
+      return sendContent(
+        db,
+        provider,
+        tutor.email,
+        buildEmailTemplate(EMAIL_EVENTS.TUTOR_VERIFICATION_SUBMITTED, {
+          tutorName: tutor.name,
+          dashboardUrl: baseUrl ? `${baseUrl}/tutor/dashboard` : undefined,
+        }),
+        {
+          eventName: EMAIL_EVENTS.TUTOR_VERIFICATION_SUBMITTED,
+          eventKey: buildTutorLifecycleEventKey(
+            EMAIL_EVENTS.TUTOR_VERIFICATION_SUBMITTED,
+            eventPayload.tutorId,
+          ),
+          recipientUserId: eventPayload.tutorId,
+          templateName: EMAIL_EVENTS.TUTOR_VERIFICATION_SUBMITTED,
+        },
+        deps,
+      );
+    }
+
+    case EMAIL_EVENTS.TUTOR_VERIFICATION_APPROVED: {
+      const eventPayload =
+        payload as EmailEventPayloadMap[typeof EMAIL_EVENTS.TUTOR_VERIFICATION_APPROVED];
+      const tutor = await loadTutor(db, eventPayload.tutorId);
+      return sendContent(
+        db,
+        provider,
+        tutor.email,
+        buildEmailTemplate(EMAIL_EVENTS.TUTOR_VERIFICATION_APPROVED, {
+          tutorName: tutor.name,
+          dashboardUrl: baseUrl ? `${baseUrl}/tutor/dashboard` : undefined,
+        }),
+        {
+          eventName: EMAIL_EVENTS.TUTOR_VERIFICATION_APPROVED,
+          eventKey: buildTutorLifecycleEventKey(
+            EMAIL_EVENTS.TUTOR_VERIFICATION_APPROVED,
+            eventPayload.tutorId,
+          ),
+          recipientUserId: eventPayload.tutorId,
+          templateName: EMAIL_EVENTS.TUTOR_VERIFICATION_APPROVED,
+        },
+        deps,
+      );
+    }
+
+    case EMAIL_EVENTS.TUTOR_PROFILE_PUBLISHED: {
+      const eventPayload =
+        payload as EmailEventPayloadMap[typeof EMAIL_EVENTS.TUTOR_PROFILE_PUBLISHED];
+      const tutor = await loadTutor(db, eventPayload.tutorId);
+      return sendContent(
+        db,
+        provider,
+        tutor.email,
+        buildEmailTemplate(EMAIL_EVENTS.TUTOR_PROFILE_PUBLISHED, {
+          tutorName: tutor.name,
+          profileUrl: baseUrl ? `${baseUrl}/tutor/${encodeURIComponent(eventPayload.tutorId)}` : undefined,
+          dashboardUrl: baseUrl ? `${baseUrl}/tutor/dashboard` : undefined,
+        }),
+        {
+          eventName: EMAIL_EVENTS.TUTOR_PROFILE_PUBLISHED,
+          eventKey: buildTutorLifecycleEventKey(
+            EMAIL_EVENTS.TUTOR_PROFILE_PUBLISHED,
+            eventPayload.tutorId,
+          ),
+          recipientUserId: eventPayload.tutorId,
+          templateName: EMAIL_EVENTS.TUTOR_PROFILE_PUBLISHED,
+        },
+        deps,
+      );
+    }
+
     default: {
       const exhaustive: never = eventName;
       return { sent: false, skipped: true, reason: `unsupported_event:${exhaustive}` };
@@ -774,11 +1063,11 @@ export async function onNewReviewEmail(
       dashboardUrl: baseUrl ? `${baseUrl}/tutor/dashboard` : undefined,
     }),
     {
-      eventName: "NEW_REVIEW",
+      eventName: EMAIL_EVENTS.NEW_REVIEW,
       eventKey: buildNewReviewEventKey(reviewId, tutorId),
       recipientUserId: tutorId,
       reviewId,
-      templateName: "NEW_REVIEW",
+      templateName: EMAIL_EVENTS.NEW_REVIEW,
     },
     deps,
   );

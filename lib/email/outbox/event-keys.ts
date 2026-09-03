@@ -1,3 +1,5 @@
+import type { LessonReminderType } from "@/lib/email/events";
+
 export function buildBookingParticipantEventKey(
   eventName: string,
   bookingId: string,
@@ -9,7 +11,7 @@ export function buildBookingParticipantEventKey(
 export function buildLessonReminderEventKey(
   bookingId: string,
   recipientUserId: string,
-  reminderType = "one_hour",
+  reminderType: LessonReminderType = "one_hour",
 ): string {
   return `LESSON_REMINDER:${bookingId}:${recipientUserId}:${reminderType}`;
 }
@@ -20,6 +22,14 @@ export function buildNewMessageEventKey(messageId: string, recipientUserId: stri
 
 export function buildUserRegisteredEventKey(userId: string): string {
   return `USER_REGISTERED:${userId}`;
+}
+
+export function buildEmailVerificationEventKey(userId: string): string {
+  return `EMAIL_VERIFICATION:${userId}`;
+}
+
+export function buildTutorLifecycleEventKey(eventName: string, tutorId: string): string {
+  return `${eventName}:${tutorId}`;
 }
 
 export function buildNewReviewEventKey(reviewId: string, tutorId: string): string {

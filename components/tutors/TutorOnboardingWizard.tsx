@@ -10,6 +10,7 @@ import type { Modality } from "@/lib/mock-tutors";
 import { SUBJECTS } from "@/lib/tutors/catalog-options";
 import { BRAZILIAN_STATES } from "@/lib/tutors/constants";
 import { createTutorProfile } from "@/lib/tutors/service";
+import { requestNotification } from "@/lib/notifications/client";
 
 const INPUT_CLASS =
   "h-11 w-full rounded-2xl border border-border bg-muted/40 px-4 text-sm focus:border-primary-300 focus:outline-none focus:ring-2 focus:ring-primary-200";
@@ -144,6 +145,7 @@ export default function TutorOnboardingWizard() {
         avatarUrl: avatarUrl ?? undefined,
         credentialFileName: credentialFileName ?? undefined,
       });
+      void requestNotification({ type: "tutor_verification_submitted", tutorId: user.uid });
 
       router.replace("/tutor/dashboard");
     } catch {

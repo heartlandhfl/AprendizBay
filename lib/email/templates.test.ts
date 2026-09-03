@@ -149,8 +149,8 @@ describe("buildEmailTemplate", () => {
       bookingsUrl: "https://aprendizbay.com/bookings",
     });
 
-    expect(content.subject).toBe("Sua aula foi confirmada");
-    expect(content.text).toContain("está confirmada");
+    expect(content.subject).toBe("Pagamento confirmado");
+    expect(content.text).toContain("Recebemos o pagamento");
   });
 });
 

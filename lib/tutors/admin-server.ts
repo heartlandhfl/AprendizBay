@@ -9,6 +9,10 @@ import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { writeAdminAuditLogSafe } from "@/lib/admin/audit";
 import { getAdminApp } from "@/lib/firebase/admin";
 import {
+  notifyTutorVerificationApproved,
+  safeNotify,
+} from "@/lib/notifications/server";
+import {
   applyAdminVerificationReview,
   applyTutorVerificationResubmit,
 } from "@/lib/tutors/verification";
@@ -39,6 +43,13 @@ export async function reviewTutorVerification(
       },
     },
   );
+
+  if (result.status === "approved") {
+    void safeNotify(
+      () => notifyTutorVerificationApproved(tutorId),
+      "tutor_verification_approved",
+    );
+  }
 
   return result;
 }
