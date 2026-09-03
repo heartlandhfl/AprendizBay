@@ -15,10 +15,7 @@ function createPersistFallback() {
   }
 
   return async (input, meta) => {
-    await persistContactMessage(getAdminFirestore(), input, {
-      emailDelivery: "skipped",
-      emailSkipReason: meta.emailSkipReason,
-    });
+    await persistContactMessage(getAdminFirestore(), input, meta);
     return true;
   };
 }

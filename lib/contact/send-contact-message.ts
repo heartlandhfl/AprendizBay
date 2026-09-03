@@ -14,8 +14,13 @@ export type ContactSendResult =
   | { ok: true; delivery: "email" | "inbox" }
   | { ok: false; status: 400 | 503 | 500; error: string };
 
+import type { ContactEmailDelivery } from "@/lib/contact/types";
+
 export interface ContactDeliveryDeps {
-  persistFallback?: (input: ContactFormInput, meta: { emailSkipReason?: string }) => Promise<boolean>;
+  persistFallback?: (
+    input: ContactFormInput,
+    meta: { emailDelivery: ContactEmailDelivery; emailSkipReason?: string },
+  ) => Promise<boolean>;
 }
 
 function escapeHtml(value: string): string {
@@ -84,7 +89,10 @@ export async function sendContactMessage(
     console.warn("[Aprendiz Bay] Contato não enviado por e-mail:", skipReason);
 
     if (deps.persistFallback) {
-      const stored = await deps.persistFallback(normalizedInput, { emailSkipReason: skipReason });
+      const stored = await deps.persistFallback(normalizedInput, {
+        emailDelivery: "skipped",
+        emailSkipReason: skipReason,
+      });
       if (stored) {
         return { ok: true, delivery: "inbox" };
       }
@@ -100,7 +108,10 @@ export async function sendContactMessage(
 
     if (deps.persistFallback) {
       try {
-        const stored = await deps.persistFallback(normalizedInput, { emailSkipReason: "send_failed" });
+        const stored = await deps.persistFallback(normalizedInput, {
+          emailDelivery: "failed",
+          emailSkipReason: "send_failed",
+        });
         if (stored) {
           return { ok: true, delivery: "inbox" };
         }

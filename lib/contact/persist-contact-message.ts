@@ -1,27 +1,33 @@
 import type { Firestore } from "firebase-admin/firestore";
 
+import { CONTACT_INBOX_COLLECTION } from "@/lib/contact/types";
+import type { ContactEmailDelivery } from "@/lib/contact/types";
 import type { ContactFormInput } from "@/lib/contact/send-contact-message";
 
-export interface ContactInboxRecord extends ContactFormInput {
-  createdAt: Date;
-  emailDelivery: "sent" | "skipped" | "failed";
+export interface PersistContactMessageMeta {
+  emailDelivery: ContactEmailDelivery;
   emailSkipReason?: string;
 }
 
 export async function persistContactMessage(
   db: Firestore,
   input: ContactFormInput,
-  meta: { emailDelivery: ContactInboxRecord["emailDelivery"]; emailSkipReason?: string },
-): Promise<void> {
+  meta: PersistContactMessageMeta,
+): Promise<string> {
   const { FieldValue } = await import("firebase-admin/firestore");
 
-  await db.collection("contactInbox").add({
+  const docRef = await db.collection(CONTACT_INBOX_COLLECTION).add({
     name: input.name.trim(),
     email: input.email.trim(),
     message: input.message.trim(),
     emailDelivery: meta.emailDelivery,
     emailSkipReason: meta.emailSkipReason ?? null,
+    status: "unread",
+    assignedTo: null,
+    readAt: null,
+    respondedAt: null,
     createdAt: FieldValue.serverTimestamp(),
-    source: "contact-form",
   });
+
+  return docRef.id;
 }
