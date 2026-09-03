@@ -10,6 +10,11 @@
  */
 if (process.env.NODE_ENV !== "development") {
   process.env.NODE_ENV = "production";
+  // Hostinger runs this Express entry in production without Vercel's EMAIL_ENV.
+  // Default to production email delivery so contact and transactional mail work.
+  if (!String(process.env.EMAIL_ENV ?? "").trim()) {
+    process.env.EMAIL_ENV = "production";
+  }
 }
 
 try {

@@ -1,4 +1,10 @@
 {
+  "components/bookings/PayBookingForm.tsx -> @/components/bookings/MercadoPagoPaymentBrick": {
+    "id": 6173,
+    "files": [
+      "static/chunks/6173.7ae469b2f79aff57.js"
+    ]
+  },
   "lib/hubs/service.ts -> ./mock-hubs": {
     "id": 2516,
     "files": [
