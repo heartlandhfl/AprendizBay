@@ -7,6 +7,8 @@ interface LegalDocumentProps {
   description: string;
   children: ReactNode;
   variant?: "draft" | "published";
+  categoryLabel?: string | null;
+  lastUpdatedLabel?: string;
 }
 
 export default function LegalDocument({
@@ -14,21 +16,27 @@ export default function LegalDocument({
   description,
   children,
   variant = "draft",
+  categoryLabel = "Documentos legais",
+  lastUpdatedLabel = LEGAL_LAST_UPDATED_LABEL,
 }: LegalDocumentProps) {
+  const isPublished = variant === "published";
+
   return (
     <article className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
       <header className="space-y-5">
-        <p className="text-sm font-medium text-primary-700">Documentos legais</p>
+        {categoryLabel ? (
+          <p className="text-sm font-medium text-primary-700">{categoryLabel}</p>
+        ) : null}
         <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
           {title}
         </h1>
         <p className="text-base leading-relaxed text-muted-foreground">{description}</p>
         <p className="text-sm text-muted-foreground">
-          {variant === "published"
-            ? `Última atualização: ${LEGAL_LAST_UPDATED_LABEL}.`
-            : `Última atualização do rascunho: ${LEGAL_LAST_UPDATED_LABEL}.`}
+          {isPublished
+            ? `Última atualização: ${lastUpdatedLabel}.`
+            : `Última atualização do rascunho: ${lastUpdatedLabel}.`}
         </p>
-        {variant === "draft" ? <LegalReviewBanner /> : null}
+        {!isPublished ? <LegalReviewBanner /> : null}
       </header>
 
       <div className="legal-prose mt-10 space-y-8 text-[15px] leading-relaxed text-foreground">
