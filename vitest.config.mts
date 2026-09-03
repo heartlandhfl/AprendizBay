@@ -35,6 +35,7 @@ export default defineConfig({
             "lib/users/**/*.test.ts",
             "lib/facilitators/**/*.test.ts",
             "lib/email/**/*.test.ts",
+            "lib/notifications/**/*.test.ts",
             "lib/conversations/rate-limit.test.ts",
           ],
           exclude: ["node_modules", "hostinger-next", ".next"],

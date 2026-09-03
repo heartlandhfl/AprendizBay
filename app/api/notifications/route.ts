@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
+import { getFirestore } from "firebase-admin/firestore";
 import { verifyUserIdToken } from "@/lib/auth/admin-server";
+import { getAdminApp } from "@/lib/firebase/admin";
+import {
+  authorizeNotificationRequest,
+  NotificationAuthorizationError,
+} from "@/lib/notifications/authorize";
 import { dispatchNotification } from "@/lib/notifications/server";
 import type { NotificationRequest } from "@/lib/notifications/types";
 
@@ -17,21 +23,24 @@ function readBearerToken(request: Request): string {
  */
 export async function POST(request: Request) {
   try {
-    await verifyUserIdToken(readBearerToken(request));
+    const { uid } = await verifyUserIdToken(readBearerToken(request));
     const body = (await request.json()) as NotificationRequest;
+    await authorizeNotificationRequest(getFirestore(getAdminApp()), uid, body);
     const result = await dispatchNotification(body);
     return NextResponse.json(result);
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Não foi possível enviar o e-mail.";
     const status =
-      message.includes("Token") || message.includes("autenticação")
-        ? 401
-        : message.includes("Firebase Admin")
-          ? 503
-          : message.includes("Informe") || message.includes("inválido")
-            ? 400
-            : 500;
+      error instanceof NotificationAuthorizationError
+        ? 403
+        : message.includes("Token") || message.includes("autenticação")
+          ? 401
+          : message.includes("Firebase Admin")
+            ? 503
+            : message.includes("Informe") || message.includes("inválido")
+              ? 400
+              : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }

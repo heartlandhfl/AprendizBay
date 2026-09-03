@@ -219,12 +219,6 @@ export async function dispatchNotification(
       }
       await notifyBookingAccepted(request.bookingId);
       return { ok: true, type: request.type };
-    case "confirmed_booking":
-      if (!request.bookingId) {
-        throw new Error("Informe o identificador da reserva.");
-      }
-      await notifyConfirmedBooking(request.bookingId);
-      return { ok: true, type: request.type };
     case "tutor_verification_submitted":
       if (!request.tutorId) {
         throw new Error("Informe o identificador do professor.");
@@ -236,27 +230,6 @@ export async function dispatchNotification(
         throw new Error("Informe o identificador da avaliação.");
       }
       await notifyNewReview(request.reviewId);
-      return { ok: true, type: request.type };
-    case "lesson_reminder":
-      await notifyLessonReminders();
-      return { ok: true, type: request.type };
-    case "lesson_cancelled":
-      if (!request.bookingId) {
-        throw new Error("Informe o identificador da reserva.");
-      }
-      await notifyLessonCancelled(request.bookingId);
-      return { ok: true, type: request.type };
-    case "refund_completed":
-      if (!request.bookingId) {
-        throw new Error("Informe o identificador da reserva.");
-      }
-      await notifyRefundCompleted(request.bookingId, request.refundAmount);
-      return { ok: true, type: request.type };
-    case "lesson_completed":
-      if (!request.bookingId) {
-        throw new Error("Informe o identificador da reserva.");
-      }
-      await notifyLessonCompleted(request.bookingId);
       return { ok: true, type: request.type };
     case "new_message":
       if (!request.conversationId || !request.messageId || !request.recipientUserId) {
