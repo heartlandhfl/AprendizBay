@@ -1,4 +1,10 @@
 import { EMAIL_EVENTS, type EmailEventName } from "@/lib/email/events";
+import {
+  BOOKING_STATUS_LABELS,
+  PAYMENT_STATUS_LABELS,
+  type BookingStatus,
+  type PaymentStatus,
+} from "@/lib/bookings/types";
 
 export interface EmailContent {
   subject: string;
@@ -36,24 +42,85 @@ export function bookingTypeLabel(type?: string): string {
   return BOOKING_TYPE_LABELS[type ?? ""] || "Aula";
 }
 
+export function firstDisplayName(displayName: string): string {
+  const trimmed = displayName.trim();
+  if (!trimmed) {
+    return "Olá";
+  }
+  return trimmed.split(/\s+/)[0] ?? trimmed;
+}
+
+export function formatBookingAcceptedStatusLabel(
+  status?: string,
+  paymentStatus?: string,
+): string {
+  if (paymentStatus === "awaiting_payment") {
+    return "Pedido aceito — aguardando pagamento";
+  }
+  if (paymentStatus && paymentStatus in PAYMENT_STATUS_LABELS) {
+    return PAYMENT_STATUS_LABELS[paymentStatus as PaymentStatus];
+  }
+  if (status && status in BOOKING_STATUS_LABELS) {
+    return BOOKING_STATUS_LABELS[status as BookingStatus];
+  }
+  return "Pedido aceito";
+}
+
+function emailFooterHtml(): string {
+  return `<tr>
+      <td style="padding-top:24px;border-top:1px solid #e2e8f0">
+        <p style="margin:0 0 4px;font-size:12px;line-height:1.6;color:#64748b">
+          Você recebeu este e-mail porque usa a plataforma <strong style="color:#0f172a">Aprendiz Bay</strong>.
+        </p>
+        <p style="margin:0;font-size:12px;line-height:1.6;color:#94a3b8">
+          Marketplace de aulas particulares · aprendizbay.com.br
+        </p>
+      </td>
+    </tr>`;
+}
+
+function emailFooterText(): string {
+  return "—\nAprendiz Bay · Marketplace de aulas particulares\naprendizbay.com.br";
+}
+
+function renderEmailButton(label: string, href: string, variant: "primary" | "secondary" = "primary"): string {
+  const background = variant === "primary" ? "#059669" : "#ffffff";
+  const color = variant === "primary" ? "#ffffff" : "#059669";
+  const border = variant === "primary" ? "1px solid #059669" : "1px solid #059669";
+
+  return `<table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 12px 12px 0;display:inline-block;max-width:100%">
+    <tr>
+      <td style="border-radius:12px;background:${background};border:${border}">
+        <a href="${escapeHtml(href)}" style="display:inline-block;padding:12px 20px;font-size:14px;font-weight:600;color:${color};text-decoration:none;line-height:1.2">${escapeHtml(label)}</a>
+      </td>
+    </tr>
+  </table>`;
+}
+
 function wrapEmail(title: string, bodyHtml: string, bodyText: string): EmailContent {
   return {
     subject: title,
-    text: `${title}\n\n${bodyText}\n\n— Aprendiz Bay`,
+    text: `${title}\n\n${bodyText}\n\n${emailFooterText()}`,
     html: `<!doctype html>
 <html lang="pt-BR">
-  <body style="margin:0;background:#f8fafb;font-family:system-ui,sans-serif;color:#0f172a">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:24px">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${escapeHtml(title)}</title>
+  </head>
+  <body style="margin:0;padding:0;background:#f8fafb;font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#0f172a;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="padding:24px 12px">
       <tr>
         <td align="center">
-          <table role="presentation" width="560" cellspacing="0" cellpadding="0" style="background:#ffffff;border-radius:16px;padding:28px;border:1px solid #e2e8f0">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:16px;padding:28px 24px;border:1px solid #e2e8f0">
             <tr>
               <td>
                 <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#059669">Aprendiz Bay</p>
-                <h1 style="margin:0 0 16px;font-size:22px;line-height:1.3">${escapeHtml(title)}</h1>
+                <h1 style="margin:0 0 16px;font-size:22px;line-height:1.35;font-weight:700">${escapeHtml(title)}</h1>
                 ${bodyHtml}
               </td>
             </tr>
+            ${emailFooterHtml()}
           </table>
         </td>
       </tr>
@@ -108,27 +175,76 @@ export function buildBookingCreatedEmail(input: BookingCreatedTemplateInput): Em
 export interface BookingAcceptedTemplateInput {
   studentName: string;
   tutorName: string;
+  subjectLabel?: string;
   bookingType?: string;
   scheduledAt: Date | string;
+  statusLabel: string;
   priceLabel?: string;
+  bookingUrl?: string;
+  messagesUrl?: string;
   bookingsUrl?: string;
 }
 
 export function buildBookingAcceptedEmail(input: BookingAcceptedTemplateInput): EmailContent {
   const when = formatDatePtBr(input.scheduledAt);
   const typeLabel = bookingTypeLabel(input.bookingType);
-  const title = "O professor confirmou sua aula";
+  const firstName = firstDisplayName(input.studentName);
+  const subject = `${input.tutorName} aceitou seu pedido de aula`;
+  const subjectLine = input.subjectLabel?.trim() || "Matéria a combinar";
 
-  return wrapEmail(
-    title,
-    `<p>Olá, ${escapeHtml(input.studentName)}!</p>
-     <p><strong>${escapeHtml(input.tutorName)}</strong> confirmou sua aula <strong>${escapeHtml(typeLabel)}</strong>.</p>
-     <p><strong>Quando:</strong> ${escapeHtml(when)}</p>
-     ${input.priceLabel ? `<p><strong>Valor:</strong> ${escapeHtml(input.priceLabel)}</p>` : ""}
-     <p>Agora você já pode pagar para liberar a aula.</p>
-     ${input.bookingsUrl ? `<p><a href="${escapeHtml(input.bookingsUrl)}" style="color:#059669">Pagar e ver minhas aulas</a></p>` : ""}`,
-    `Olá, ${input.studentName}!\n\n${input.tutorName} confirmou sua aula ${typeLabel}.\nQuando: ${when}${input.priceLabel ? `\nValor: ${input.priceLabel}` : ""}\n\nAgora você já pode pagar para liberar a aula.${input.bookingsUrl ? `\n${input.bookingsUrl}` : ""}`,
-  );
+  const detailsHtml = `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:20px 0;background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px">
+    <tr>
+      <td style="padding:16px 18px;font-size:14px;line-height:1.7;color:#334155">
+        <p style="margin:0 0 8px"><strong style="color:#0f172a">Matéria:</strong> ${escapeHtml(subjectLine)}</p>
+        <p style="margin:0 0 8px"><strong style="color:#0f172a">Tipo de aula:</strong> ${escapeHtml(typeLabel)}</p>
+        <p style="margin:0 0 8px"><strong style="color:#0f172a">Data e horário:</strong> ${escapeHtml(when)}</p>
+        <p style="margin:0 0 8px"><strong style="color:#0f172a">Status:</strong> ${escapeHtml(input.statusLabel)}</p>
+        ${input.priceLabel ? `<p style="margin:0"><strong style="color:#0f172a">Valor:</strong> ${escapeHtml(input.priceLabel)}</p>` : ""}
+      </td>
+    </tr>
+  </table>`;
+
+  const buttonsHtml = [
+    input.bookingUrl ? renderEmailButton("Ver minha aula", input.bookingUrl, "primary") : "",
+    input.messagesUrl
+      ? renderEmailButton("Conversar com o professor", input.messagesUrl, "secondary")
+      : "",
+  ]
+    .filter(Boolean)
+    .join("");
+
+  const nextStepHtml = input.priceLabel
+    ? `<p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#334155">Quando estiver pronta, finalize o pagamento para garantir sua vaga. Se quiser combinar detalhes antes, converse com <strong>${escapeHtml(input.tutorName)}</strong> pela Aprendiz Bay — sem precisar compartilhar telefone ou e-mail pessoal.</p>`
+    : `<p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#334155">Agora você pode conversar com <strong>${escapeHtml(input.tutorName)}</strong> pela Aprendiz Bay para combinar os detalhes da sua aula.</p>`;
+
+  const bodyHtml = `<p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#334155">Olá, ${escapeHtml(firstName)}!</p>
+     <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#334155"><strong>${escapeHtml(input.tutorName)}</strong> aceitou seu pedido de aula. Que ótima notícia!</p>
+     ${nextStepHtml}
+     ${detailsHtml}
+     ${buttonsHtml ? `<div style="margin:8px 0 4px">${buttonsHtml}</div>` : ""}
+     ${input.bookingsUrl ? `<p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#64748b">Você também pode acompanhar tudo em <a href="${escapeHtml(input.bookingsUrl)}" style="color:#059669;text-decoration:underline">Minhas aulas</a>.</p>` : ""}`;
+
+  const textLines = [
+    `Olá, ${firstName}!`,
+    "",
+    `${input.tutorName} aceitou seu pedido de aula.`,
+    "",
+    input.priceLabel
+      ? `Quando estiver pronta, finalize o pagamento para garantir sua vaga. Se quiser combinar detalhes antes, converse com ${input.tutorName} pela Aprendiz Bay.`
+      : `Agora você pode conversar com ${input.tutorName} pela Aprendiz Bay para combinar os detalhes da sua aula.`,
+    "",
+    `Matéria: ${subjectLine}`,
+    `Tipo de aula: ${typeLabel}`,
+    `Data e horário: ${when}`,
+    `Status: ${input.statusLabel}`,
+    input.priceLabel ? `Valor: ${input.priceLabel}` : "",
+    "",
+    input.bookingUrl ? `Ver minha aula: ${input.bookingUrl}` : "",
+    input.messagesUrl ? `Conversar com o professor: ${input.messagesUrl}` : "",
+    input.bookingsUrl ? `Minhas aulas: ${input.bookingsUrl}` : "",
+  ].filter(Boolean);
+
+  return wrapEmail(subject, bodyHtml, textLines.join("\n"));
 }
 
 export interface PaymentConfirmedTemplateInput {
