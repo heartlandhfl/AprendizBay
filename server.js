@@ -28,6 +28,11 @@ if (process.env.NODE_ENV !== "development") {
   }
 }
 
+const { isJetSendConfigured } = require("./lib/jetsend/config.js");
+console.log(
+  `[Aprendiz Bay] email provider=${process.env.EMAIL_PROVIDER ?? "unset"} jetsendConfigured=${isJetSendConfigured()} emailEnv=${process.env.EMAIL_ENV}`,
+);
+
 const { installNextRequireGuard } = require("./server/next-runtime-guard");
 installNextRequireGuard();
 

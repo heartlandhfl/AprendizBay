@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { GET, POST } from "@/app/api/admin/jetsend/sending-domains/route";
+import { JetSendApiError } from "@/lib/jetsend/client";
 
 const verifyAdminIdTokenMock = vi.fn();
 const listSendingDomainsMock = vi.fn();
@@ -66,5 +67,23 @@ describe("/api/admin/jetsend/sending-domains", () => {
     expect(response.status).toBe(200);
     expect(payload.domain.domain).toBe("aprendizbay.com.br");
     expect(createSendingDomainMock).toHaveBeenCalledWith("aprendizbay.com.br");
+  });
+
+  it("includes JetSend rejection detail on 401 responses", async () => {
+    verifyAdminIdTokenMock.mockResolvedValue({ uid: "admin-1" });
+    listSendingDomainsMock.mockRejectedValue(
+      new JetSendApiError("JetSend API request failed (401).", {
+        status: 401,
+        body: "Invalid API key provided",
+        code: "jetsend_api_error",
+      }),
+    );
+
+    const response = await GET(adminRequest("/api/admin/jetsend/sending-domains"));
+    const payload = await response.json();
+
+    expect(response.status).toBe(502);
+    expect(payload.error).toContain("JetSend recusou a autenticação");
+    expect(payload.jetsendDetail).toBe("Invalid API key provided");
   });
 });
