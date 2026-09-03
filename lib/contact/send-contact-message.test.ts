@@ -63,7 +63,7 @@ describe("sendContactMessage", () => {
       message: "Tenho uma dúvida sobre pagamentos.",
     });
 
-    expect(result).toEqual({ ok: true });
+    expect(result).toEqual({ ok: true, delivery: "email" });
     expect(send).toHaveBeenCalledWith(
       expect.objectContaining({
         to: SUPPORT_CONTACT_EMAIL,
@@ -74,7 +74,36 @@ describe("sendContactMessage", () => {
     );
   });
 
-  it("returns a 503 when email delivery is skipped", async () => {
+  it("stores the message in Firestore when email delivery is skipped", async () => {
+    const send = vi.fn(async () => ({
+      sent: false,
+      skipped: true,
+      reason: "missing_api_key",
+    }));
+    setActiveEmailProvider({ send });
+    const persistFallback = vi.fn(async () => true);
+
+    const result = await sendContactMessage(
+      {
+        name: "Ana Silva",
+        email: "ana@example.com",
+        message: "Tenho uma dúvida.",
+      },
+      { persistFallback },
+    );
+
+    expect(result).toEqual({ ok: true, delivery: "inbox" });
+    expect(persistFallback).toHaveBeenCalledWith(
+      {
+        name: "Ana Silva",
+        email: "ana@example.com",
+        message: "Tenho uma dúvida.",
+      },
+      { emailSkipReason: "missing_api_key" },
+    );
+  });
+
+  it("returns a 503 when email and inbox fallback both fail", async () => {
     const send = vi.fn(async () => ({
       sent: false,
       skipped: true,

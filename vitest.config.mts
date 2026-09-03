@@ -34,6 +34,7 @@ export default defineConfig({
             "lib/admin/**/*.test.ts",
             "lib/users/**/*.test.ts",
             "lib/facilitators/**/*.test.ts",
+            "lib/contact/**/*.test.ts",
             "lib/email/**/*.test.ts",
             "lib/notifications/**/*.test.ts",
             "lib/conversations/rate-limit.test.ts",

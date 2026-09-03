@@ -51,7 +51,7 @@ test("POST /api/contact sends mail through the shared email provider", async () 
     });
 
     assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), { ok: true });
+    assert.deepEqual(await response.json(), { ok: true, delivery: "email" });
     assert.equal(send.lastInput.to, "contato@aprendizbay.com.br");
     assert.match(send.lastInput.subject, /Maria Silva/);
   } finally {
@@ -62,5 +62,44 @@ test("POST /api/contact sends mail through the shared email provider", async () 
     } else {
       process.env.EMAIL_ENV = previousEmailEnv;
     }
+  }
+});
+
+test("POST /api/contact stores inbox fallback when email delivery is skipped", async () => {
+  const send = async () => ({
+    sent: false,
+    skipped: true,
+    reason: "missing_api_key",
+  });
+  setActiveEmailProvider({ send });
+
+  const app = express();
+  app.use(express.json());
+  app.post("/api/contact", async (req, res) => {
+    const { sendContactMessage } = require("../../lib/contact/send-contact-message.ts");
+    const result = await sendContactMessage(req.body, {
+      persistFallback: async () => true,
+    });
+    res.status(result.ok ? 200 : result.status).json(result.ok ? { ok: true, delivery: result.delivery } : { error: result.error });
+  });
+
+  const { server, url } = await listen(app);
+
+  try {
+    const response = await fetch(`${url}/api/contact`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "Maria Silva",
+        email: "maria@example.com",
+        message: "Teste do formulário",
+      }),
+    });
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { ok: true, delivery: "inbox" });
+  } finally {
+    server.close();
+    setActiveEmailProvider(null);
   }
 });

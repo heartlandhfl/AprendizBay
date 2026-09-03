@@ -35,7 +35,7 @@ function resolveConfiguredEmailProvider(): EmailProvider {
     .trim()
     .toLowerCase();
 
-  if (configured === "jetsend") {
+  if (configured === "jetsend" && String(process.env.JETSEND_API_KEY ?? "").trim()) {
     return new JetSendEmailProvider();
   }
 

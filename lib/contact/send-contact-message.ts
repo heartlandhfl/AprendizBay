@@ -11,8 +11,12 @@ export interface ContactFormInput {
 }
 
 export type ContactSendResult =
-  | { ok: true }
+  | { ok: true; delivery: "email" | "inbox" }
   | { ok: false; status: 400 | 503 | 500; error: string };
+
+export interface ContactDeliveryDeps {
+  persistFallback?: (input: ContactFormInput, meta: { emailSkipReason?: string }) => Promise<boolean>;
+}
 
 function escapeHtml(value: string): string {
   return value
@@ -43,7 +47,10 @@ export function validateContactForm(input: ContactFormInput): ContactSendResult 
   return null;
 }
 
-export async function sendContactMessage(input: ContactFormInput): Promise<ContactSendResult> {
+export async function sendContactMessage(
+  input: ContactFormInput,
+  deps: ContactDeliveryDeps = {},
+): Promise<ContactSendResult> {
   const validationError = validateContactForm(input);
   if (validationError) {
     return validationError;
@@ -52,6 +59,7 @@ export async function sendContactMessage(input: ContactFormInput): Promise<Conta
   const name = input.name.trim();
   const email = input.email.trim();
   const message = input.message.trim();
+  const normalizedInput = { name, email, message };
 
   const subject = `Contato pelo site: ${name}`;
   const text = `Nome: ${name}\nE-mail: ${email}\n\n${message}`;
@@ -68,19 +76,39 @@ export async function sendContactMessage(input: ContactFormInput): Promise<Conta
       html,
     });
 
-    if (!result.sent) {
-      console.warn("[Aprendiz Bay] Contato não enviado:", result.reason ?? "unknown");
-      return {
-        ok: false,
-        status: 503,
-        error:
-          "O envio por e-mail está temporariamente indisponível. Use o endereço abaixo.",
-      };
+    if (result.sent) {
+      return { ok: true, delivery: "email" };
     }
 
-    return { ok: true };
+    const skipReason = "reason" in result ? String(result.reason ?? "unknown") : "unknown";
+    console.warn("[Aprendiz Bay] Contato não enviado por e-mail:", skipReason);
+
+    if (deps.persistFallback) {
+      const stored = await deps.persistFallback(normalizedInput, { emailSkipReason: skipReason });
+      if (stored) {
+        return { ok: true, delivery: "inbox" };
+      }
+    }
+
+    return {
+      ok: false,
+      status: 503,
+      error: "O envio por e-mail está temporariamente indisponível. Use o endereço abaixo.",
+    };
   } catch (error) {
     console.error("[Aprendiz Bay] Falha ao enviar contato:", error);
+
+    if (deps.persistFallback) {
+      try {
+        const stored = await deps.persistFallback(normalizedInput, { emailSkipReason: "send_failed" });
+        if (stored) {
+          return { ok: true, delivery: "inbox" };
+        }
+      } catch (persistError) {
+        console.error("[Aprendiz Bay] Falha ao registrar contato no Firestore:", persistError);
+      }
+    }
+
     return {
       ok: false,
       status: 500,

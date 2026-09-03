@@ -342,4 +342,27 @@ describe("getActiveEmailProvider", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toBe("https://api.resend.com/emails");
     vi.unstubAllGlobals();
   });
+
+  it("falls back to the legacy provider when EMAIL_PROVIDER=jetsend without an API key", async () => {
+    process.env.EMAIL_PROVIDER = "jetsend";
+    delete process.env.JETSEND_API_KEY;
+    process.env.EMAIL_ENV = "production";
+    process.env.RESEND_API_KEY = "re_test";
+    setActiveEmailProvider(null);
+
+    const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const provider = getActiveEmailProvider();
+    const result = await provider.send({
+      to: "student@example.com",
+      subject: "Teste",
+      text: "texto",
+      html: "<p>html</p>",
+    });
+
+    expect(result).toEqual({ sent: true, provider: "resend" });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://api.resend.com/emails");
+    vi.unstubAllGlobals();
+  });
 });
