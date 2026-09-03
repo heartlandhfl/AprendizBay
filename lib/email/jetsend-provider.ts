@@ -94,6 +94,9 @@ export interface JetSendTransmissionRequest {
         email: string;
         name: string;
       };
+      metadata?: {
+        emailOutboxId?: string;
+      };
     }>;
     content: {
       from: {
@@ -126,6 +129,9 @@ export function buildJetSendTransmissionRequest(
             email: input.to.trim(),
             name: recipientDisplayName(input.to),
           },
+          ...(input.emailOutboxId
+            ? { metadata: { emailOutboxId: input.emailOutboxId } }
+            : {}),
         },
       ],
       content: {
@@ -139,6 +145,20 @@ export function buildJetSendTransmissionRequest(
       },
     },
   };
+}
+
+export function extractJetSendTransmissionId(body: unknown): string | undefined {
+  if (!body || typeof body !== "object") {
+    return undefined;
+  }
+
+  const results = (body as { results?: unknown }).results;
+  if (!results || typeof results !== "object") {
+    return undefined;
+  }
+
+  const id = (results as { id?: unknown }).id;
+  return typeof id === "string" && id.trim() ? id.trim() : undefined;
 }
 
 export class JetSendEmailProvider implements EmailProvider {
@@ -198,6 +218,14 @@ export class JetSendEmailProvider implements EmailProvider {
       );
     }
 
-    return { sent: true, provider: "jetsend" };
+    let providerMessageId: string | undefined;
+    try {
+      const body = await response.json();
+      providerMessageId = extractJetSendTransmissionId(body);
+    } catch {
+      providerMessageId = undefined;
+    }
+
+    return { sent: true, provider: "jetsend", providerMessageId };
   }
 }

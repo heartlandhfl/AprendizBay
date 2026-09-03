@@ -17,6 +17,12 @@ export type EmailOutboxStatus =
   | "failed"
   | "permanent_failure";
 
+export type EmailDeliveryStatus =
+  | "delivered"
+  | "bounced"
+  | "complained"
+  | "failed";
+
 export interface EmailOutboxCreateInput {
   eventName: string;
   eventKey: string;
@@ -39,6 +45,12 @@ export interface EmailOutboxRecord extends EmailOutboxCreateInput {
   lastError?: string;
   provider?: string;
   providerMessageId?: string;
+  deliveryStatus?: EmailDeliveryStatus;
+  deliveredAt?: Date;
+  bouncedAt?: Date;
+  complainedAt?: Date;
+  deliveryFailedAt?: Date;
+  providerEventId?: string;
   createdAt: Date;
   sentAt?: Date;
   failedAt?: Date;

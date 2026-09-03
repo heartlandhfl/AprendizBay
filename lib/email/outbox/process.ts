@@ -77,11 +77,13 @@ export async function deliverOutboxEmail(
       text: claimed.text,
       html: claimed.html,
       from: claimed.from,
+      emailOutboxId: emailId,
     });
 
     if (result.sent) {
       await deps.store.markSent(emailId, {
         provider: result.provider,
+        providerMessageId: result.providerMessageId,
         sentAt: now,
       });
       return {

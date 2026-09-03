@@ -180,6 +180,8 @@ npx tsx scripts/seed.ts
 | `JETSEND_TENANT_ID` | JetSend tenant UUID (optional, ops reference) |
 | `JETSEND_SLUG` | JetSend account slug (optional, ops reference) |
 | `JETSEND_TRACKING_DOMAIN` | JetSend verified tracking domain (optional) |
+| `JETSEND_WEBHOOK_USERNAME` | HTTP Basic Auth username for `POST /api/webhooks/jetsend` |
+| `JETSEND_WEBHOOK_PASSWORD` | HTTP Basic Auth password configured in the JetSend webhook |
 | `RESEND_API_KEY` | [Resend](https://resend.com) API key (legacy fallback provider) |
 | `SENDGRID_API_KEY` | SendGrid API key (legacy fallback provider) |
 | `EMAIL_FROM` | Legacy fallback from header when `JETSEND_FROM_EMAIL` is unset |
@@ -214,6 +216,7 @@ Every route sets `export const runtime = "nodejs"` and `export const dynamic = "
 | `/api/notifications/reminders` | GET, POST | 1-hour lesson reminders (cron) | `firebase-admin` + e-mail |
 | `/api/payments/create-checkout` | POST | Asaas checkout session | `firebase-admin` + Asaas API |
 | `/api/payments/webhook` | POST | Asaas payment webhook | `node:crypto` + `firebase-admin` |
+| `/api/webhooks/jetsend` | POST | JetSend delivery webhook | HTTP Basic Auth + `firebase-admin` |
 | `/api/public-config` | GET | Public Firebase / fee / MP key config | Env reads only (still `nodejs`) |
 | `/api/reviews` | POST | Create student review | `firebase-admin` |
 | `/api/reviews/recompute-rating` | POST | Admin rating recompute | `firebase-admin` |
