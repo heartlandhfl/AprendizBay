@@ -1,5 +1,6 @@
 import { JetSendEmailProvider } from "@/lib/email/jetsend-provider";
 import type { EmailMessage, EmailProvider, EmailResult } from "@/lib/email/provider";
+import { isJetSendConfigured } from "@/lib/jetsend/config";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { wrapEmailProviderWithEnvironmentGuards } = require("./environment.js") as {
   wrapEmailProviderWithEnvironmentGuards(provider: EmailProvider): EmailProvider;
@@ -35,7 +36,7 @@ function resolveConfiguredEmailProvider(): EmailProvider {
     .trim()
     .toLowerCase();
 
-  if (configured === "jetsend" && String(process.env.JETSEND_API_KEY ?? "").trim()) {
+  if (configured === "jetsend" && isJetSendConfigured()) {
     return new JetSendEmailProvider();
   }
 

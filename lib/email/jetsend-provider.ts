@@ -1,16 +1,13 @@
 import type { EmailMessage, EmailProvider, EmailResult } from "@/lib/email/provider";
+import { JetSendApiError, jetsendRequest } from "@/lib/jetsend/client";
+import { isJetSendConfigured, readJetSendApiKey } from "@/lib/jetsend/config";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const emailEnvironment = require("./environment.js") as {
-  applyEmailEnvironmentGuards(input: EmailMessage): {
-    message: EmailMessage;
-    skipped?: EmailResult;
-  };
+const emailEnvironment = require("../email/environment.js") as {
   resolveJetSendTransmissionApiUrl(): string;
   wrapEmailProviderWithEnvironmentGuards(provider: EmailProvider): EmailProvider;
 };
 
-export const JETSEND_TRANSMISSION_API_URL =
-  "https://app.jetsend.com/api/v1/transmission/email";
+export const JETSEND_TRANSMISSION_API_URL = "https://app.jetsend.com/api/v1/transmission/email";
 
 const DEFAULT_FROM_NAME = "Aprendiz Bay";
 
@@ -81,10 +78,6 @@ export function isValidEmailAddress(value: string): boolean {
 function resolveJetSendTrackingDomain(): string | undefined {
   const trackingDomain = String(process.env.JETSEND_TRACKING_DOMAIN ?? "").trim();
   return trackingDomain || undefined;
-}
-
-function readJetSendApiKey(): string {
-  return String(process.env.JETSEND_API_KEY ?? "").trim();
 }
 
 function recipientDisplayName(email: string): string {
@@ -181,10 +174,9 @@ export class JetSendEmailProvider implements EmailProvider {
       return { sent: false, skipped: true, reason: "invalid_recipient" };
     }
 
-    const apiKey = readJetSendApiKey();
-    if (!apiKey) {
+    if (!isJetSendConfigured()) {
       console.warn(
-        "[Aprendiz Bay] E-mail não enviado: defina JETSEND_API_KEY para usar o JetSend.",
+        "[Aprendiz Bay] E-mail não enviado: defina JET_SEND_API_KEY (ou JETSEND_API_KEY) para usar o JetSend.",
       );
       return { sent: false, skipped: true, reason: "missing_api_key" };
     }
@@ -195,47 +187,41 @@ export class JetSendEmailProvider implements EmailProvider {
     }
 
     const payload = buildJetSendTransmissionRequest(input, fromAddress);
-    const transmissionApiUrl = emailEnvironment.resolveJetSendTransmissionApiUrl();
 
-    let response: Response;
     try {
-      response = await fetch(transmissionApiUrl, {
+      const body = await jetsendRequest<unknown>({
+        url: emailEnvironment.resolveJetSendTransmissionApiUrl(),
         method: "POST",
-        headers: {
-          accept: "application/json",
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+        body: payload,
       });
+
+      return {
+        sent: true,
+        provider: "jetsend",
+        providerMessageId: extractJetSendTransmissionId(body),
+      };
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Falha de rede ao contatar o JetSend.";
-      throw new JetSendEmailError(`JetSend indisponível: ${message}`, {
-        code: "jetsend_network_error",
-      });
-    }
+      if (error instanceof JetSendApiError) {
+        if (error.details.code === "missing_api_key") {
+          return { sent: false, skipped: true, reason: "missing_api_key" };
+        }
 
-    if (!response.ok) {
-      const body = await response.text();
-      throw new JetSendEmailError(
-        `JetSend recusou o e-mail (${response.status}).`,
-        {
+        if (error.details.code === "jetsend_network_error") {
+          throw new JetSendEmailError(`JetSend indisponível: ${error.message}`, {
+            code: "jetsend_network_error",
+          });
+        }
+
+        throw new JetSendEmailError(error.message, {
           code: "jetsend_api_error",
-          status: response.status,
-          body: body.slice(0, 400),
-        },
-      );
-    }
+          status: error.details.status,
+          body: error.details.body,
+        });
+      }
 
-    let providerMessageId: string | undefined;
-    try {
-      const body = await response.json();
-      providerMessageId = extractJetSendTransmissionId(body);
-    } catch {
-      providerMessageId = undefined;
+      throw error;
     }
-
-    return { sent: true, provider: "jetsend", providerMessageId };
   }
 }
+
+export { readJetSendApiKey };
