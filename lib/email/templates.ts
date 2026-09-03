@@ -1,6 +1,17 @@
 import { EMAIL_EVENTS, type EmailEventName } from "@/lib/email/events";
 import { previewMessage } from "@/lib/conversations/ids";
 import {
+  buildBookingRequestedEmail,
+  buildEmailVerificationEmail,
+  buildLessonConfirmedEmail,
+  buildPaymentRequiredEmail,
+  buildTutorPaymentReceivedEmail,
+  buildTutorProfileIncompleteEmail,
+  buildTutorProfilePublishedEmail,
+  buildTutorVerificationApprovedEmail,
+  buildTutorVerificationSubmittedEmail,
+} from "@/lib/email/lifecycle-templates";
+import {
   BOOKING_STATUS_LABELS,
   PAYMENT_STATUS_LABELS,
   type BookingStatus,
@@ -84,7 +95,7 @@ function emailFooterText(): string {
   return "—\nAprendiz Bay · Marketplace de aulas particulares\naprendizbay.com.br";
 }
 
-function renderEmailButton(label: string, href: string, variant: "primary" | "secondary" = "primary"): string {
+export function renderEmailButton(label: string, href: string, variant: "primary" | "secondary" = "primary"): string {
   const background = variant === "primary" ? "#059669" : "#ffffff";
   const color = variant === "primary" ? "#ffffff" : "#059669";
   const border = variant === "primary" ? "1px solid #059669" : "1px solid #059669";
@@ -98,7 +109,7 @@ function renderEmailButton(label: string, href: string, variant: "primary" | "se
   </table>`;
 }
 
-function wrapEmail(title: string, bodyHtml: string, bodyText: string): EmailContent {
+export function wrapEmail(title: string, bodyHtml: string, bodyText: string): EmailContent {
   return {
     subject: title,
     text: `${title}\n\n${bodyText}\n\n${emailFooterText()}`,
@@ -135,17 +146,25 @@ export interface UserRegisteredTemplateInput {
   displayName: string;
   roleLabel: string;
   bookingsUrl?: string;
+  actionUrl?: string;
 }
 
 export function buildUserRegisteredEmail(input: UserRegisteredTemplateInput): EmailContent {
-  const title = "Bem-vindo(a) ao Aprendiz Bay";
+  const firstName = firstDisplayName(input.displayName);
+  const isTutor = input.roleLabel === "professor";
+  const title = isTutor
+    ? "Bem-vindo(a) ao Aprendiz Bay, professor!"
+    : "Bem-vindo(a) ao Aprendiz Bay";
+  const exploreLabel = isTutor ? "Completar meu perfil" : "Explorar a plataforma";
+  const exploreUrl = input.actionUrl ?? input.bookingsUrl;
+
   return wrapEmail(
     title,
-    `<p>Olá, ${escapeHtml(input.displayName)}!</p>
-     <p>Sua conta de <strong>${escapeHtml(input.roleLabel)}</strong> foi criada com sucesso.</p>
-     <p>Explore professores, agende aulas e acompanhe tudo em um só lugar.</p>
-     ${input.bookingsUrl ? `<p><a href="${escapeHtml(input.bookingsUrl)}" style="color:#059669">Explorar a plataforma</a></p>` : ""}`,
-    `Olá, ${input.displayName}!\n\nSua conta de ${input.roleLabel} foi criada com sucesso.\nExplore professores, agende aulas e acompanhe tudo em um só lugar.${input.bookingsUrl ? `\n${input.bookingsUrl}` : ""}`,
+    `<p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#334155">Olá, ${escapeHtml(firstName)}!</p>
+     <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#334155">Sua conta de <strong>${escapeHtml(input.roleLabel)}</strong> foi criada com sucesso na Aprendiz Bay.</p>
+     <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#334155">${isTutor ? "Complete seu perfil para começar a receber pedidos de aula." : "Explore professores, agende aulas e acompanhe tudo em um só lugar."}</p>
+     ${exploreUrl ? `<div style="margin:8px 0 4px">${renderEmailButton(exploreLabel, exploreUrl, "primary")}</div>` : ""}`,
+    `Olá, ${firstName}!\n\nSua conta de ${input.roleLabel} foi criada com sucesso na Aprendiz Bay.\n${isTutor ? "Complete seu perfil para começar a receber pedidos de aula." : "Explore professores, agende aulas e acompanhe tudo em um só lugar."}${exploreUrl ? `\n${exploreLabel}: ${exploreUrl}` : ""}`,
   );
 }
 
@@ -253,6 +272,7 @@ export interface PaymentConfirmedTemplateInput {
   tutorName: string;
   bookingType?: string;
   scheduledAt: Date | string;
+  amountLabel?: string;
   meetingUrl?: string;
   bookingsUrl?: string;
 }
@@ -260,16 +280,17 @@ export interface PaymentConfirmedTemplateInput {
 export function buildPaymentConfirmedEmail(input: PaymentConfirmedTemplateInput): EmailContent {
   const when = formatDatePtBr(input.scheduledAt);
   const typeLabel = bookingTypeLabel(input.bookingType);
-  const title = "Sua aula foi confirmada";
+  const firstName = firstDisplayName(input.studentName);
+  const title = "Pagamento confirmado";
 
   return wrapEmail(
     title,
-    `<p>Olá, ${escapeHtml(input.studentName)}!</p>
-     <p>Sua aula <strong>${escapeHtml(typeLabel)}</strong> com <strong>${escapeHtml(input.tutorName)}</strong> está confirmada.</p>
-     <p><strong>Quando:</strong> ${escapeHtml(when)}</p>
-     ${input.meetingUrl ? `<p><strong>Link da aula:</strong> <a href="${escapeHtml(input.meetingUrl)}" style="color:#059669">${escapeHtml(input.meetingUrl)}</a></p>` : "<p>O link da aula estará disponível em Minhas aulas.</p>"}
-     ${input.bookingsUrl ? `<p><a href="${escapeHtml(input.bookingsUrl)}" style="color:#059669">Ver minhas aulas</a></p>` : ""}`,
-    `Olá, ${input.studentName}!\n\nSua aula ${typeLabel} com ${input.tutorName} está confirmada.\nQuando: ${when}\n${input.meetingUrl ? `Link da aula: ${input.meetingUrl}` : "O link da aula estará disponível em Minhas aulas."}${input.bookingsUrl ? `\n${input.bookingsUrl}` : ""}`,
+    `<p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#334155">Olá, ${escapeHtml(firstName)}!</p>
+     <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#334155">Recebemos o pagamento da sua aula <strong>${escapeHtml(typeLabel)}</strong> com <strong>${escapeHtml(input.tutorName)}</strong>.</p>
+     <p style="margin:0 0 8px"><strong>Quando:</strong> ${escapeHtml(when)}</p>
+     ${input.amountLabel ? `<p style="margin:0 0 16px"><strong>Valor:</strong> ${escapeHtml(input.amountLabel)}</p>` : ""}
+     ${input.bookingsUrl ? `<div style="margin:8px 0 4px">${renderEmailButton("Ver comprovante", input.bookingsUrl, "primary")}</div>` : ""}`,
+    `Olá, ${firstName}!\n\nRecebemos o pagamento da sua aula ${typeLabel} com ${input.tutorName}.\nQuando: ${when}${input.amountLabel ? `\nValor: ${input.amountLabel}` : ""}${input.bookingsUrl ? `\nVer comprovante: ${input.bookingsUrl}` : ""}`,
   );
 }
 
@@ -304,20 +325,27 @@ export interface LessonReminderTemplateInput {
   bookingType?: string;
   scheduledAt: Date | string;
   meetingUrl?: string;
+  reminderType?: "one_hour" | "twenty_four_hour";
 }
 
 export function buildLessonReminderEmail(input: LessonReminderTemplateInput): EmailContent {
   const when = formatDatePtBr(input.scheduledAt);
   const typeLabel = bookingTypeLabel(input.bookingType);
-  const title = "Lembrete: sua aula começa em 1 hora";
+  const isTwentyFourHour = input.reminderType === "twenty_four_hour";
+  const title = isTwentyFourHour
+    ? "Lembrete: sua aula é amanhã"
+    : "Lembrete: sua aula começa em 1 hora";
+  const timingCopy = isTwentyFourHour
+    ? "acontece amanhã"
+    : "começa em cerca de 1 hora";
 
   return wrapEmail(
     title,
-    `<p>Olá, ${escapeHtml(input.recipientName)}!</p>
-     <p>A aula <strong>${escapeHtml(typeLabel)}</strong> entre <strong>${escapeHtml(input.studentName)}</strong> e <strong>${escapeHtml(input.tutorName)}</strong> começa em cerca de 1 hora.</p>
-     <p><strong>Quando:</strong> ${escapeHtml(when)}</p>
-     ${input.meetingUrl ? `<p><strong>Link da aula:</strong> <a href="${escapeHtml(input.meetingUrl)}" style="color:#059669">${escapeHtml(input.meetingUrl)}</a></p>` : ""}`,
-    `Olá, ${input.recipientName}!\n\nA aula ${typeLabel} entre ${input.studentName} e ${input.tutorName} começa em cerca de 1 hora.\nQuando: ${when}${input.meetingUrl ? `\nLink da aula: ${input.meetingUrl}` : ""}`,
+    `<p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#334155">Olá, ${escapeHtml(firstDisplayName(input.recipientName))}!</p>
+     <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#334155">A aula <strong>${escapeHtml(typeLabel)}</strong> entre <strong>${escapeHtml(input.studentName)}</strong> e <strong>${escapeHtml(input.tutorName)}</strong> ${timingCopy}.</p>
+     <p style="margin:0 0 8px"><strong>Quando:</strong> ${escapeHtml(when)}</p>
+     ${input.meetingUrl ? `<p style="margin:0 0 16px"><strong>Link da aula:</strong> <a href="${escapeHtml(input.meetingUrl)}" style="color:#059669">${escapeHtml(input.meetingUrl)}</a></p>` : ""}`,
+    `Olá, ${firstDisplayName(input.recipientName)}!\n\nA aula ${typeLabel} entre ${input.studentName} e ${input.tutorName} ${timingCopy}.\nQuando: ${when}${input.meetingUrl ? `\nLink da aula: ${input.meetingUrl}` : ""}`,
   );
 }
 
@@ -491,16 +519,26 @@ export function buildNewMessageEmail(input: NewMessageTemplateInput): EmailConte
 
 const TEMPLATE_BUILDERS = {
   [EMAIL_EVENTS.USER_REGISTERED]: buildUserRegisteredEmail,
+  [EMAIL_EVENTS.EMAIL_VERIFICATION]: buildEmailVerificationEmail,
+  [EMAIL_EVENTS.BOOKING_REQUESTED]: buildBookingRequestedEmail,
   [EMAIL_EVENTS.BOOKING_CREATED]: buildBookingCreatedEmail,
   [EMAIL_EVENTS.BOOKING_ACCEPTED]: buildBookingAcceptedEmail,
+  [EMAIL_EVENTS.PAYMENT_REQUIRED]: buildPaymentRequiredEmail,
   [EMAIL_EVENTS.PAYMENT_CONFIRMED]: buildPaymentConfirmedEmail,
   [EMAIL_EVENTS.PAYMENT_FAILED]: buildPaymentFailedEmail,
+  [EMAIL_EVENTS.LESSON_CONFIRMED]: buildLessonConfirmedEmail,
   [EMAIL_EVENTS.LESSON_REMINDER]: buildLessonReminderEmail,
   [EMAIL_EVENTS.LESSON_CANCELLED]: buildLessonCancelledEmail,
   [EMAIL_EVENTS.REFUND_COMPLETED]: buildRefundCompletedEmail,
   [EMAIL_EVENTS.LESSON_COMPLETED]: buildLessonCompletedEmail,
   [EMAIL_EVENTS.REVIEW_REQUEST]: buildReviewRequestEmail,
   [EMAIL_EVENTS.NEW_MESSAGE]: buildNewMessageEmail,
+  [EMAIL_EVENTS.NEW_REVIEW]: buildNewReviewEmail,
+  [EMAIL_EVENTS.TUTOR_PROFILE_INCOMPLETE]: buildTutorProfileIncompleteEmail,
+  [EMAIL_EVENTS.TUTOR_VERIFICATION_SUBMITTED]: buildTutorVerificationSubmittedEmail,
+  [EMAIL_EVENTS.TUTOR_VERIFICATION_APPROVED]: buildTutorVerificationApprovedEmail,
+  [EMAIL_EVENTS.TUTOR_PROFILE_PUBLISHED]: buildTutorProfilePublishedEmail,
+  [EMAIL_EVENTS.TUTOR_PAYMENT_RECEIVED]: buildTutorPaymentReceivedEmail,
 } as const;
 
 export function buildEmailTemplate<T extends EmailEventName>(

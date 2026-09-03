@@ -3,6 +3,8 @@ export {
   buildLessonReminderEventKey,
   buildNewMessageEventKey,
   buildNewReviewEventKey,
+  buildEmailVerificationEventKey,
+  buildTutorLifecycleEventKey,
   buildUserRegisteredEventKey,
   toOutboxDocumentId,
 } from "@/lib/email/outbox/event-keys";

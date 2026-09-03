@@ -75,7 +75,7 @@ describe("onEvent", () => {
     expect(provider.send).toHaveBeenCalledTimes(1);
     expect(provider.send.mock.calls[0]?.[0]).toMatchObject({
       to: "ana@example.com",
-      subject: "Sua aula foi confirmada",
+      subject: "Pagamento confirmado",
     });
   });
 

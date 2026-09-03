@@ -18,6 +18,7 @@ import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
 import {
   attachReferralAfterSignup,
 } from "@/lib/facilitators/client";
+import { requestNotification } from "@/lib/notifications/client";
 import {
   clearReferralCookie,
   readReferralCodeFromDocument,
@@ -75,8 +76,10 @@ export default function SignupForm({ defaultRole = "student" }: SignupFormProps)
     setSubmitting(true);
 
     try {
-      await signUpWithEmail(email.trim(), password, displayName.trim(), role);
+      const createdUser = await signUpWithEmail(email.trim(), password, displayName.trim(), role);
       trackEvent(ANALYTICS_EVENTS.signUp, { role, method: "email" });
+      void requestNotification({ type: "user_registered", userId: createdUser.uid });
+      void requestNotification({ type: "email_verification", userId: createdUser.uid });
       await attachStoredReferralIfPresent();
       router.replace(role === "tutor" ? "/tutor/onboarding" : "/bookings");
     } catch (signupError) {
@@ -91,12 +94,11 @@ export default function SignupForm({ defaultRole = "student" }: SignupFormProps)
     setSubmitting(true);
 
     try {
-      if (completingGoogleProfile) {
-        await completeGoogleSignup(role);
-      } else {
-        await signUpWithGoogle(role);
-      }
+      const signedUpUser = completingGoogleProfile
+        ? await completeGoogleSignup(role)
+        : await signUpWithGoogle(role);
       trackEvent(ANALYTICS_EVENTS.signUp, { role, method: "google" });
+      void requestNotification({ type: "user_registered", userId: signedUpUser.uid });
       await attachStoredReferralIfPresent();
       router.replace(role === "tutor" ? "/tutor/onboarding" : "/bookings");
     } catch (signupError) {

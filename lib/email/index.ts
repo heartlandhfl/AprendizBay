@@ -1,3 +1,4 @@
+export { TRANSACTIONAL_EMAIL_MATRIX } from "@/lib/email/event-catalog";
 export { EMAIL_EVENTS, type EmailEventName, type EmailEventPayloadMap } from "@/lib/email/events";
 export type { EmailMessage, EmailProvider, EmailResult } from "@/lib/email/provider";
 export {
