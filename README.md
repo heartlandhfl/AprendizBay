@@ -174,13 +174,15 @@ npx tsx scripts/seed.ts
 | `MERCADOPAGO_ACCESS_TOKEN` | Mercado Pago server token (Checkout Bricks server calls) |
 | `MERCADOPAGO_WEBHOOK_SECRET` | HMAC secret for `POST /api/mercadopago/webhook` |
 | `NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY` | Mercado Pago public key (Bricks initialization) |
-| `JETSEND_API_KEY` | [JetSend](https://jetsend.com) API key (preferred mailer) |
+| `EMAIL_PROVIDER` | `jetsend` selects `JetSendEmailProvider`; omit to use the legacy Resend/SendGrid fallback |
+| `JETSEND_API_KEY` | [JetSend](https://jetsend.com) API key (required when `EMAIL_PROVIDER=jetsend`) |
+| `JETSEND_FROM_EMAIL` | JetSend sender address, e.g. `Aprendiz Bay <noreply@aprendizbay.com.br>` |
 | `JETSEND_TENANT_ID` | JetSend tenant UUID (optional, ops reference) |
 | `JETSEND_SLUG` | JetSend account slug (optional, ops reference) |
 | `JETSEND_TRACKING_DOMAIN` | JetSend verified tracking domain (optional) |
-| `RESEND_API_KEY` | [Resend](https://resend.com) API key (fallback if JetSend is unset) |
-| `SENDGRID_API_KEY` | SendGrid API key (used if JetSend and Resend are unset) |
-| `EMAIL_FROM` | From header, e.g. `Aprendiz Bay <noreply@aprendizbay.com.br>` |
+| `RESEND_API_KEY` | [Resend](https://resend.com) API key (legacy fallback provider) |
+| `SENDGRID_API_KEY` | SendGrid API key (legacy fallback provider) |
+| `EMAIL_FROM` | Legacy fallback from header when `JETSEND_FROM_EMAIL` is unset |
 | `NOTIFICATIONS_CRON_SECRET` | Bearer token for `/api/notifications/reminders` (external cron or Vercel Cron on Pro) |
 | `PLATFORM_FEE_PERCENT` | Percent of each booking kept as the platform fee (`0`–`100`, default `10`) |
 | `NEXT_PUBLIC_PLATFORM_FEE_PERCENT` | Optional client alias of `PLATFORM_FEE_PERCENT` |
@@ -263,7 +265,7 @@ After UI changes, run `npm run build:hostinger` locally and commit `hostinger-ne
 | Full `app/api/**` parity | Partial (`server/api/` only) | Yes |
 | Server Actions | No | Yes |
 
-Set `NEXT_PUBLIC_SITE_URL`, `FIREBASE_ADMIN_*`, `JETSEND_API_KEY`, `EMAIL_FROM`, and `NOTIFICATIONS_CRON_SECRET` in Hostinger environment variables. Firebase web keys are also served at runtime from `GET /api/public-config`.
+Set `NEXT_PUBLIC_SITE_URL`, `FIREBASE_ADMIN_*`, `EMAIL_PROVIDER=jetsend`, `JETSEND_API_KEY`, `JETSEND_FROM_EMAIL`, and `NOTIFICATIONS_CRON_SECRET` in Hostinger environment variables. Firebase web keys are also served at runtime from `GET /api/public-config`.
 
 ### Rules vs app (known gaps)
 
