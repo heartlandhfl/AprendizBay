@@ -26,23 +26,31 @@ notificationsRouter.use(express.json({ limit: "32kb" }));
 
 notificationsRouter.post("/", async (req, res) => {
   try {
-    await verifyIdToken(readBearerToken(req));
+    const { uid } = await verifyIdToken(readBearerToken(req));
+    const {
+      authorizeNotificationRequest,
+      NotificationAuthorizationError,
+    } = require("../../lib/notifications/authorize.ts");
+    const { getAdminFirestore } = require("./firebase-admin");
+    await authorizeNotificationRequest(getAdminFirestore(), uid, req.body);
     const result = await dispatchNotification(req.body);
     res.json(result);
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Não foi possível enviar o e-mail.";
     const status =
-      message.includes("Token") ||
-      message.includes("autenticação") ||
-      message.includes("id-token") ||
-      message.includes("Decoding Firebase ID token")
-        ? 401
-        : message.includes("Firebase Admin")
-          ? 503
-          : message.includes("Informe") || message.includes("inválido")
-            ? 400
-            : 500;
+      error?.name === "NotificationAuthorizationError"
+        ? 403
+        : message.includes("Token") ||
+            message.includes("autenticação") ||
+            message.includes("id-token") ||
+            message.includes("Decoding Firebase ID token")
+          ? 401
+          : message.includes("Firebase Admin")
+            ? 503
+            : message.includes("Informe") || message.includes("inválido")
+              ? 400
+              : 500;
     res.status(status).json({ error: message });
   }
 });

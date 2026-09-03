@@ -117,10 +117,6 @@ export async function updateBookingStatus(
     status,
     updatedAt: serverTimestamp(),
   });
-
-  if (status === "confirmed") {
-    void requestNotification({ type: "confirmed_booking", bookingId });
-  }
 }
 
 async function cancelBookingViaApi(bookingId: string): Promise<void> {
