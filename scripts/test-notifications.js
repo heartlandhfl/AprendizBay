@@ -89,6 +89,8 @@ async function main() {
   const previousJetSend = process.env.JETSEND_API_KEY;
   const previousKey = process.env.RESEND_API_KEY;
   const previousSendgrid = process.env.SENDGRID_API_KEY;
+  const previousEmailEnv = process.env.EMAIL_ENV;
+  process.env.EMAIL_ENV = "production";
   delete process.env.JETSEND_API_KEY;
   delete process.env.RESEND_API_KEY;
   delete process.env.SENDGRID_API_KEY;
@@ -156,6 +158,11 @@ async function main() {
   }
   if (previousSendgrid) {
     process.env.SENDGRID_API_KEY = previousSendgrid;
+  }
+  if (previousEmailEnv) {
+    process.env.EMAIL_ENV = previousEmailEnv;
+  } else {
+    delete process.env.EMAIL_ENV;
   }
 
   const previousSecret = process.env.NOTIFICATIONS_CRON_SECRET;

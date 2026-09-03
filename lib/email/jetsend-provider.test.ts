@@ -82,6 +82,7 @@ describe("JetSendEmailProvider", () => {
   beforeEach(() => {
     process.env = {
       ...originalEnv,
+      EMAIL_ENV: "production",
       JETSEND_API_KEY: "test-jetsend-key",
       JETSEND_FROM_EMAIL: "Aprendiz Bay <noreply@aprendizbay.com.br>",
     };
@@ -297,19 +298,48 @@ describe("getActiveEmailProvider", () => {
     setActiveEmailProvider(null);
   });
 
-  it("selects JetSendEmailProvider when EMAIL_PROVIDER=jetsend", () => {
+  it("selects JetSendEmailProvider when EMAIL_PROVIDER=jetsend", async () => {
     process.env.EMAIL_PROVIDER = "jetsend";
+    process.env.EMAIL_ENV = "production";
+    process.env.JETSEND_API_KEY = "test-jetsend-key";
+    process.env.JETSEND_FROM_EMAIL = "Aprendiz Bay <noreply@aprendizbay.com.br>";
     setActiveEmailProvider(null);
 
+    const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
     const provider = getActiveEmailProvider();
-    expect(provider).toBeInstanceOf(JetSendEmailProvider);
+    const result = await provider.send({
+      to: "student@example.com",
+      subject: "Teste",
+      text: "texto",
+      html: "<p>html</p>",
+    });
+
+    expect(result).toEqual({ sent: true, provider: "jetsend", providerMessageId: undefined });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
   });
 
-  it("keeps the legacy provider as the default fallback", () => {
+  it("keeps the legacy provider as the default fallback", async () => {
     delete process.env.EMAIL_PROVIDER;
+    process.env.EMAIL_ENV = "production";
+    process.env.RESEND_API_KEY = "re_test";
     setActiveEmailProvider(null);
 
+    const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
     const provider = getActiveEmailProvider();
-    expect(provider.constructor.name).toBe("ResendSendGridEmailProvider");
+    const result = await provider.send({
+      to: "student@example.com",
+      subject: "Teste",
+      text: "texto",
+      html: "<p>html</p>",
+    });
+
+    expect(result).toEqual({ sent: true, provider: "resend" });
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("https://api.resend.com/emails");
+    vi.unstubAllGlobals();
   });
 });
