@@ -10,7 +10,7 @@ import {
   type AdminContactInboxDetail,
   type AdminContactInboxFilters,
   type AdminContactInboxList,
-} from "@/lib/admin/contact-inbox";
+} from "@/lib/admin/contact-inbox-shared";
 import {
   fetchAdminContactInbox,
   fetchAdminContactInboxMessage,

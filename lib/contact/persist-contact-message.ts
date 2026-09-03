@@ -1,9 +1,8 @@
 import type { Firestore } from "firebase-admin/firestore";
 
+import { CONTACT_INBOX_COLLECTION } from "@/lib/contact/types";
 import type { ContactEmailDelivery } from "@/lib/contact/types";
 import type { ContactFormInput } from "@/lib/contact/send-contact-message";
-
-export const CONTACT_INBOX_COLLECTION = "contactInbox";
 
 export interface PersistContactMessageMeta {
   emailDelivery: ContactEmailDelivery;

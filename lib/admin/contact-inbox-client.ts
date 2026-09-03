@@ -4,7 +4,7 @@ import type {
   AdminContactInboxFilters,
   AdminContactInboxList,
   AdminContactInboxUpdateInput,
-} from "@/lib/admin/contact-inbox";
+} from "@/lib/admin/contact-inbox-shared";
 
 function buildQuery(filters: AdminContactInboxFilters): string {
   const params = new URLSearchParams();

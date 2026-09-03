@@ -1,25 +1,22 @@
 import type { Firestore, Query } from "firebase-admin/firestore";
 
-import { CONTACT_INBOX_COLLECTION } from "@/lib/contact/persist-contact-message";
-import type { ContactEmailDelivery, ContactInboxStatus } from "@/lib/contact/types";
+import {
+  CONTACT_EMAIL_DELIVERY_OPTIONS,
+  CONTACT_INBOX_COLLECTION,
+  CONTACT_INBOX_STATUS_OPTIONS,
+  type ContactEmailDelivery,
+  type ContactInboxStatus,
+} from "@/lib/contact/types";
 import { availableMetric, serializeTimestamp, unavailableMetric } from "@/lib/admin/metrics";
 import type { AdminMetric } from "@/lib/admin/metrics";
 
+export {
+  CONTACT_EMAIL_DELIVERY_OPTIONS,
+  CONTACT_INBOX_STATUS_OPTIONS,
+} from "@/lib/contact/types";
+
 const DEFAULT_LIST_LIMIT = 50;
 const MAX_FETCH_FOR_FILTER = 250;
-
-export const CONTACT_INBOX_STATUS_OPTIONS: ContactInboxStatus[] = [
-  "unread",
-  "read",
-  "replied",
-  "archived",
-];
-
-export const CONTACT_EMAIL_DELIVERY_OPTIONS: ContactEmailDelivery[] = [
-  "sent",
-  "failed",
-  "skipped",
-];
 
 export interface AdminContactInboxFilters {
   dateFrom?: string;
