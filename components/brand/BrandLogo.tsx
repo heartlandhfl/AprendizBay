@@ -1,8 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 
-const LOGO_WIDTH = 1053;
-const LOGO_HEIGHT = 798;
+const LOGO_WIDTH = 1672;
+const LOGO_HEIGHT = 941;
 
 type BrandLogoProps = {
   height?: number;
