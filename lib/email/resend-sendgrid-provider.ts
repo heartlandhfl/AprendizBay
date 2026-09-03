@@ -1,3 +1,4 @@
+import { JetSendEmailProvider } from "@/lib/email/jetsend-provider";
 import type { EmailMessage, EmailProvider, EmailResult } from "@/lib/email/provider";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const legacyProvider = require("./legacy-provider.js") as {
@@ -25,9 +26,21 @@ export class ResendSendGridEmailProvider implements EmailProvider {
 
 let activeProvider: EmailProvider | null = null;
 
+function resolveConfiguredEmailProvider(): EmailProvider {
+  const configured = String(process.env.EMAIL_PROVIDER ?? "")
+    .trim()
+    .toLowerCase();
+
+  if (configured === "jetsend") {
+    return new JetSendEmailProvider();
+  }
+
+  return new ResendSendGridEmailProvider();
+}
+
 export function getActiveEmailProvider(): EmailProvider {
   if (!activeProvider) {
-    activeProvider = new ResendSendGridEmailProvider();
+    activeProvider = resolveConfiguredEmailProvider();
   }
   return activeProvider;
 }
