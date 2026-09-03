@@ -10,17 +10,22 @@
  */
 if (process.env.NODE_ENV !== "development") {
   process.env.NODE_ENV = "production";
-  // Hostinger runs this Express entry in production without Vercel's EMAIL_ENV.
-  // Default to production email delivery so contact and transactional mail work.
-  if (!String(process.env.EMAIL_ENV ?? "").trim()) {
-    process.env.EMAIL_ENV = "production";
-  }
+  process.env.APRENDIZ_RUNTIME = "express";
 }
 
 try {
   require("dotenv").config({ path: require("path").join(__dirname, ".env.local") });
 } catch {
   // dotenv is a devDependency; Hostinger/Vercel use panel environment variables.
+}
+
+if (process.env.NODE_ENV !== "development") {
+  const emailEnv = String(process.env.EMAIL_ENV ?? "").trim().toLowerCase();
+  // Hostinger often ships EMAIL_ENV=development from the example file. On the live
+  // Express server that is always a misconfiguration and blocks all outbound mail.
+  if (!emailEnv || emailEnv === "development") {
+    process.env.EMAIL_ENV = "production";
+  }
 }
 
 const { installNextRequireGuard } = require("./server/next-runtime-guard");
