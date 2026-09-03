@@ -31,6 +31,7 @@ export const STATIC_SITEMAP_PATHS: readonly StaticSitemapPath[] = [
   { path: "/search", changeFrequency: "weekly", priority: 0.6 },
   { path: "/termos", changeFrequency: "yearly", priority: 0.3 },
   { path: "/privacidade", changeFrequency: "yearly", priority: 0.3 },
+  { path: "/contato", changeFrequency: "yearly", priority: 0.4 },
 ];
 
 export function absoluteUrl(origin: string, path: string): string {
