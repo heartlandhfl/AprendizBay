@@ -52,7 +52,12 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-surface/80 backdrop-blur-md">
       <nav className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:gap-6 sm:px-6 lg:px-8">
-        <BrandLogoLink height={40} priority className="transition-opacity hover:opacity-90" />
+        <BrandLogoLink
+          height={40}
+          priority
+          variant="compact"
+          className="transition-opacity hover:opacity-90"
+        />
 
         <div className="relative mx-auto hidden max-w-md flex-1 md:block">
           <Search
