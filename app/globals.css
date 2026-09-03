@@ -12,8 +12,32 @@
 }
 
 @layer base {
+  html {
+    @apply antialiased;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-background text-foreground font-sans;
+  }
+
+  /* Innovator display type: headings, section titles, hero, and card titles */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-display;
+  }
+
+  /* Main CTA buttons — primary and secondary action surfaces */
+  :where(button, a).bg-primary-600,
+  :where(button, a).bg-primary-700,
+  :where(button, a).bg-secondary-500,
+  :where(button, a).bg-secondary-600 {
+    @apply font-display;
   }
 }
 
