@@ -174,12 +174,17 @@ npx tsx scripts/seed.ts
 | `MERCADOPAGO_ACCESS_TOKEN` | Mercado Pago server token (Checkout Bricks server calls) |
 | `MERCADOPAGO_WEBHOOK_SECRET` | HMAC secret for `POST /api/mercadopago/webhook` |
 | `NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY` | Mercado Pago public key (Bricks initialization) |
+| `EMAIL_ENV` | `development` \| `staging` \| `production` — controls recipient safety (see below) |
+| `EMAIL_TEST_RECIPIENT` | Safe inbox for **Development** and redirected **Preview/Staging** mail (required outside production) |
+| `EMAIL_STAGING_ALLOWLIST` | Optional comma-separated staging recipients that may receive mail at their real address |
 | `EMAIL_PROVIDER` | `jetsend` selects `JetSendEmailProvider`; omit to use the legacy Resend/SendGrid fallback |
 | `JETSEND_API_KEY` | [JetSend](https://jetsend.com) API key (required when `EMAIL_PROVIDER=jetsend`) |
 | `JETSEND_FROM_EMAIL` | JetSend sender address, e.g. `Aprendiz Bay <noreply@aprendizbay.com.br>` |
 | `JETSEND_TENANT_ID` | JetSend tenant UUID (optional, ops reference) |
 | `JETSEND_SLUG` | JetSend account slug (optional, ops reference) |
 | `JETSEND_TRACKING_DOMAIN` | JetSend verified tracking domain (optional) |
+| `JETSEND_STAGING_API_URL` | Optional JetSend API override for Preview/Staging (`EMAIL_ENV=staging`) |
+| `JETSEND_TRANSMISSION_API_URL` | Optional explicit JetSend transmission endpoint override |
 | `JETSEND_WEBHOOK_USERNAME` | HTTP Basic Auth username for `POST /api/webhooks/jetsend` |
 | `JETSEND_WEBHOOK_PASSWORD` | HTTP Basic Auth password configured in the JetSend webhook |
 | `RESEND_API_KEY` | [Resend](https://resend.com) API key (legacy fallback provider) |
@@ -195,7 +200,17 @@ npx tsx scripts/seed.ts
 
 `FIREBASE_ADMIN_*` is required for all server routes below. Client features only need `NEXT_PUBLIC_FIREBASE_*`. Sentry and Plausible are optional.
 
-`GET /api/public-config` also exposes Firebase web keys at runtime (useful for previews); on Vercel you typically set `NEXT_PUBLIC_*` directly and rebuild when they change.
+`GET /api/public-config` also exposes Firebase web keys at runtime (useful for previews); on Vercel you typically set `NEXT_PUBLIC_*` directly and rebuild when they change. Email provider secrets (`JETSEND_API_KEY`, `RESEND_API_KEY`, etc.) are **never** exposed through this endpoint or any `NEXT_PUBLIC_*` variable.
+
+#### Transactional email safety (`EMAIL_ENV`)
+
+| Vercel scope | Set `EMAIL_ENV` | JetSend | Recipients |
+|--------------|-----------------|---------|------------|
+| **Development** (local `.env.local`) | `development` | Optional dev/staging JetSend key | **Always** redirected to `EMAIL_TEST_RECIPIENT` with `[TEST]` subject prefix |
+| **Preview / Staging** | `staging` | Staging/test JetSend account + sender | Only `EMAIL_STAGING_ALLOWLIST` addresses, otherwise redirected to `EMAIL_TEST_RECIPIENT` with `[STAGING]` prefix |
+| **Production** | `production` | Production JetSend account + verified domain | Real user addresses (no override) |
+
+Development and Preview/Staging **must** define `EMAIL_TEST_RECIPIENT`. If it is missing in development, sends are skipped instead of reaching real users.
 
 #### API routes (`app/api/**`)
 

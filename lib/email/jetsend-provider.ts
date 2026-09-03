@@ -1,4 +1,13 @@
 import type { EmailMessage, EmailProvider, EmailResult } from "@/lib/email/provider";
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const emailEnvironment = require("./environment.js") as {
+  applyEmailEnvironmentGuards(input: EmailMessage): {
+    message: EmailMessage;
+    skipped?: EmailResult;
+  };
+  resolveJetSendTransmissionApiUrl(): string;
+  wrapEmailProviderWithEnvironmentGuards(provider: EmailProvider): EmailProvider;
+};
 
 export const JETSEND_TRANSMISSION_API_URL =
   "https://app.jetsend.com/api/v1/transmission/email";
@@ -186,10 +195,11 @@ export class JetSendEmailProvider implements EmailProvider {
     }
 
     const payload = buildJetSendTransmissionRequest(input, fromAddress);
+    const transmissionApiUrl = emailEnvironment.resolveJetSendTransmissionApiUrl();
 
     let response: Response;
     try {
-      response = await fetch(JETSEND_TRANSMISSION_API_URL, {
+      response = await fetch(transmissionApiUrl, {
         method: "POST",
         headers: {
           accept: "application/json",

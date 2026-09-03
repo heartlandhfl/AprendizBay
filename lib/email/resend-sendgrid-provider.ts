@@ -1,6 +1,10 @@
 import { JetSendEmailProvider } from "@/lib/email/jetsend-provider";
 import type { EmailMessage, EmailProvider, EmailResult } from "@/lib/email/provider";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
+const { wrapEmailProviderWithEnvironmentGuards } = require("./environment.js") as {
+  wrapEmailProviderWithEnvironmentGuards(provider: EmailProvider): EmailProvider;
+};
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const legacyProvider = require("./legacy-provider.js") as {
   sendEmail(input: {
     to: string;
@@ -40,7 +44,7 @@ function resolveConfiguredEmailProvider(): EmailProvider {
 
 export function getActiveEmailProvider(): EmailProvider {
   if (!activeProvider) {
-    activeProvider = resolveConfiguredEmailProvider();
+    activeProvider = wrapEmailProviderWithEnvironmentGuards(resolveConfiguredEmailProvider());
   }
   return activeProvider;
 }
