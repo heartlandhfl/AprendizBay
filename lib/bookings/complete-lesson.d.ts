@@ -29,12 +29,12 @@ export function hasScheduledTimePassed(scheduledAt: unknown, now?: Date): boolea
 export function resolveCompleteActor(
   booking: { tutorId?: unknown } | null | undefined,
   actorUid: unknown,
-  actorRole?: unknown,
+  actorClaimRole?: unknown,
 ): "tutor" | "admin" | null;
 
 export function assertCanCompleteLesson(input: {
   actorUid?: unknown;
-  actorRole?: unknown;
+  actorClaimRole?: unknown;
   booking: {
     studentId?: unknown;
     tutorId?: unknown;
@@ -69,7 +69,7 @@ export function completeLessonForActor(
   input: {
     actorUid?: unknown;
     bookingId?: unknown;
-    actorRole?: unknown;
+    actorClaimRole?: unknown;
   },
   deps?: { timestamp?: unknown; now?: Date },
 ): Promise<{ bookingId: string; status: "completed" }>;

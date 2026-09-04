@@ -527,12 +527,24 @@ describe("firestore.rules", () => {
         };
       }
 
-      it("allows the booking tutor to complete a confirmed paid lesson after the schedule", async () => {
+    it("denies client-side lesson completion in favor of POST /api/bookings/complete", async () => {
         await seedBaseDocs({ tutorVerified: true });
         await seedBooking("booking-done", "confirmed", { scheduledAt: pastSchedule });
 
-        await assertSucceeds(
+        await assertFails(
           updateDoc(doc(tutorDb(), "bookings", "booking-done"), completePayload()),
+        );
+      });
+
+      it("denies client-side tutor acceptance in favor of POST /api/bookings/accept", async () => {
+        await seedBaseDocs({ tutorVerified: true });
+        await seedBooking("booking-pending", "pending", { paymentStatus: "unpaid" });
+
+        await assertFails(
+          updateDoc(doc(tutorDb(), "bookings", "booking-pending"), {
+            paymentStatus: "awaiting_payment",
+            updatedAt: new Date(),
+          }),
         );
       });
 
@@ -596,7 +608,7 @@ describe("firestore.rules", () => {
   });
 
   describe("reviews", () => {
-    it("denies client-side review creation (server API only)", async () => {
+    it("denies client-side review creation in favor of POST /api/reviews", async () => {
       await seedBaseDocs({ tutorVerified: true });
       await seedBooking("booking-done", "completed");
 
@@ -721,6 +733,32 @@ describe("firestore.rules", () => {
       });
 
       await assertSucceeds(deleteDoc(doc(adminDb(), "reviews", "booking-done")));
+    });
+
+    it("denies unauthenticated reads of reviews", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      await seedBooking("booking-done", "completed");
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await setDoc(
+          doc(context.firestore(), "reviews", "booking-done"),
+          reviewPayload("booking-done"),
+        );
+      });
+
+      await assertFails(getDoc(doc(guestDb(), "reviews", "booking-done")));
+    });
+
+    it("allows authenticated users to read reviews without exposing write access", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      await seedBooking("booking-done", "completed");
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await setDoc(
+          doc(context.firestore(), "reviews", "booking-done"),
+          reviewPayload("booking-done"),
+        );
+      });
+
+      await assertSucceeds(getDoc(doc(studentDb(), "reviews", "booking-done")));
     });
   });
 
@@ -1115,6 +1153,23 @@ describe("firestore.rules", () => {
           hasAvailability: true,
           updatedAt: new Date(),
         }),
+      );
+    });
+
+    it("denies unauthenticated reads of tutor availability schedules", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await setDoc(doc(context.firestore(), "tutors", TUTOR_ID, "availability", "weekly"), {
+          slots: [{ weekday: 1, startTime: "09:00", endTime: "12:00" }],
+          updatedAt: new Date(),
+        });
+      });
+
+      await assertFails(
+        getDoc(doc(guestDb(), "tutors", TUTOR_ID, "availability", "weekly")),
+      );
+      await assertSucceeds(
+        getDoc(doc(studentDb(), "tutors", TUTOR_ID, "availability", "weekly")),
       );
     });
 

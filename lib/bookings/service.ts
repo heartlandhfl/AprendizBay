@@ -4,8 +4,6 @@ import {
   getDoc,
   onSnapshot,
   query,
-  serverTimestamp,
-  updateDoc,
   type Timestamp,
   where,
   type Unsubscribe,
@@ -107,17 +105,6 @@ export async function createBooking(
 }
 
 export { CREATE_BOOKING_ERRORS };
-
-export async function updateBookingStatus(
-  bookingId: string,
-  status: BookingStatus,
-): Promise<void> {
-  await requireFirebaseApp();
-  await updateDoc(doc(db, "bookings", bookingId), {
-    status,
-    updatedAt: serverTimestamp(),
-  });
-}
 
 async function cancelBookingViaApi(bookingId: string): Promise<void> {
   await requireFirebaseApp();

@@ -93,15 +93,26 @@ describe("assertCanCompleteLesson", () => {
     ).not.toThrow();
   });
 
-  it("allows an admin to complete a confirmed paid lesson", () => {
+  it("allows an admin claim to complete a confirmed paid lesson", () => {
     expect(() =>
       assertCanCompleteLesson({
         actorUid: "admin-1",
-        actorRole: "admin",
+        actorClaimRole: "admin",
         booking: CONFIRMED_PAID,
         now: NOW,
       }),
     ).not.toThrow();
+  });
+
+  it("rejects a profile-only admin without the admin claim", () => {
+    expect(() =>
+      assertCanCompleteLesson({
+        actorUid: "admin-1",
+        actorClaimRole: undefined,
+        booking: CONFIRMED_PAID,
+        now: NOW,
+      }),
+    ).toThrow(/professor desta aula/);
   });
 
   it("rejects an unauthenticated request", () => {
@@ -118,7 +129,7 @@ describe("assertCanCompleteLesson", () => {
     expect(() =>
       assertCanCompleteLesson({
         actorUid: "student-1",
-        actorRole: "student",
+        actorClaimRole: "student",
         booking: CONFIRMED_PAID,
         now: NOW,
       }),
@@ -129,7 +140,7 @@ describe("assertCanCompleteLesson", () => {
     expect(() =>
       assertCanCompleteLesson({
         actorUid: "tutor-2",
-        actorRole: "tutor",
+        actorClaimRole: "lecturer",
         booking: CONFIRMED_PAID,
         now: NOW,
       }),
@@ -202,11 +213,11 @@ describe("completeLessonForActor", () => {
     ]);
   });
 
-  it("lets an admin complete another tutor's confirmed paid lesson", async () => {
-    const { db, updates } = createFakeDb({ actorRole: "admin" });
+  it("lets an admin claim holder complete another tutor's confirmed paid lesson", async () => {
+    const { db, updates } = createFakeDb();
     await completeLessonForActor(
       db,
-      { actorUid: "admin-1", bookingId: "booking-1", actorRole: "admin" },
+      { actorUid: "admin-1", bookingId: "booking-1", actorClaimRole: "admin" },
       { timestamp: "TS", now: NOW },
     );
     expect(updates[0]?.status).toBe("completed");
@@ -214,12 +225,12 @@ describe("completeLessonForActor", () => {
   });
 
   it("does not write when a student tries to complete the booking", async () => {
-    const { db, updates } = createFakeDb({ actorRole: "student" });
+    const { db, updates } = createFakeDb();
     await expect(
       completeLessonForActor(db, {
         actorUid: "student-1",
         bookingId: "booking-1",
-        actorRole: "student",
+        actorClaimRole: "student",
       }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect(updates).toHaveLength(0);

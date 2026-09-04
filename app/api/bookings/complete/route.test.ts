@@ -59,7 +59,7 @@ describe("POST /api/bookings/complete", () => {
     expect(mockCompleteLessonAsActor).toHaveBeenCalledWith({
       bookingId: "booking-1",
       actorUid: "tutor-1",
-      actorRole: "tutor",
+      actorClaimRole: undefined,
     });
   });
 

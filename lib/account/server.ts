@@ -12,9 +12,19 @@ import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 import { deleteUserAccount } from "@/lib/account/anonymize";
 import { getAdminApp } from "@/lib/firebase/admin";
+import { roleFromDecodedToken } from "@/lib/auth/role-server";
 
 export async function deleteAuthenticatedAccount(uid: string) {
   const app = getAdminApp();
+  const user = await getAuth(app).getUser(uid);
+  if (roleFromDecodedToken(user.customClaims) === "admin") {
+    const error = new Error("Contas de administrador não podem ser excluídas por este fluxo.") as Error & {
+      code?: string;
+    };
+    error.code = "ADMIN_ACCOUNT";
+    throw error;
+  }
+
   const db = getFirestore(app);
 
   async function deleteStoragePrefixes(prefixes: string[]) {

@@ -1,10 +1,9 @@
 /**
  * Hostinger audit — firebase-admin (Next.js server modules only)
  *
- * confirmBookingWithMeetingUrl is for payment webhooks / server-side flows. Not wired to
- * Express yet. No hostinger-next page bundle references this file today.
- *
- * Not imported by server.js or server/api/. Production Express must not require this module.
+ * Payment confirmation and classroom URLs are handled by webhook processors
+ * (`lib/payments/process-webhook.ts`, `lib/payments/process-payment-webhook.ts`)
+ * via `lib/classroom`. Not imported by server.js or server/api/.
  */
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
@@ -21,9 +20,8 @@ import {
 } from "@/lib/bookings/complete-lesson";
 import { createIndividualBookingForStudent } from "@/lib/bookings/create-booking";
 import { createCollectiveBookingForStudent } from "@/lib/hubs/join-and-book";
-import { generateMeetingRoomToken, generateMeetingUrl } from "@/lib/bookings/meeting-server";
+import { evaluateHubLeave, hubLeaveWrite } from "@/lib/hubs/leave";
 import {
-  notifyConfirmedBooking,
   notifyLessonCancelled,
   notifyLessonCompleted,
   notifyRefundCompleted,
@@ -88,7 +86,6 @@ export interface BookingRecord {
   refundStatus?: string;
   refundAmount?: number;
   refundLockUntil?: Date;
-  meetingRoomToken?: string;
   meetingUrl?: string;
   scheduledAt: Date;
   completedAt?: Date;
@@ -141,7 +138,6 @@ export function mapBookingRecord(
         ? data.refundAmount
         : undefined,
     refundLockUntil: optionalDate(data.refundLockUntil),
-    meetingRoomToken: data.meetingRoomToken ? String(data.meetingRoomToken) : undefined,
     meetingUrl: data.meetingUrl ? String(data.meetingUrl) : undefined,
     scheduledAt: toScheduledDate(data.scheduledAt),
     completedAt: optionalDate(data.completedAt),
@@ -177,40 +173,6 @@ export async function saveBookingFeeSplit(
     tutorAmount: split.tutorAmount,
     updatedAt: FieldValue.serverTimestamp(),
   });
-}
-
-export interface ConfirmBookingPaymentInput {
-  paymentId?: string;
-  asaasCheckoutId?: string;
-}
-
-/**
- * Direct confirmation write. Payment webhooks must use
- * `processAsaasPaymentWebhook` so receipts stay idempotent.
- */
-export async function confirmBookingWithMeetingUrl(
-  bookingId: string,
-  payment?: ConfirmBookingPaymentInput,
-): Promise<void> {
-  const db = requireAdminFirestore();
-  const roomToken = generateMeetingRoomToken();
-  const updates: Record<string, unknown> = {
-    status: "confirmed",
-    paymentStatus: "paid",
-    meetingRoomToken: roomToken,
-    meetingUrl: generateMeetingUrl(roomToken),
-    updatedAt: FieldValue.serverTimestamp(),
-  };
-
-  if (payment?.paymentId) {
-    updates.paymentId = payment.paymentId;
-  }
-  if (payment?.asaasCheckoutId) {
-    updates.asaasCheckoutId = payment.asaasCheckoutId;
-  }
-
-  await db.collection("bookings").doc(bookingId).update(updates);
-  await safeNotify(() => notifyConfirmedBooking(bookingId), "confirmed_booking");
 }
 
 export interface CancelBookingInput {
@@ -259,6 +221,40 @@ function createFirestoreCancelStore(db: Firestore): CancelStore {
               }
             });
           },
+          releaseCollectiveHubSeat({ hubId, studentId }) {
+            const hubRef = db.collection("collectiveHubs").doc(hubId);
+            const participantRef = hubRef.collection("participants").doc(studentId);
+            return (async () => {
+              const hubSnap = await transaction.get(hubRef);
+              const participantSnap = await transaction.get(participantRef);
+              if (!hubSnap.exists || !participantSnap.exists) {
+                return;
+              }
+              const decision = evaluateHubLeave(
+                (hubSnap.data() ?? {}) as Record<string, unknown>,
+                studentId,
+                { participantExists: true },
+              );
+              if (!decision.ok || decision.nextCount == null || !decision.nextStatus) {
+                return;
+              }
+              const nextCount = decision.nextCount;
+              const nextStatus = decision.nextStatus;
+              pendingWrites.push(() => {
+                transaction.update(
+                  hubRef,
+                  hubLeaveWrite(
+                    {
+                      nextCount,
+                      nextStatus,
+                    },
+                    FieldValue.serverTimestamp(),
+                  ),
+                );
+                transaction.delete(participantRef);
+              });
+            })();
+          },
         };
         const result = await work(tx);
         for (const write of pendingWrites) {
@@ -289,7 +285,7 @@ export async function acceptBookingAsTutor(input: {
 export async function completeLessonAsActor(input: {
   bookingId: string;
   actorUid: string;
-  actorRole?: string;
+  actorClaimRole?: string;
 }): Promise<{ bookingId: string; status: "completed" }> {
   const db = requireAdminFirestore();
   const result = await completeLessonForActor(db, input, {

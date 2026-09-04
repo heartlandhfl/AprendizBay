@@ -544,7 +544,7 @@ export default function StudentDashboardContent() {
                     {hub.modality === "presencial" ? "Presencial" : "Online"}
                   </p>
                   <Link
-                    href={`/turmas?id=${encodeURIComponent(hub.id)}`}
+                    href={`/turmas/${encodeURIComponent(hub.id)}`}
                     className="inline-flex min-h-10 items-center justify-center rounded-2xl bg-primary-600 px-4 text-sm font-semibold text-white"
                   >
                     Ver turma

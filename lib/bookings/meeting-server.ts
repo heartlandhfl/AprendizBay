@@ -1,15 +1,21 @@
-import { randomBytes } from "node:crypto";
+import { createHmac } from "node:crypto";
 
 const JITSI_BASE_URL = "https://meet.jit.si";
 
-export function generateMeetingRoomToken(): string {
-  return randomBytes(16).toString("hex");
+function meetingRoomSecret(): string {
+  return process.env.JITSI_ROOM_SECRET?.trim() ?? "";
 }
 
-export function generateMeetingUrl(roomToken: string): string {
-  const token = roomToken.trim();
-  if (!token) {
-    throw new Error("Informe o token da sala de aula.");
+function meetingRoomSuffix(bookingId: string): string {
+  const secret = meetingRoomSecret();
+  if (!secret) {
+    return bookingId;
   }
-  return `${JITSI_BASE_URL}/aprendizbay-${token}`;
+
+  return `${bookingId}-${createHmac("sha256", secret).update(bookingId).digest("hex").slice(0, 16)}`;
+}
+
+/** Server-only meeting URL generation (supports optional JITSI_ROOM_SECRET). */
+export function generateMeetingUrl(bookingId: string): string {
+  return `${JITSI_BASE_URL}/aprendizbay-${meetingRoomSuffix(bookingId)}`;
 }

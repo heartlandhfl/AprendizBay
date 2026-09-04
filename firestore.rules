@@ -188,7 +188,7 @@ rules_version = '2';
 //        Hostinger Express: server/api/reviews.js (firebase-admin; bypasses rules)
 //        Vercel / next start: app/api/reviews + lib/reviews/server.ts
 //        Client: lib/reviews/client.ts (never writes reviews from the browser)
-// MATCH  reviews create              → hardened rules (completed booking, student + tutor match)
+// DENY   reviews create              → POST /api/reviews only (Admin SDK)
 // ADMIN  tutors rating/reviewCount   → POST /api/reviews after a valid create
 //        (server uses the booking tutorId). Admin-only POST /recompute-rating
 //        for moderation/recalculation. Students and tutors cannot set rating
@@ -677,7 +677,8 @@ service cloud.firestore {
       allow delete: if isAdmin();
 
       match /availability/{docId} {
-        allow read: if true;
+        // Slot picker uses GET /api/bookings/occupancy; raw schedules require auth.
+        allow read: if isAuthenticated();
 
         allow create, update: if isTutor()
           && tutorOwnedByAuth(tutorId)
@@ -725,6 +726,7 @@ service cloud.firestore {
       // Admin SDK booking APIs. Clients cannot create or price a booking.
       allow create: if false;
 
+      // Accept, complete, and payment transitions are Admin SDK / API only.
       allow update: if isAdmin()
         || validStudentBookingCancel()
         || (resource.data.tutorId == request.auth.uid
@@ -733,15 +735,7 @@ service cloud.firestore {
             .hasOnly(["status", "updatedAt", "meetingUrl"])
           && request.resource.data.status == "cancelled"
           && (!("paymentStatus" in resource.data)
-            || resource.data.paymentStatus != "paid"))
-        || (resource.data.tutorId == request.auth.uid
-          && resource.data.status == "confirmed"
-          && resource.data.paymentStatus == "paid"
-          && resource.data.scheduledAt <= request.time
-          && request.resource.data.status == "completed"
-          && request.resource.data.completedAt is timestamp
-          && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(["status", "updatedAt", "completedAt"]));
+            || resource.data.paymentStatus != "paid"));
 
       allow delete: if isAdmin();
     }
@@ -788,8 +782,12 @@ service cloud.firestore {
           && request.time < resource.data.createdAt + duration.value(48, "h");
       }
 
-      allow read: if true;
+      // Public tutor cards use GET /api/reviews (no studentId). Authenticated clients
+      // may read for dashboards; unauthenticated enumeration is denied.
+      allow read: if isAuthenticated();
 
+      // Reviews are created only through POST /api/reviews (Admin SDK).
+      // Clients must not write rating aggregates or bypass server validation.
       allow create: if false;
 
       allow update: if isAdmin() || validReviewUpdate();
@@ -915,7 +913,7 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // Mercado Pago webhook receipts — Admin SDK only (lib/payments/process-mercadopago-webhook.ts)
+    // Legacy Mercado Pago webhook receipts — Admin SDK only (historical; unused since unified processor)
     match /mercadopagoWebhookReceipts/{receiptId} {
       allow read, write: if false;
     }

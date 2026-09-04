@@ -23,7 +23,7 @@ describe("client booking writes", () => {
     const source = readFileSync(resolve(process.cwd(), "lib/bookings/service.ts"), "utf8");
     const createFn = source.slice(
       source.indexOf("export async function createBooking"),
-      source.indexOf("export async function updateBookingStatus"),
+      source.indexOf("export { CREATE_BOOKING_ERRORS }"),
     );
 
     expect(createFn).toMatch(/fetch\(\s*["']\/api\/bookings["']/);
@@ -57,5 +57,14 @@ describe("client booking writes", () => {
     expect(source).not.toMatch(/collection\(\s*db\s*,\s*["']bookings["']/);
     expect(source).not.toMatch(/runTransaction/);
     expect(source).not.toMatch(/confirmedStudentIds/);
+  });
+
+  it("sends reviews only to the authorized server path", () => {
+    const source = readFileSync(resolve(process.cwd(), "lib/reviews/client.ts"), "utf8");
+
+    expect(source).toMatch(/fetch\(\s*["']\/api\/reviews["']/);
+    expect(source).toMatch(/Authorization/);
+    expect(source).not.toMatch(/setDoc\s*\(/);
+    expect(source).not.toMatch(/addDoc\s*\(/);
   });
 });

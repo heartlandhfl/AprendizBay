@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getUserProfile, verifyUserIdToken } from "@/lib/auth/admin-server";
+import { verifyUserIdToken } from "@/lib/auth/admin-server";
+import { roleFromDecodedToken } from "@/lib/auth/role-server";
 import { statusFromCompleteLessonError } from "@/lib/bookings/complete-lesson";
 import { completeLessonAsActor } from "@/lib/bookings/server";
 
@@ -17,14 +18,13 @@ function readBearerToken(request: Request): string {
  */
 export async function POST(request: Request) {
   try {
-    const { uid } = await verifyUserIdToken(readBearerToken(request));
+    const { uid, customClaims } = await verifyUserIdToken(readBearerToken(request));
     const body = (await request.json()) as { bookingId?: string };
-    const profile = await getUserProfile(uid);
 
     const result = await completeLessonAsActor({
       bookingId: body.bookingId ?? "",
       actorUid: uid,
-      actorRole: profile?.role,
+      actorClaimRole: roleFromDecodedToken(customClaims) ?? undefined,
     });
 
     return NextResponse.json({ ok: true, ...result });

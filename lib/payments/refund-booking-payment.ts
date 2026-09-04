@@ -23,6 +23,7 @@ export interface RefundBookingPaymentInput {
   actorUid: string;
   bookingId: string;
   description?: string;
+  actorIsAdmin?: boolean;
 }
 
 export interface RefundBookingPaymentSuccess {
@@ -67,8 +68,12 @@ function fail(status: number, error: string): RefundBookingPaymentFailure {
   return { ok: false, status, error };
 }
 
-function canRefundBooking(booking: BookingRecord, actorUid: string): boolean {
-  return booking.studentId === actorUid || booking.tutorId === actorUid;
+function canRefundBooking(
+  booking: BookingRecord,
+  actorUid: string,
+  actorIsAdmin = false,
+): boolean {
+  return actorIsAdmin || booking.studentId === actorUid || booking.tutorId === actorUid;
 }
 
 function getDefaultStore(): RefundStore {
@@ -153,7 +158,7 @@ export async function refundBookingPayment(
   if (!booking) {
     return fail(404, REFUND_ERRORS.notFound);
   }
-  if (!canRefundBooking(booking, input.actorUid)) {
+  if (!canRefundBooking(booking, input.actorUid, input.actorIsAdmin)) {
     return fail(403, REFUND_ERRORS.notAuthorized);
   }
   if (booking.paymentStatus !== "paid") {

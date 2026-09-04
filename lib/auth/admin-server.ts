@@ -4,7 +4,7 @@
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { getAdminApp } from "@/lib/firebase/admin";
-import { assertAdminFromClaims } from "@/lib/auth/role-server";
+import { assertAdminFromClaims, assertStudentActor } from "@/lib/auth/role-server";
 import { normalizeRole } from "@/lib/auth/roles";
 
 export async function verifyUserIdToken(
@@ -51,4 +51,16 @@ export async function verifyAdminIdToken(idToken: string): Promise<string> {
   assertAdminFromClaims(decoded as { role?: unknown });
 
   return decoded.uid;
+}
+
+/** Authoritative student check: privileged claims are rejected; profile must be student when set. */
+export function assertStudentApiActor(
+  customClaims: Record<string, unknown> | undefined,
+  profileRole?: string | null,
+): void {
+  assertStudentActor(customClaims as Parameters<typeof assertStudentActor>[0]);
+  const normalized = profileRole ? normalizeRole(profileRole) : null;
+  if (normalized && normalized !== "student") {
+    throw new Error("Apenas alunos podem realizar esta ação.");
+  }
 }

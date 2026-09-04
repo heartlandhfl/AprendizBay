@@ -1,27 +1,22 @@
-import { describe, expect, it } from "vitest";
-import {
-  generateMeetingRoomToken,
-  generateMeetingUrl,
-} from "@/lib/bookings/meeting-server";
-import { parseSafeMeetingUrl } from "@/lib/bookings/meeting";
-
-describe("generateMeetingRoomToken", () => {
-  it("creates unpredictable room tokens instead of booking ids", () => {
-    const first = generateMeetingRoomToken();
-    const second = generateMeetingRoomToken();
-
-    expect(first).toMatch(/^[a-f0-9]{32}$/);
-    expect(second).toMatch(/^[a-f0-9]{32}$/);
-    expect(first).not.toBe(second);
-    expect(generateMeetingUrl(first)).toBe(`https://meet.jit.si/aprendizbay-${first}`);
-  });
-});
+import { afterEach, describe, expect, it } from "vitest";
+import { generateMeetingUrl as generateMeetingUrlServer } from "@/lib/bookings/meeting-server";
+import { generateMeetingUrl, parseSafeMeetingUrl } from "@/lib/bookings/meeting";
 
 describe("parseSafeMeetingUrl", () => {
-  it("accepts the generated Jitsi meeting URL", () => {
-    const token = generateMeetingRoomToken();
-    const url = generateMeetingUrl(token);
-    expect(parseSafeMeetingUrl(url)).toBe(`https://meet.jit.si/aprendizbay-${token}`);
+  afterEach(() => {
+    delete process.env.JITSI_ROOM_SECRET;
+  });
+
+  it("accepts the generated Jitsi meeting URL without a room secret", () => {
+    const url = generateMeetingUrl("booking-123");
+    expect(parseSafeMeetingUrl(url)).toBe("https://meet.jit.si/aprendizbay-booking-123");
+  });
+
+  it("adds an HMAC suffix when JITSI_ROOM_SECRET is configured", () => {
+    process.env.JITSI_ROOM_SECRET = "test-room-secret";
+    const url = generateMeetingUrlServer("booking-123");
+    expect(url).toMatch(/^https:\/\/meet\.jit\.si\/aprendizbay-booking-123-[a-f0-9]{16}$/);
+    expect(parseSafeMeetingUrl(url)).toBe(url);
   });
 
   it("accepts a normal https meeting link", () => {

@@ -19,6 +19,7 @@ const {
   normalizeTutorId,
   occupancyResponse,
 } = require("../../lib/bookings/occupancy");
+const { roleFromDecodedToken } = require("../../lib/auth/role-server.js");
 const { getAdminFirestore, readBearerToken, verifyIdToken } = require("./firebase-admin");
 const { captureException } = require("./sentry");
 
@@ -82,7 +83,7 @@ bookingsRouter.post("/accept", async (req, res) => {
 
 bookingsRouter.post("/complete", async (req, res) => {
   try {
-    const { uid } = await verifyIdToken(readBearerToken(req));
+    const { uid, customClaims } = await verifyIdToken(readBearerToken(req));
     const db = getAdminFirestore();
     const { FieldValue } = require("firebase-admin/firestore");
     const result = await completeLessonForActor(
@@ -90,6 +91,7 @@ bookingsRouter.post("/complete", async (req, res) => {
       {
         actorUid: uid,
         bookingId: req.body?.bookingId,
+        actorClaimRole: roleFromDecodedToken(customClaims) ?? undefined,
       },
       { timestamp: FieldValue.serverTimestamp() },
     );

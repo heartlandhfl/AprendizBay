@@ -14,6 +14,7 @@ import type { BookingRecord } from "@/lib/bookings/server";
 import { getFirestore } from "firebase-admin/firestore";
 import { getAdminApp } from "@/lib/firebase/admin";
 import { reverseFacilitatorCommissionForBooking } from "@/lib/facilitators/commission";
+import { shouldReleaseHubSeat } from "@/lib/hubs/leave";
 import { refundViaGateway } from "@/lib/payments/refund-via-gateway";
 import type { RefundResult } from "@/lib/payments/gateway/types";
 
@@ -33,6 +34,10 @@ export interface CancelBookingResult {
 export interface CancelTransaction {
   getBooking(bookingId: string): Promise<BookingRecord | null>;
   updateBooking(bookingId: string, updates: Record<string, unknown>): void;
+  releaseCollectiveHubSeat?(input: {
+    hubId: string;
+    studentId: string;
+  }): Promise<void>;
 }
 
 export interface CancelStore {
@@ -109,8 +114,10 @@ function applyBookingUpdates(
 
 export function createMemoryCancelStore(
   bookings: Map<string, BookingRecord> = new Map(),
+  options: { hubReleases?: Array<{ hubId: string; studentId: string }> } = {},
 ): CancelStore & { bookings: Map<string, BookingRecord> } {
   let queue = Promise.resolve();
+  const hubReleases = options.hubReleases ?? [];
 
   return {
     bookings,
@@ -123,6 +130,9 @@ export function createMemoryCancelStore(
           },
           updateBooking(bookingId, updates) {
             pending.push([bookingId, updates]);
+          },
+          async releaseCollectiveHubSeat(input) {
+            hubReleases.push(input);
           },
         };
         const result = await work(tx);
@@ -153,6 +163,20 @@ function toCancelError(error: unknown): CancelBookingError {
     return new CancelBookingError("refund_timeout", 504, CANCEL_ERRORS.refundTimeout);
   }
   return new CancelBookingError("refund_failed", 502, message || CANCEL_ERRORS.refundFailed);
+}
+
+function releaseHubSeatIfNeeded(
+  tx: CancelTransaction,
+  booking: BookingRecord,
+): Promise<void> {
+  if (!shouldReleaseHubSeat(booking) || !booking.hubId || !tx.releaseCollectiveHubSeat) {
+    return Promise.resolve();
+  }
+
+  return tx.releaseCollectiveHubSeat({
+    hubId: booking.hubId,
+    studentId: booking.studentId,
+  });
 }
 
 async function claimCancellation(
@@ -194,6 +218,7 @@ async function claimCancellation(
     }
 
     if (!decision.willRefund) {
+      await releaseHubSeatIfNeeded(tx, booking);
       tx.updateBooking(booking.id, {
         status: "cancelled",
         refundLockUntil: null,
@@ -206,6 +231,7 @@ async function claimCancellation(
     }
 
     if (hasRecordedRefund(booking)) {
+      await releaseHubSeatIfNeeded(tx, booking);
       tx.updateBooking(booking.id, {
         status: "cancelled",
         refundLockUntil: null,
@@ -287,6 +313,7 @@ async function finalizeRefund(
       };
     }
 
+    await releaseHubSeatIfNeeded(tx, booking);
     tx.updateBooking(booking.id, {
       status: "cancelled",
       paymentStatus: "refunded",
