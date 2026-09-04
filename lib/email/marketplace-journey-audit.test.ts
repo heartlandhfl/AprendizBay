@@ -272,7 +272,7 @@ describe("marketplace transactional email journey audit", () => {
       to: "ana@example.com",
       subject: matrixRow(EMAIL_EVENTS.USER_REGISTERED)!.subject,
       names: ["Ana"],
-      linkPaths: ["/bookings"],
+      linkPaths: ["/dashboard"],
       forbidden: /joao@example\.com|\+55/,
     });
 

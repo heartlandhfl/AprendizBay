@@ -6,9 +6,8 @@ import { FormEvent, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { doc, getDoc } from "firebase/firestore";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { getDashboardPath } from "@/lib/auth/dashboard";
 import { getAuthErrorMessage } from "@/lib/auth/errors";
-import { signupPathForRole } from "@/lib/auth/redirects";
+import { postAuthPathForRole, signupPathForRole } from "@/lib/auth/redirects";
 import { signInWithEmail, signInWithGoogle } from "@/lib/auth/service";
 import type { UserDoc } from "@/lib/auth/types";
 import { db, requireFirebaseApp } from "@/lib/firebase/client";
@@ -29,7 +28,7 @@ export default function LoginForm() {
     }
 
     const redirectParam = searchParams.get("next") || searchParams.get("redirect");
-    router.replace(redirectParam || getDashboardPath(userDoc.role));
+    router.replace(redirectParam || postAuthPathForRole(userDoc.role));
   }, [authLoading, router, searchParams, user, userDoc]);
 
   if (authLoading || (user && userDoc)) {
@@ -51,7 +50,7 @@ export default function LoginForm() {
 
     const profileData = profile.data() as UserDoc;
     const redirectParam = searchParams.get("next") || searchParams.get("redirect");
-    router.replace(redirectParam || getDashboardPath(profileData.role));
+    router.replace(redirectParam || postAuthPathForRole(profileData.role));
   }
 
   async function handleEmailLogin(event: FormEvent<HTMLFormElement>) {

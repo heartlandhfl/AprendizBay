@@ -106,3 +106,36 @@ export function isLecturerRole(role: string | null | undefined): boolean {
 export function isStudentRole(role: string | null | undefined): boolean {
   return normalizeRole(role) === "student";
 }
+
+export function isAdminRole(role: string | null | undefined): boolean {
+  return normalizeRole(role) === "admin";
+}
+
+export function isFacilitatorRole(role: string | null | undefined): boolean {
+  return normalizeRole(role) === "facilitator";
+}
+
+export function isSupportRole(role: string | null | undefined): boolean {
+  return normalizeRole(role) === "support";
+}
+
+/**
+ * Authorization check that treats legacy `tutor` as `lecturer`.
+ * Pass canonical roles in route guards (`["lecturer"]`, `["admin"]`, …);
+ * stored profile values of `tutor` still satisfy lecturer-only routes.
+ */
+export function roleMatchesAny(
+  actual: string | null | undefined,
+  allowed: readonly string[] | null | undefined,
+): boolean {
+  if (!allowed || allowed.length === 0) {
+    return true;
+  }
+
+  const normalizedActual = normalizeRole(actual);
+  if (!normalizedActual) {
+    return false;
+  }
+
+  return allowed.some((role) => normalizeRole(role) === normalizedActual);
+}

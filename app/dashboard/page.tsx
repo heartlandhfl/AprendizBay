@@ -1,20 +1,20 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import RequireAuth from "@/components/auth/RequireAuth";
-import TutorProfileSettings from "@/components/tutors/TutorProfileSettings";
+import StudentHome from "@/components/dashboard/StudentHome";
 import { PRIVATE_ROBOTS } from "@/lib/seo/robots-policy";
 
 export const metadata: Metadata = {
-  title: "Configurações do professor — Aprendiz Bay",
+  title: "Início — Aprendiz Bay",
   robots: PRIVATE_ROBOTS,
 };
 
-export default function TutorSettingsPage() {
+export default function StudentDashboardPage() {
   return (
     <Suspense fallback={null}>
-      <RequireAuth roles={["lecturer"]}>
-        <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
-          <TutorProfileSettings />
+      <RequireAuth roles={["student"]}>
+        <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
+          <StudentHome />
         </div>
       </RequireAuth>
     </Suspense>

@@ -50,7 +50,9 @@ export default function RootLayout({
           <Suspense fallback={null}>
             <ReferralCapture />
           </Suspense>
-          <Navbar />
+          <Suspense fallback={null}>
+            <Navbar />
+          </Suspense>
           <main className="flex-1">{children}</main>
           <Footer />
           <CookieConsentBanner />

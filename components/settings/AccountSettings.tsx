@@ -4,15 +4,10 @@ import Link from "next/link";
 import { Cookie, Settings, Shield, UserRound } from "lucide-react";
 import DeleteAccountSection from "@/components/settings/DeleteAccountSection";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { isLecturerRole, roleDisplayLabel } from "@/lib/auth/roles";
 import { openCookiePreferences, readCookieConsent } from "@/lib/legal/cookie-consent";
 import { useEffect, useState } from "react";
 import { COOKIE_PREFERENCES_EVENT } from "@/lib/legal/constants";
-
-const ROLE_LABELS: Record<string, string> = {
-  student: "Aluno",
-  tutor: "Professor",
-  admin: "Administrador",
-};
 
 export default function AccountSettings() {
   const { user, userDoc } = useAuth();
@@ -39,7 +34,7 @@ export default function AccountSettings() {
 
   const displayName = userDoc?.displayName || user.displayName || "Usuário";
   const email = userDoc?.email || user.email || "—";
-  const roleLabel = userDoc?.role ? ROLE_LABELS[userDoc.role] ?? userDoc.role : "—";
+  const roleLabel = userDoc?.role ? roleDisplayLabel(userDoc.role) : "—";
 
   return (
     <div className="space-y-8">
@@ -72,7 +67,7 @@ export default function AccountSettings() {
             <dd className="mt-1 text-sm text-foreground">{roleLabel}</dd>
           </div>
         </dl>
-        {userDoc?.role === "tutor" && (
+        {isLecturerRole(userDoc?.role) && (
           <Link
             href="/tutor/settings"
             className="mt-6 inline-flex h-11 items-center justify-center rounded-2xl border border-border px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted"

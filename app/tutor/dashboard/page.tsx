@@ -17,7 +17,7 @@ import VerificationStatusBanner from "@/components/tutors/VerificationStatusBann
 export default function TutorDashboardPage() {
   return (
     <Suspense fallback={null}>
-      <RequireAuth roles={["tutor"]}>
+      <RequireAuth roles={["lecturer"]}>
         <div className="mx-auto max-w-7xl space-y-8 px-4 py-12 sm:px-6 lg:px-8">
           <IncompleteProfileBanner />
           <VerificationStatusBanner />
