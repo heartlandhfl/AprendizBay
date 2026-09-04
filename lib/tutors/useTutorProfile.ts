@@ -40,7 +40,7 @@ export function useTutorProfile() {
   return {
     tutorDoc,
     loading,
-    isProfileComplete: !!tutorDoc,
+    isProfileComplete: completion.percentage === 100,
     completion,
   };
 }

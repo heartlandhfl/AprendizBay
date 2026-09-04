@@ -33,11 +33,27 @@ export interface LearningSummary {
   professors: Array<{ tutorId: string; tutorName: string }>;
 }
 
+export const LEARNING_OBJECTIVES = [
+  "Reforço escolar",
+  "Preparação para ENEM",
+  "Vestibular",
+  "Faculdade",
+  "Desenvolvimento profissional",
+  "Aprender por interesse pessoal",
+  "Outro",
+] as const;
+
+export type LearningObjective = (typeof LEARNING_OBJECTIVES)[number];
+
 export interface StudentLearningProfile {
+  city?: string;
+  state?: string;
+  phone?: string;
   preferredSubject?: string;
   preferredLevel?: string;
   preferredModality?: Modality | "";
   preferredCity?: string;
+  learningObjective?: string;
 }
 
 export interface LessonCta {

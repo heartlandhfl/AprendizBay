@@ -18,8 +18,8 @@ describe("auth redirects", () => {
     expect(panelPathForRole("lecturer")).toBe("/tutor/dashboard");
   });
 
-  it("routes students to the student dashboard", () => {
-    expect(postAuthPathForRole("student")).toBe("/dashboard");
+  it("routes students to account setup after signup", () => {
+    expect(postAuthPathForRole("student")).toBe("/account/setup");
     expect(panelPathForRole("student")).toBe("/dashboard");
   });
 

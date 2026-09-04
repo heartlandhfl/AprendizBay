@@ -1,15 +1,38 @@
+import {
+  postLoginDestination,
+  signupDestinationForRole,
+} from "@/lib/auth/account-setup";
 import { normalizeRole, type ProfileRole } from "@/lib/auth/roles";
+import type { UserDoc } from "@/lib/auth/types";
+import type { StudentLearningProfile } from "@/lib/student-dashboard/types";
+import type { FirestoreTutorDoc } from "@/lib/tutors/firestore-types";
+
+export { postLoginDestination, signupDestinationForRole } from "@/lib/auth/account-setup";
 
 /**
  * Canonical post-login / post-signup destinations.
  *
- * Lecturers always enter through `/tutor/onboarding`. That page already
- * replaces to `/tutor/dashboard` when the professor profile is complete,
- * so this remains the safe post-auth path without a second completeness check.
+ * New accounts enter account setup before the dashboard. Returning users are
+ * routed through `postLoginDestination`, which checks setup completion.
  *
  * `panelPathForRole` is the authenticated home link (navbar "Meu painel").
  */
 export function postAuthPathForRole(role: ProfileRole | null | undefined): string {
+  return signupDestinationForRole(role);
+}
+
+export function resolvePostAuthDestination(input: {
+  role: ProfileRole | null | undefined;
+  userDoc?: UserDoc | null;
+  learningProfile?: StudentLearningProfile | null;
+  tutorDoc?: FirestoreTutorDoc | null;
+  requestedPath?: string | null;
+}): string {
+  return postLoginDestination(input);
+}
+
+/** @deprecated Prefer `signupDestinationForRole` or `postLoginDestination`. */
+export function legacyPostAuthPathForRole(role: ProfileRole | null | undefined): string {
   switch (normalizeRole(role)) {
     case "lecturer":
       return "/tutor/onboarding";

@@ -10,6 +10,9 @@ function mapLearningProfile(data: Record<string, unknown> | undefined): StudentL
   }
 
   return {
+    city: typeof data.city === "string" ? data.city : undefined,
+    state: typeof data.state === "string" ? data.state : undefined,
+    phone: typeof data.phone === "string" ? data.phone : undefined,
     preferredSubject:
       typeof data.preferredSubject === "string" ? data.preferredSubject : undefined,
     preferredLevel:
@@ -22,6 +25,8 @@ function mapLearningProfile(data: Record<string, unknown> | undefined): StudentL
         : undefined,
     preferredCity:
       typeof data.preferredCity === "string" ? data.preferredCity : undefined,
+    learningObjective:
+      typeof data.learningObjective === "string" ? data.learningObjective : undefined,
   };
 }
 
@@ -63,10 +68,14 @@ export async function saveStudentLearningProfile(
   await setDoc(
     doc(db, "users", studentId, "learning", PROFILE_DOC_ID),
     {
+      city: profile.city?.trim() || null,
+      state: profile.state?.trim() || null,
+      phone: profile.phone?.trim() || null,
       preferredSubject: profile.preferredSubject?.trim() || null,
       preferredLevel: profile.preferredLevel?.trim() || null,
       preferredModality: profile.preferredModality || null,
       preferredCity: profile.preferredCity?.trim() || null,
+      learningObjective: profile.learningObjective?.trim() || null,
       updatedAt: serverTimestamp(),
     },
     { merge: true },

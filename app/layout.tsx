@@ -4,6 +4,7 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import CookieConsentBanner from "@/components/legal/CookieConsentBanner";
 import ReferralCapture from "@/components/referrals/ReferralCapture";
+import AccountSetupGate from "@/components/auth/AccountSetupGate";
 import ObservabilityProvider from "@/components/observability/ObservabilityProvider";
 import { AuthProvider } from "@/lib/auth/AuthContext";
 import { getSiteUrl } from "@/lib/seo/site-url";
@@ -47,6 +48,9 @@ export default function RootLayout({
       <body className="flex min-h-screen flex-col font-sans">
         <AuthProvider>
           <ObservabilityProvider />
+          <Suspense fallback={null}>
+            <AccountSetupGate />
+          </Suspense>
           <Suspense fallback={null}>
             <ReferralCapture />
           </Suspense>

@@ -129,9 +129,9 @@ export default function ProfessorHome() {
       })
       .catch((error: unknown) => {
         if (!cancelled) {
-          setEarningsError(
-            error instanceof Error ? error.message : "Não foi possível carregar seus ganhos.",
-          );
+          console.error("professor earnings fetch failed", error);
+          setEarnings(null);
+          setEarningsError(null);
         }
       })
       .finally(() => {
@@ -181,6 +181,12 @@ export default function ProfessorHome() {
         <h1 className="text-3xl font-bold tracking-tight text-foreground">
           Olá, {firstName}! 👋
         </h1>
+        <div className="rounded-3xl bg-surface p-5 shadow-soft ring-1 ring-border/60">
+          <p className="text-sm font-semibold text-primary-700">Encontrar alunos</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Em breve: encontre alunos que procuram o que você ensina.
+          </p>
+        </div>
         {!profileLoading ? (
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-muted-foreground">

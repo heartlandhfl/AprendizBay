@@ -542,9 +542,17 @@ service cloud.firestore {
       let data = request.resource.data;
 
       return data.keys().hasOnly([
-          "preferredSubject", "preferredLevel", "preferredModality",
-          "preferredCity", "updatedAt"
+          "city", "state", "phone", "preferredSubject", "preferredLevel", "preferredModality",
+          "preferredCity", "learningObjective", "updatedAt"
         ])
+        && (!("city" in data) || data.city == null
+          || (data.city is string && data.city.size() <= 80))
+        && (!("state" in data) || data.state == null
+          || (data.state is string && data.state.size() <= 2))
+        && (!("phone" in data) || data.phone == null
+          || (data.phone is string && data.phone.size() <= 20))
+        && (!("learningObjective" in data) || data.learningObjective == null
+          || (data.learningObjective is string && data.learningObjective.size() <= 80))
         && (!("preferredSubject" in data) || data.preferredSubject == null
           || (data.preferredSubject is string && data.preferredSubject.size() <= 80))
         && (!("preferredLevel" in data) || data.preferredLevel == null

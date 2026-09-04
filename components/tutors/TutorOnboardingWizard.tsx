@@ -149,7 +149,9 @@ export default function TutorOnboardingWizard() {
 
       router.replace("/tutor/dashboard");
     } catch {
-      setError("Não foi possível salvar seu perfil. Tente novamente.");
+      setError(
+        "Não conseguimos salvar suas informações. Verifique os dados e tente novamente.",
+      );
     } finally {
       setSubmitting(false);
     }

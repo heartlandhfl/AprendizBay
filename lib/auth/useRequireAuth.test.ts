@@ -2,6 +2,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useRequireAuth } from "@/lib/auth/useRequireAuth";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { useAccountSetupStatus } from "@/lib/auth/useAccountSetupStatus";
 
 const { mockReplace } = vi.hoisted(() => ({
   mockReplace: vi.fn(),
@@ -17,15 +18,51 @@ vi.mock("@/lib/auth/AuthContext", () => ({
   useAuth: vi.fn(),
 }));
 
+vi.mock("@/lib/auth/useAccountSetupStatus", () => ({
+  useAccountSetupStatus: vi.fn(),
+}));
+
 function mockAuth(overrides: {
   user?: { uid: string } | null;
   userDoc?: { role: string } | null;
   loading?: boolean;
+  setupComplete?: boolean;
 }) {
+  const role = overrides.userDoc?.role;
+  const setupComplete = overrides.setupComplete ?? true;
+
   vi.mocked(useAuth).mockReturnValue({
     user: (overrides.user ?? null) as never,
     userDoc: (overrides.userDoc ?? null) as never,
     loading: overrides.loading ?? false,
+  });
+
+  vi.mocked(useAccountSetupStatus).mockReturnValue({
+    role: (role as "student" | "lecturer" | null) ?? null,
+    userDoc: (overrides.userDoc ?? null) as never,
+    learningProfile: setupComplete ? { preferredSubject: "Inglês", preferredModality: "online" } : {},
+    tutorDoc: setupComplete && (role === "lecturer" || role === "tutor")
+      ? ({
+          userId: "tutor-1",
+          name: "Professor",
+          subject: "Matemática",
+          city: "São Paulo",
+          state: "SP",
+          bio: "Professor com mais de dez anos de experiência.",
+          avatarUrl: "https://example.com/avatar.jpg",
+          individualPrice: 80,
+          collectivePrice: 30,
+          modality: "online",
+          credentialFileName: "diploma.pdf",
+          isVerified: false,
+          isOnline: true,
+          rating: 0,
+          reviewCount: 0,
+        } as never)
+      : null,
+    isComplete: setupComplete,
+    setupPath: role === "student" ? "/account/setup" : "/tutor/onboarding",
+    loading: false,
   });
 }
 
