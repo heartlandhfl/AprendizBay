@@ -2,6 +2,7 @@
 
 const { Router } = require("express");
 const { accountRouter } = require("./account");
+const { authRouter } = require("./auth");
 const { adminRouter } = require("./admin");
 const { bookingsRouter } = require("./bookings");
 const { contactRouter } = require("./contact");
@@ -25,6 +26,7 @@ const { usersRouter } = require("./users");
 const apiRouter = Router();
 
 apiRouter.use("/account", accountRouter);
+apiRouter.use("/auth", authRouter);
 apiRouter.use("/admin", adminRouter);
 apiRouter.use("/bookings", bookingsRouter);
 apiRouter.use("/contact", contactRouter);

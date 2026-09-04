@@ -12,6 +12,8 @@ import { auth, db, requireFirebaseApp } from "@/lib/firebase/client";
 import type { SignupRole } from "@/lib/auth/types";
 import { writeOwnPublicProfile } from "@/lib/users/public-profile";
 
+const PUBLIC_DISPLAY_NAME_MAX_LENGTH = 120;
+
 async function syncSignupRoleClaim(user: User): Promise<void> {
   const idToken = await user.getIdToken();
   const response = await fetch("/api/auth/sync-signup-role", {
@@ -23,7 +25,11 @@ async function syncSignupRoleClaim(user: User): Promise<void> {
 
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(payload?.error ?? "Não foi possível concluir o cadastro do papel.");
+    console.warn(
+      "[Aprendiz Bay] Falha ao sincronizar papel de professor:",
+      payload?.error ?? response.status,
+    );
+    return;
   }
 
   await user.getIdToken(true);
@@ -38,19 +44,46 @@ interface CreateUserDocumentInput {
   photoUrl?: string | null;
 }
 
+function normalizeDisplayName(value: string | null | undefined): string {
+  const trimmed = value?.trim() || "Usuário";
+  return trimmed.slice(0, PUBLIC_DISPLAY_NAME_MAX_LENGTH);
+}
+
+async function resolveSignupEmail(user: User, fallbackEmail?: string | null): Promise<string> {
+  const tokenResult = await user.getIdTokenResult();
+  const tokenEmail =
+    typeof tokenResult.claims.email === "string" ? tokenResult.claims.email : null;
+  const email = (tokenEmail ?? fallbackEmail ?? user.email ?? "").trim().toLowerCase();
+
+  if (!email) {
+    throw new Error("Não foi possível obter o e-mail da conta Google.");
+  }
+
+  return email;
+}
+
 async function createUserDocument(
   uid: string,
   { role, displayName, email, photoUrl }: CreateUserDocumentInput,
 ): Promise<void> {
   await requireFirebaseApp();
+  const normalizedDisplayName = normalizeDisplayName(displayName);
+  const normalizedEmail = email.trim().toLowerCase();
+
   await setDoc(doc(db, "users", uid), {
     role,
-    displayName,
-    email,
+    displayName: normalizedDisplayName,
+    email: normalizedEmail,
     ...(photoUrl ? { photoUrl } : {}),
     createdAt: serverTimestamp(),
   });
-  await writeOwnPublicProfile(uid, { displayName, photoUrl });
+  await writeOwnPublicProfile(uid, { displayName: normalizedDisplayName, photoUrl });
+}
+
+async function ensureTutorClaim(user: User, role: SignupRole): Promise<void> {
+  if (role === "tutor") {
+    await syncSignupRoleClaim(user);
+  }
 }
 
 export async function signUpWithEmail(
@@ -61,18 +94,17 @@ export async function signUpWithEmail(
 ): Promise<User> {
   await requireFirebaseApp();
   const credential = await createUserWithEmailAndPassword(auth, email, password);
+  const normalizedEmail = email.trim().toLowerCase();
 
-  await updateProfile(credential.user, { displayName });
+  await updateProfile(credential.user, { displayName: normalizeDisplayName(displayName) });
   await createUserDocument(credential.user.uid, {
     role,
     displayName,
-    email: credential.user.email ?? email,
+    email: normalizedEmail,
     photoUrl: credential.user.photoURL,
   });
 
-  if (role === "tutor") {
-    await syncSignupRoleClaim(credential.user);
-  }
+  await ensureTutorClaim(credential.user, role);
 
   return credential.user;
 }
@@ -87,20 +119,16 @@ export async function signUpWithGoogle(role: SignupRole): Promise<User> {
     throw new Error("Conta já existente. Faça login para continuar.");
   }
 
-  if (!user.email) {
-    throw new Error("Não foi possível obter o e-mail da conta Google.");
-  }
+  const email = await resolveSignupEmail(user);
 
   await createUserDocument(user.uid, {
     role,
-    displayName: user.displayName?.trim() || "Usuário",
-    email: user.email,
+    displayName: user.displayName ?? "Usuário",
+    email,
     photoUrl: user.photoURL,
   });
 
-  if (role === "tutor") {
-    await syncSignupRoleClaim(user);
-  }
+  await ensureTutorClaim(user, role);
 
   return user;
 }
@@ -127,23 +155,20 @@ export async function completeGoogleSignup(role: SignupRole): Promise<User> {
 
   const existingDoc = await getDoc(doc(db, "users", user.uid));
   if (existingDoc.exists()) {
-    throw new Error("Perfil já cadastrado. Faça login para continuar.");
+    await ensureTutorClaim(user, role);
+    return user;
   }
 
-  if (!user.email) {
-    throw new Error("Não foi possível obter o e-mail da conta Google.");
-  }
+  const email = await resolveSignupEmail(user);
 
   await createUserDocument(user.uid, {
     role,
-    displayName: user.displayName?.trim() || "Usuário",
-    email: user.email,
+    displayName: user.displayName ?? "Usuário",
+    email,
     photoUrl: user.photoURL,
   });
 
-  if (role === "tutor") {
-    await syncSignupRoleClaim(user);
-  }
+  await ensureTutorClaim(user, role);
 
   return user;
 }
