@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { BrandLogoLink } from "@/components/brand/BrandLogo";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { getDashboardLabel, getDashboardPath, shouldShowBecomeTutorNav } from "@/lib/auth/dashboard";
+import { isLecturerRole } from "@/lib/auth/roles";
 import { usePendingBookingCount } from "@/lib/bookings/usePendingBookingCount";
 import { signOut } from "@/lib/auth/service";
 
@@ -42,17 +44,16 @@ export default function Navbar() {
   }
 
   const displayName = userDoc?.displayName || user?.displayName || "Usuário";
-  const dashboardHref =
-    userDoc?.role === "admin"
-      ? "/admin"
-      : userDoc?.role === "tutor"
-        ? "/tutor/dashboard"
-        : "/bookings";
+  const dashboardHref = getDashboardPath(userDoc?.role);
+  const dashboardLabel = getDashboardLabel(userDoc?.role);
+  const showBecomeTutorNav = !user && !loading;
+  const showDashboardNav = !!user && !loading;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-surface/80 backdrop-blur-md">
       <nav className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:gap-6 sm:px-6 lg:px-8">
         <BrandLogoLink
+          href={showDashboardNav ? dashboardHref : "/"}
           height={40}
           priority
           variant="compact"
@@ -73,12 +74,29 @@ export default function Navbar() {
         </div>
 
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
-          <Link
-            href="/seja-professor"
-            className="hidden rounded-2xl px-3 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50 sm:inline-flex"
-          >
-            Seja um Professor
-          </Link>
+          {showBecomeTutorNav && shouldShowBecomeTutorNav(userDoc?.role) && (
+            <Link
+              href="/seja-professor"
+              className="hidden rounded-2xl px-3 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50 sm:inline-flex"
+            >
+              Seja um Professor
+            </Link>
+          )}
+
+          {showDashboardNav && (
+            <Link
+              href={dashboardHref}
+              className="relative hidden items-center gap-2 rounded-2xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-soft transition-colors hover:bg-primary-700 sm:inline-flex"
+            >
+              <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
+              {dashboardLabel}
+              {isLecturerRole(userDoc?.role) && pendingBookingCount > 0 && (
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-secondary-500 px-1.5 text-[10px] font-bold text-white">
+                  {pendingBookingCount > 9 ? "9+" : pendingBookingCount}
+                </span>
+              )}
+            </Link>
+          )}
 
           {!loading && !user && (
             <>
@@ -133,14 +151,14 @@ export default function Navbar() {
                     role="menuitem"
                   >
                     <LayoutDashboard className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                    {userDoc?.role === "admin" ? "Painel admin" : "Meu painel"}
-                    {userDoc?.role === "tutor" && pendingBookingCount > 0 && (
+                    {dashboardLabel}
+                    {isLecturerRole(userDoc?.role) && pendingBookingCount > 0 && (
                       <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-secondary-500 px-1.5 text-[10px] font-bold text-white">
                         {pendingBookingCount > 9 ? "9+" : pendingBookingCount}
                       </span>
                     )}
                   </Link>
-                  {userDoc?.role === "tutor" && (
+                  {isLecturerRole(userDoc?.role) && (
                     <Link
                       href="/tutor/settings"
                       onClick={() => setMenuOpen(false)}

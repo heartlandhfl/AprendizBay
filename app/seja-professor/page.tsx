@@ -8,6 +8,7 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
+import SejaProfessorRedirect from "@/components/seja-professor/SejaProfessorRedirect";
 
 export const metadata: Metadata = {
   title: "Seja um Professor — Aprendiz Bay",
@@ -68,6 +69,7 @@ const steps = [
 export default function SejaProfessorPage() {
   return (
     <>
+      <SejaProfessorRedirect />
       <section className="relative overflow-hidden">
         <div
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary-100/60 via-background to-background"

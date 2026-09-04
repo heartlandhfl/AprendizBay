@@ -12,6 +12,7 @@ import {
   signUpWithGoogle,
 } from "@/lib/auth/service";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { getDashboardPath } from "@/lib/auth/dashboard";
 import type { SignupRole } from "@/lib/auth/types";
 import { trackEvent } from "@/lib/analytics/client";
 import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
@@ -46,7 +47,7 @@ export default function SignupForm({ defaultRole = "student" }: SignupFormProps)
 
     if (user && userDoc) {
       router.replace(
-        userDoc.role === "tutor" ? "/tutor/onboarding" : "/bookings",
+        userDoc.role === "tutor" ? "/tutor/onboarding" : getDashboardPath(userDoc.role),
       );
     }
   }, [authLoading, router, user, userDoc]);
@@ -81,7 +82,7 @@ export default function SignupForm({ defaultRole = "student" }: SignupFormProps)
       void requestNotification({ type: "user_registered", userId: createdUser.uid });
       void requestNotification({ type: "email_verification", userId: createdUser.uid });
       await attachStoredReferralIfPresent();
-      router.replace(role === "tutor" ? "/tutor/onboarding" : "/bookings");
+      router.replace(role === "tutor" ? "/tutor/onboarding" : getDashboardPath("student"));
     } catch (signupError) {
       setError(getAuthErrorMessage(signupError));
     } finally {
@@ -100,7 +101,7 @@ export default function SignupForm({ defaultRole = "student" }: SignupFormProps)
       trackEvent(ANALYTICS_EVENTS.signUp, { role, method: "google" });
       void requestNotification({ type: "user_registered", userId: signedUpUser.uid });
       await attachStoredReferralIfPresent();
-      router.replace(role === "tutor" ? "/tutor/onboarding" : "/bookings");
+      router.replace(role === "tutor" ? "/tutor/onboarding" : getDashboardPath("student"));
     } catch (signupError) {
       setError(getAuthErrorMessage(signupError));
     } finally {

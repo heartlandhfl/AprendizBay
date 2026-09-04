@@ -2,20 +2,40 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { doc, getDoc } from "firebase/firestore";
+import { useAuth } from "@/lib/auth/AuthContext";
 import { getAuthErrorMessage } from "@/lib/auth/errors";
+import { getDashboardPath } from "@/lib/auth/dashboard";
 import { signInWithEmail, signInWithGoogle } from "@/lib/auth/service";
 import { db, requireFirebaseApp } from "@/lib/firebase/client";
 
 export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user, userDoc, loading: authLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (authLoading || !user || !userDoc) {
+      return;
+    }
+
+    const redirectParam = searchParams.get("next") || searchParams.get("redirect");
+    router.replace(redirectParam || getDashboardPath(userDoc.role));
+  }, [authLoading, router, searchParams, user, userDoc]);
+
+  if (authLoading || (user && userDoc)) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-primary-600" aria-hidden="true" />
+      </div>
+    );
+  }
 
   async function redirectAfterLogin(uid: string) {
     await requireFirebaseApp();
@@ -27,7 +47,8 @@ export default function LoginForm() {
     }
 
     const redirectParam = searchParams.get("next") || searchParams.get("redirect");
-    router.replace(redirectParam || "/");
+    const role = profile.data()?.role as string | undefined;
+    router.replace(redirectParam || getDashboardPath(role));
   }
 
   async function handleEmailLogin(event: FormEvent<HTMLFormElement>) {
