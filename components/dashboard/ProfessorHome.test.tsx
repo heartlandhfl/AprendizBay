@@ -7,6 +7,7 @@ const {
   mockUseTutorProfile,
   mockSubscribeBookings,
   mockSubscribeHubs,
+  mockSubscribeConversations,
   mockFetchEarnings,
   mockFetchName,
 } = vi.hoisted(() => ({
@@ -14,6 +15,7 @@ const {
   mockUseTutorProfile: vi.fn(),
   mockSubscribeBookings: vi.fn(),
   mockSubscribeHubs: vi.fn(),
+  mockSubscribeConversations: vi.fn(),
   mockFetchEarnings: vi.fn(),
   mockFetchName: vi.fn(),
 }));
@@ -35,22 +37,22 @@ vi.mock("@/lib/hubs/service", () => ({
   subscribeToTutorCollectiveHubs: (...args: unknown[]) => mockSubscribeHubs(...args),
 }));
 
+vi.mock("@/lib/conversations/service", () => ({
+  subscribeToUserConversations: (...args: unknown[]) => mockSubscribeConversations(...args),
+}));
+
 vi.mock("@/lib/tutors/earnings-client", () => ({
   fetchOwnTutorEarnings: () => mockFetchEarnings(),
 }));
 
 vi.mock("@/components/availability/TutorAvailabilityEditor", () => ({
-  default: () => <section>Quando você pode dar aulas?</section>,
+  default: () => <section>Editor de disponibilidade</section>,
 }));
 
 vi.mock("@/components/bookings/TutorDashboardBookings", () => ({
   default: ({ embedded }: { embedded?: boolean }) => (
     <div>Novas solicitações {embedded ? "embedded" : "standalone"}</div>
   ),
-}));
-
-vi.mock("@/components/bookings/TutorConfirmedBookings", () => ({
-  default: () => <div>Aulas confirmadas</div>,
 }));
 
 vi.mock("@/components/hubs/CreateHubForm", () => ({
@@ -74,10 +76,16 @@ describe("ProfessorHome", () => {
       loading: false,
     });
     mockUseTutorProfile.mockReturnValue({
-      tutorDoc: { name: "Mariana Silva" },
+      tutorDoc: { name: "Mariana Silva", subject: "Inglês", modality: "online" },
       loading: false,
-      isProfileComplete: true,
-      completion: { percentage: 86, hasProfile: true, missing: ["credential"], filled: 6, total: 7 },
+      isProfileComplete: false,
+      completion: {
+        percentage: 86,
+        hasProfile: true,
+        missing: ["credential"],
+        filled: 6,
+        total: 7,
+      },
     });
     mockSubscribeBookings.mockImplementation((_id, onChange) => {
       onChange([]);
@@ -87,42 +95,44 @@ describe("ProfessorHome", () => {
       onChange([]);
       return () => {};
     });
+    mockSubscribeConversations.mockImplementation((_id, onChange) => {
+      onChange([]);
+      return () => {};
+    });
     mockFetchEarnings.mockResolvedValue({
       paidTotal: 80,
-      pendingTotal: 0,
+      pendingTotal: 20,
       processingTotal: 0,
       paidCount: 1,
-      pendingCount: 0,
+      pendingCount: 1,
       processingCount: 0,
     });
     mockFetchName.mockResolvedValue("Ana Souza");
   });
 
-  it("renders the professor shell, navigation and profile completion", async () => {
+  it("renders the production professor header and primary actions", async () => {
     render(<ProfessorHome />);
 
-    expect(screen.getByRole("heading", { name: "Olá, Mariana! 👋" })).toBeInTheDocument();
-    expect(screen.getByText("Seu perfil está 86% completo")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Completar perfil" })).toHaveAttribute(
-      "href",
-      "/tutor/settings",
-    );
-    expect(screen.getByRole("navigation", { name: "Navegação do professor" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Início" })).toHaveAttribute("href", "/tutor/dashboard");
-    expect(screen.getByRole("link", { name: "Solicitações" })).toHaveAttribute(
-      "href",
-      "/tutor/dashboard#solicitacoes",
-    );
-    expect(screen.getByRole("link", { name: "Meus Alunos" })).toHaveAttribute(
-      "href",
-      "/tutor/dashboard#alunos",
-    );
-    expect(screen.getByText("Novas solicitações embedded")).toBeInTheDocument();
-    expect(screen.getByText("Quando você pode dar aulas?")).toBeInTheDocument();
-    expect((await screen.findAllByText(/R\$\s*80/)).length).toBeGreaterThan(0);
     expect(
-      screen.queryByText("Você ainda não recebeu solicitações de aula."),
-    ).not.toBeInTheDocument();
+      screen.getByRole("heading", { name: "Olá, Professor(a) Mariana! 👋" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Perfil 86% completo")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Completar cadastro" })).toHaveAttribute(
+      "href",
+      "/tutor/onboarding",
+    );
+    expect(screen.getAllByRole("link", { name: "Ver meu perfil" }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("link", { name: "Gerenciar disponibilidade" })[0]).toHaveAttribute(
+      "href",
+      "#disponibilidade",
+    );
+    expect(screen.getByRole("link", { name: "Ver minhas aulas" })).toHaveAttribute(
+      "href",
+      "/bookings",
+    );
+    expect(screen.getByText("Encontrar oportunidades (em breve)")).toBeInTheDocument();
+    expect(screen.getByText("Novas solicitações embedded")).toBeInTheDocument();
+    expect(await screen.findByText(/R\$\s*80/)).toBeInTheDocument();
   });
 
   it("shows empty states for upcoming classes, hubs and students", () => {
@@ -135,7 +145,7 @@ describe("ProfessorHome", () => {
     expect(screen.getByText("Você ainda não tem alunos.")).toBeInTheDocument();
   });
 
-  it("shows upcoming individual and group lessons from existing booking and hub data", async () => {
+  it("shows upcoming confirmed paid lessons from existing booking data", async () => {
     mockSubscribeBookings.mockImplementation((_id, onChange) => {
       onChange([
         {
@@ -144,24 +154,8 @@ describe("ProfessorHome", () => {
           tutorId: "tutor-1",
           type: "individual",
           status: "confirmed",
+          paymentStatus: "paid",
           scheduledAt: timestamp("2099-09-10T14:00:00"),
-        },
-      ]);
-      return () => {};
-    });
-    mockSubscribeHubs.mockImplementation((_id, onChange) => {
-      onChange([
-        {
-          id: "hub-1",
-          title: "Inglês para Viagem",
-          subject: "Inglês",
-          status: "open",
-          modality: "online",
-          confirmedStudents: 2,
-          maxStudents: 6,
-          scheduledDate: "2099-09-12",
-          startTime: "19:00",
-          schedule: "Sexta 19h",
         },
       ]);
       return () => {};
@@ -171,11 +165,33 @@ describe("ProfessorHome", () => {
 
     expect((await screen.findAllByText("Ana Souza")).length).toBeGreaterThan(0);
     expect(screen.getByText("Individual")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Entrar na aula" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Ver aula" })).toHaveAttribute(
       "href",
       "/aulas/ind-1",
     );
-    expect(screen.getAllByText("Inglês para Viagem").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Coletiva").length).toBeGreaterThan(0);
+  });
+
+  it("shows message preview from existing conversations", async () => {
+    mockSubscribeConversations.mockImplementation((_id, onChange) => {
+      onChange([
+        {
+          id: "student-1_tutor-1",
+          studentId: "student-1",
+          tutorId: "tutor-1",
+          participantIds: ["student-1", "tutor-1"],
+          studentName: "Ana Souza",
+          lastMessage: "Olá, professor!",
+        },
+      ]);
+      return () => {};
+    });
+
+    render(<ProfessorHome />);
+
+    expect(await screen.findByText("Olá, professor!")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ver mensagens" })).toHaveAttribute(
+      "href",
+      "/mensagens",
+    );
   });
 });

@@ -16,6 +16,7 @@ function booking(overrides: Partial<Booking> & Pick<Booking, "id" | "type" | "sc
     studentId: "student-1",
     tutorId: "tutor-1",
     status: "confirmed",
+    paymentStatus: "paid",
     price: 70,
     createdAt: timestamp("2026-09-01T10:00:00") as Booking["createdAt"],
     ...overrides,
@@ -45,14 +46,16 @@ function hub(overrides: Partial<CollectiveHubLive> = {}): CollectiveHubLive {
 
 describe("buildUpcomingProfessorLessons", () => {
   const now = new Date("2026-09-04T12:00:00");
+  const tutorProfile = { subject: "Inglês", modality: "online" as const };
 
-  it("includes upcoming individual and group bookings with the lesson route", () => {
+  it("includes upcoming confirmed and paid lessons with lesson metadata", () => {
     const lessons = buildUpcomingProfessorLessons(
       [
         booking({
           id: "ind-1",
           type: "individual",
           scheduledAt: timestamp("2026-09-05T14:00:00") as Booking["scheduledAt"],
+          meetingUrl: "https://meet.jit.si/aprendizbay-ind-1",
         }),
         booking({
           id: "col-1",
@@ -64,34 +67,55 @@ describe("buildUpcomingProfessorLessons", () => {
       ],
       [hub()],
       { "student-1": "Ana Souza", "student-2": "Bruno Lima" },
+      tutorProfile,
       now,
     );
 
     expect(lessons).toHaveLength(2);
     expect(lessons[0]).toMatchObject({
       kind: "individual",
-      typeLabel: "Individual",
-      title: "Ana Souza",
+      studentName: "Ana Souza",
+      subject: "Inglês",
       lessonHref: "/aulas/ind-1",
+      lessonCtaLabel: "Entrar na aula",
     });
     expect(lessons[1]).toMatchObject({
       kind: "coletiva",
-      typeLabel: "Coletiva",
-      title: "Bruno Lima",
+      studentName: "Bruno Lima",
+      subject: "Inglês",
       lessonHref: "/aulas/col-1",
     });
     expect(lessons.every((lesson) => !lesson.lessonHref?.includes("jitsi"))).toBe(true);
   });
 
+  it("omits confirmed lessons that are not paid yet", () => {
+    const lessons = buildUpcomingProfessorLessons(
+      [
+        booking({
+          id: "awaiting",
+          type: "individual",
+          paymentStatus: "awaiting_payment",
+          scheduledAt: timestamp("2026-09-05T14:00:00") as Booking["scheduledAt"],
+        }),
+      ],
+      [],
+      { "student-1": "Ana Souza" },
+      tutorProfile,
+      now,
+    );
+
+    expect(lessons).toEqual([]);
+  });
+
   it("includes an upcoming hub without constructing a lesson URL", () => {
-    const lessons = buildUpcomingProfessorLessons([], [hub()], {}, now);
+    const lessons = buildUpcomingProfessorLessons([], [hub()], {}, tutorProfile, now);
 
     expect(lessons).toHaveLength(1);
     expect(lessons[0]).toMatchObject({
       kind: "coletiva",
-      typeLabel: "Coletiva",
       title: "Inglês para Viagem",
       lessonHref: null,
+      lessonCtaLabel: null,
       hubHref: "/turmas/hub-1",
     });
   });
@@ -107,6 +131,7 @@ describe("buildUpcomingProfessorLessons", () => {
       ],
       [hub({ scheduledDate: "2026-09-01", startTime: "09:00" })],
       { "student-1": "Ana Souza" },
+      tutorProfile,
       now,
     );
 

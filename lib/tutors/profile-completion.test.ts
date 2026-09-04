@@ -53,6 +53,7 @@ describe("computeTutorProfileCompletion", () => {
     expect(completion.percentage).toBe(57);
     expect(completion.missing).toEqual(["bio", "avatar", "credential"]);
     expect(completion.hasProfile).toBe(true);
+    expect(profileCompletionHref(completion)).toBe("/tutor/onboarding");
   });
 });
 

@@ -91,5 +91,25 @@ export function firstNameFromDisplay(
 }
 
 export function profileCompletionHref(completion: TutorProfileCompletion): string {
-  return completion.hasProfile ? "/tutor/settings" : "/tutor/onboarding";
+  if (completion.percentage < 100) {
+    return "/tutor/onboarding";
+  }
+
+  return "/tutor/settings";
+}
+
+export const TUTOR_PROFILE_STEP_LABELS: Record<TutorProfileCompletionStep, string> = {
+  subject: "Matéria",
+  location: "Localização",
+  bio: "Biografia",
+  avatar: "Foto de perfil",
+  prices: "Preços",
+  modality: "Modalidade",
+  credential: "Documento de verificação",
+};
+
+export function missingProfileStepLabels(
+  missing: TutorProfileCompletionStep[],
+): string[] {
+  return missing.map((step) => TUTOR_PROFILE_STEP_LABELS[step]);
 }
