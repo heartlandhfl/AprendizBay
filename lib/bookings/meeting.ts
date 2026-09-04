@@ -1,6 +1,9 @@
 const JITSI_BASE_URL = "https://meet.jit.si";
 const MAX_MEETING_URL_LENGTH = 2048;
 
+/**
+ * Client-safe meeting URL shape (no secret suffix). Authoritative URLs are set server-side.
+ */
 export function generateMeetingUrl(bookingId: string): string {
   return `${JITSI_BASE_URL}/aprendizbay-${bookingId}`;
 }

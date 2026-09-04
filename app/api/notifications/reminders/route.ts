@@ -8,7 +8,7 @@ function isAuthorizedCron(request: Request): boolean {
   const secret =
     process.env.NOTIFICATIONS_CRON_SECRET?.trim() || process.env.CRON_SECRET?.trim();
   if (!secret) {
-    return process.env.NODE_ENV !== "production";
+    return false;
   }
 
   const header = request.headers.get("authorization") ?? "";

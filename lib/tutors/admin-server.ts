@@ -6,6 +6,7 @@
  * or server/api/ — Express uses server/api/tutors.js.
  */
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
+import { setRole } from "@/lib/auth/role-server";
 import { writeAdminAuditLogSafe } from "@/lib/admin/audit";
 import { getAdminApp } from "@/lib/firebase/admin";
 import {
@@ -45,6 +46,7 @@ export async function reviewTutorVerification(
   );
 
   if (result.status === "approved") {
+    await setRole(tutorId, "lecturer");
     void safeNotify(
       () => notifyTutorVerificationApproved(tutorId),
       "tutor_verification_approved",

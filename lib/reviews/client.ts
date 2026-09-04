@@ -49,62 +49,43 @@ export async function createReview(input: CreateReviewInput): Promise<string> {
   return reviewId;
 }
 
-function toReviewDate(value: unknown): Date | null {
-  if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    return value;
-  }
-
-  if (value && typeof value === "object" && "toDate" in value && typeof value.toDate === "function") {
-    const date = value.toDate();
-    return date instanceof Date && !Number.isNaN(date.getTime()) ? date : null;
-  }
-
-  return null;
-}
-
+/**
+ * Loads public tutor reviews via the server API so student identifiers
+ * never appear on marketplace pages.
+ */
 export function subscribeToTutorReviews(
   tutorId: string,
   onChange: (reviews: PublicTutorReview[]) => void,
   onError?: (error: Error) => void,
-): Unsubscribe {
-  return whenFirebaseReady(
-    () => {
-      const reviewsQuery = query(collection(db, "reviews"), where("tutorId", "==", tutorId));
+): () => void {
+  let cancelled = false;
 
-      return onSnapshot(
-        reviewsQuery,
-        (snapshot) => {
-          const reviews = snapshot.docs
-            .map((docSnap) => {
-              const data = docSnap.data();
-              const rating = data.rating;
-              const comment = typeof data.comment === "string" ? data.comment.trim() : "";
+  void fetch(`/api/reviews?tutorId=${encodeURIComponent(tutorId)}`)
+    .then(async (response) => {
+      const payload = (await response.json().catch(() => null)) as {
+        reviews?: PublicTutorReview[];
+        error?: string;
+      } | null;
 
-              if (typeof rating !== "number" || !Number.isFinite(rating) || rating < 1 || rating > 5) {
-                return null;
-              }
+      if (!response.ok) {
+        throw new Error(payload?.error || "Não foi possível carregar as avaliações.");
+      }
 
-              return {
-                id: docSnap.id,
-                rating,
-                comment,
-                createdAt: toReviewDate(data.createdAt),
-              } satisfies PublicTutorReview;
-            })
-            .filter((review): review is PublicTutorReview => review !== null)
-            .sort((left, right) => {
-              const leftTime = left.createdAt?.getTime() ?? 0;
-              const rightTime = right.createdAt?.getTime() ?? 0;
-              return rightTime - leftTime;
-            });
+      if (!cancelled) {
+        onChange(Array.isArray(payload?.reviews) ? payload.reviews : []);
+      }
+    })
+    .catch((error: unknown) => {
+      if (!cancelled) {
+        onError?.(
+          error instanceof Error ? error : new Error("Não foi possível carregar as avaliações."),
+        );
+      }
+    });
 
-          onChange(reviews);
-        },
-        (error) => onError?.(error),
-      );
-    },
-    () => onChange([]),
-  );
+  return () => {
+    cancelled = true;
+  };
 }
 
 export function subscribeToStudentReviewBookingIds(

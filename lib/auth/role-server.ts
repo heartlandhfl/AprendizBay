@@ -114,8 +114,8 @@ export async function removeRole(uid: string): Promise<void> {
 }
 
 /**
- * After self-service signup, grants the lecturer claim when the profile role is tutor/lecturer.
- * Students do not receive a privileged claim.
+ * After self-service signup, grants the lecturer claim only when the tutor profile
+ * is admin-approved. Profile role alone is not sufficient.
  */
 export async function syncSignupRoleFromProfile(uid: string): Promise<CanonicalRole | null> {
   const db = getFirestore(getAdminApp());
@@ -128,6 +128,19 @@ export async function syncSignupRoleFromProfile(uid: string): Promise<CanonicalR
   const normalized = normalizeRole(profileRole);
 
   if (normalized === "lecturer") {
+    const tutorSnapshot = await db.collection("tutors").doc(uid).get();
+    const tutorData = tutorSnapshot.exists ? tutorSnapshot.data() : null;
+    const verificationStatus =
+      typeof tutorData?.verificationStatus === "string"
+        ? tutorData.verificationStatus
+        : tutorData?.isVerified === true
+          ? "approved"
+          : "pending";
+
+    if (verificationStatus !== "approved") {
+      return "lecturer";
+    }
+
     const auth = getAuth(getAdminApp());
     const user = await auth.getUser(uid);
     const existing = roleFromDecodedToken(user.customClaims);
@@ -170,6 +183,25 @@ export function assertAdminFromClaims(
   if (roleFromDecodedToken(decoded) !== "admin") {
     throw new Error("Acesso restrito a administradores.");
   }
+}
+
+/**
+ * Rejects actors whose custom claim is a privileged role other than student.
+ * Students typically have no privileged claim; absence of a claim is allowed.
+ */
+export function assertStudentActor(
+  decoded: Pick<DecodedIdToken, "role"> | null | undefined,
+): void {
+  const claim = roleFromDecodedToken(decoded);
+  if (claim && claim !== "student") {
+    throw new Error("Apenas alunos podem realizar esta ação.");
+  }
+}
+
+export function assertLecturerActor(
+  decoded: Pick<DecodedIdToken, "role"> | null | undefined,
+): void {
+  assertPrivilegedRoleFromClaims(decoded, "lecturer");
 }
 
 export function isPrivilegedClaimRole(

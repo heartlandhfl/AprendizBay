@@ -23,7 +23,7 @@ describe("client booking writes", () => {
     const source = readFileSync(resolve(process.cwd(), "lib/bookings/service.ts"), "utf8");
     const createFn = source.slice(
       source.indexOf("export async function createBooking"),
-      source.indexOf("export async function updateBookingStatus"),
+      source.indexOf("export { CREATE_BOOKING_ERRORS }"),
     );
 
     expect(createFn).toMatch(/fetch\(\s*["']\/api\/bookings["']/);

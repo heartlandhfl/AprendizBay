@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getUserProfile, verifyUserIdToken } from "@/lib/auth/admin-server";
+import { assertStudentApiActor, getUserProfile, verifyUserIdToken } from "@/lib/auth/admin-server";
 import { statusFromCreateBookingError } from "@/lib/bookings/create-booking";
 import { createIndividualBookingAsStudent } from "@/lib/bookings/server";
 
@@ -19,13 +19,14 @@ function readBearerToken(request: Request): string {
  */
 export async function POST(request: Request) {
   try {
-    const { uid } = await verifyUserIdToken(readBearerToken(request));
+    const { uid, customClaims } = await verifyUserIdToken(readBearerToken(request));
     const body = (await request.json()) as {
       tutorId?: string;
       type?: string;
       scheduledAt?: string;
     };
     const profile = await getUserProfile(uid);
+    assertStudentApiActor(customClaims, profile?.role);
 
     const result = await createIndividualBookingAsStudent({
       actorUid: uid,
@@ -39,12 +40,16 @@ export async function POST(request: Request) {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Não foi possível criar a reserva.";
+    const status =
+      message.includes("Apenas alunos")
+        ? 403
+        : statusFromCreateBookingError(error);
     return NextResponse.json(
       {
         error: message,
         code: error && typeof error === "object" && "code" in error ? error.code : undefined,
       },
-      { status: statusFromCreateBookingError(error) },
+      { status },
     );
   }
 }
