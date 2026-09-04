@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import RoleToggle from "@/components/auth/RoleToggle";
 import { getAuthErrorMessage } from "@/lib/auth/errors";
+import { getDashboardPath } from "@/lib/auth/dashboard";
 import { postAuthPathForRole } from "@/lib/auth/redirects";
 import {
   completeGoogleSignup,
@@ -46,7 +47,7 @@ export default function SignupForm({ defaultRole = "student" }: SignupFormProps)
     }
 
     if (user && userDoc) {
-      router.replace(postAuthPathForRole(userDoc.role));
+      router.replace(getDashboardPath(userDoc.role));
     }
   }, [loading, router, user, userDoc]);
 
