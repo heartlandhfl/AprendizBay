@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { Loader2 } from "lucide-react";
 import { conversationIdFor } from "@/lib/conversations/ids";
 import type { ProfessorStudentPreview } from "@/lib/tutors/students-preview";
 
@@ -26,9 +25,9 @@ export default function ProfessorStudentsPreview({
       </div>
 
       {loading ? (
-        <div className="flex min-h-[120px] items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-primary-600" aria-hidden="true" />
-          <span className="sr-only">Carregando alunos...</span>
+        <div className="space-y-3">
+          <div className="h-24 animate-pulse rounded-2xl bg-muted/70" />
+          <div className="h-24 animate-pulse rounded-2xl bg-muted/70" />
         </div>
       ) : students.length === 0 ? (
         <div className="rounded-3xl bg-surface p-8 text-center shadow-soft ring-1 ring-border/60">
@@ -42,20 +41,33 @@ export default function ProfessorStudentsPreview({
           {students.map((student) => (
             <li
               key={student.studentId}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-surface p-4 shadow-card ring-1 ring-border/50"
+              className="rounded-2xl bg-surface p-4 shadow-card ring-1 ring-border/50"
             >
-              <div>
-                <p className="font-semibold text-foreground">{student.displayName}</p>
-                <p className="text-sm text-muted-foreground">
-                  {student.lessonCount} {student.lessonCount === 1 ? "aula" : "aulas"}
-                </p>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold text-foreground">{student.displayName}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {student.subject} · {student.lessonCount}{" "}
+                    {student.lessonCount === 1 ? "aula" : "aulas"}
+                  </p>
+                  {student.upcomingLessonLabel ? (
+                    <p className="mt-1 text-sm text-foreground">
+                      Próxima aula: {student.upcomingLessonLabel}
+                    </p>
+                  ) : null}
+                  {student.lastLessonLabel ? (
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Última aula: {student.lastLessonLabel}
+                    </p>
+                  ) : null}
+                </div>
+                <Link
+                  href={`/mensagens/${encodeURIComponent(conversationIdFor(student.studentId, tutorId))}`}
+                  className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                >
+                  Enviar mensagem
+                </Link>
               </div>
-              <Link
-                href={`/mensagens/${encodeURIComponent(conversationIdFor(student.studentId, tutorId))}`}
-                className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-              >
-                Enviar mensagem
-              </Link>
             </li>
           ))}
         </ul>
