@@ -1,8 +1,4 @@
-import {
-  isSignupRole,
-  normalizeRole,
-  type ProfileRole,
-} from "@/lib/auth/roles";
+import { normalizeRole, type ProfileRole } from "@/lib/auth/roles";
 
 /**
  * Canonical post-login / post-signup destinations.
@@ -48,7 +44,7 @@ export function panelPathForRole(role: ProfileRole | null | undefined): string {
 }
 
 export function signupPathForRole(role?: string | null): string {
-  return isSignupRole(role) && role === "tutor" ? "/signup?role=tutor" : "/signup";
+  return role === "tutor" ? "/signup?role=tutor" : "/signup";
 }
 
 export interface PrimaryNavItem {
