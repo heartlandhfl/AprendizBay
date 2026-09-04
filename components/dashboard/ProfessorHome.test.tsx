@@ -119,7 +119,7 @@ describe("ProfessorHome", () => {
     );
     expect(screen.getByText("Novas solicitações embedded")).toBeInTheDocument();
     expect(screen.getByText("Quando você pode dar aulas?")).toBeInTheDocument();
-    expect(await screen.findByText(/R\$\s*80/)).toBeInTheDocument();
+    expect((await screen.findAllByText(/R\$\s*80/)).length).toBeGreaterThan(0);
     expect(
       screen.queryByText("Você ainda não recebeu solicitações de aula."),
     ).not.toBeInTheDocument();

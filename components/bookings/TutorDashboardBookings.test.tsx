@@ -35,7 +35,7 @@ describe("TutorDashboardBookings", () => {
     });
   });
 
-  it("shows the Portuguese empty state for pending requests", () => {
+  it("shows the Portuguese empty state for pending requests", async () => {
     mockSubscribe.mockImplementation((_id, onChange) => {
       onChange([]);
       return () => {};

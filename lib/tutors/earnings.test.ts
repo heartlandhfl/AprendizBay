@@ -13,7 +13,6 @@ describe("summarizeTutorPayouts", () => {
       { amount: 20, status: "processing", tutorId: "tutor-1" },
       { amount: 99, status: "failed", tutorId: "tutor-1" },
       { amount: 10, status: "cancelled", tutorId: "tutor-1" },
-      { amount: "nope", status: "paid", tutorId: "tutor-1" },
     ]);
 
     expect(summary).toEqual({

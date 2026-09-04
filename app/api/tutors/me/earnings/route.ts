@@ -26,7 +26,11 @@ export async function GET(request: Request) {
   try {
     const { uid, customClaims } = await verifyUserIdToken(readBearerToken(request));
     const profile = await getUserProfile(uid);
-    const claimRole = roleFromDecodedToken(customClaims);
+    const claimRole = roleFromDecodedToken(
+      customClaims && typeof customClaims.role === "string"
+        ? { role: customClaims.role }
+        : null,
+    );
 
     if (!isLecturerAccess(claimRole, profile?.role)) {
       return NextResponse.json(
