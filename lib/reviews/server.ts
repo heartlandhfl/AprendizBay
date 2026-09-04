@@ -18,6 +18,7 @@ import {
   recomputeTutorRating as recomputeTutorRatingFromReviews,
   type CreateReviewResult,
 } from "@/lib/reviews/create-review";
+import type { PublicTutorReview } from "@/lib/reviews/types";
 
 let adminApp: App | undefined;
 
@@ -64,4 +65,44 @@ export async function createStudentReview(input: {
   return createReviewAndRefreshTutorRating(db, input, {
     timestamp: FieldValue.serverTimestamp(),
   });
+}
+
+export async function listPublicTutorReviews(tutorId: string): Promise<PublicTutorReview[]> {
+  const db = getAdminFirestore();
+  const normalizedTutorId = tutorId.trim();
+  if (!normalizedTutorId) {
+    return [];
+  }
+
+  const snapshot = await db
+    .collection("reviews")
+    .where("tutorId", "==", normalizedTutorId)
+    .get();
+
+  return snapshot.docs
+    .map((docSnap) => {
+      const data = docSnap.data();
+      const rating = data.rating;
+      const comment = typeof data.comment === "string" ? data.comment.trim() : "";
+      if (typeof rating !== "number" || !Number.isFinite(rating) || rating < 1 || rating > 5) {
+        return null;
+      }
+
+      const createdAtRaw = data.createdAt;
+      const createdAt =
+        createdAtRaw && typeof createdAtRaw.toDate === "function"
+          ? createdAtRaw.toDate()
+          : createdAtRaw instanceof Date
+            ? createdAtRaw
+            : null;
+
+      return {
+        id: docSnap.id,
+        rating,
+        comment,
+        createdAt,
+      } satisfies PublicTutorReview;
+    })
+    .filter((review): review is PublicTutorReview => review !== null)
+    .sort((left, right) => (right.createdAt?.getTime() ?? 0) - (left.createdAt?.getTime() ?? 0));
 }
