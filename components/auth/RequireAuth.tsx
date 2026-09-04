@@ -10,6 +10,7 @@ interface RequireAuthProps {
   roles?: UserRole[];
   redirectTo?: string;
   unauthorizedRedirectTo?: string;
+  skipSetupGate?: boolean;
 }
 
 export default function RequireAuth({
@@ -17,8 +18,14 @@ export default function RequireAuth({
   roles,
   redirectTo,
   unauthorizedRedirectTo,
+  skipSetupGate,
 }: RequireAuthProps) {
-  const { loading } = useRequireAuth({ roles, redirectTo, unauthorizedRedirectTo });
+  const { loading } = useRequireAuth({
+    roles,
+    redirectTo,
+    unauthorizedRedirectTo,
+    skipSetupGate,
+  });
 
   if (loading) {
     return (

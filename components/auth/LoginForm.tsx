@@ -4,13 +4,11 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
-import { doc, getDoc } from "firebase/firestore";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { resolveLoginDestination } from "@/lib/auth/account-post-login";
 import { getAuthErrorMessage } from "@/lib/auth/errors";
-import { postAuthPathForRole, signupPathForRole } from "@/lib/auth/redirects";
+import { signupPathForRole } from "@/lib/auth/redirects";
 import { signInWithEmail, signInWithGoogle } from "@/lib/auth/service";
-import type { UserDoc } from "@/lib/auth/types";
-import { db, requireFirebaseApp } from "@/lib/firebase/client";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -28,7 +26,9 @@ export default function LoginForm() {
     }
 
     const redirectParam = searchParams.get("next") || searchParams.get("redirect");
-    router.replace(redirectParam || postAuthPathForRole(userDoc.role));
+    void resolveLoginDestination(user.uid, redirectParam).then((destination) => {
+      router.replace(destination);
+    });
   }, [authLoading, router, searchParams, user, userDoc]);
 
   if (authLoading || (user && userDoc)) {
@@ -40,17 +40,9 @@ export default function LoginForm() {
   }
 
   async function redirectAfterLogin(uid: string) {
-    await requireFirebaseApp();
-    const profile = await getDoc(doc(db, "users", uid));
-
-    if (!profile.exists()) {
-      router.replace(signupPathForRole(signupRole));
-      return;
-    }
-
-    const profileData = profile.data() as UserDoc;
     const redirectParam = searchParams.get("next") || searchParams.get("redirect");
-    router.replace(redirectParam || postAuthPathForRole(profileData.role));
+    const destination = await resolveLoginDestination(uid, redirectParam);
+    router.replace(destination === "/signup" ? signupPathForRole(signupRole) : destination);
   }
 
   async function handleEmailLogin(event: FormEvent<HTMLFormElement>) {

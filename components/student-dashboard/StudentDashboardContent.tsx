@@ -12,8 +12,6 @@ import {
   Search,
   Users,
 } from "lucide-react";
-import IncompleteStudentProfileBanner from "@/components/student-dashboard/IncompleteStudentProfileBanner";
-import StudentLearningProfileModal from "@/components/student-dashboard/StudentLearningProfileModal";
 import TutorCard from "@/components/search/TutorCard";
 import { useAuth } from "@/lib/auth/AuthContext";
 import {
@@ -42,7 +40,6 @@ import {
 import { subscribeToStudentLearningProfile } from "@/lib/student-dashboard/preferences";
 import {
   inferSubjectsFromBookings,
-  shouldPromptProfileCompletion,
 } from "@/lib/student-dashboard/profile";
 import {
   hasRecommendationData,
@@ -61,9 +58,7 @@ export default function StudentDashboardContent() {
   const [learningProfile, setLearningProfile] = useState<StudentLearningProfile>({});
   const [reviewedBookingIds, setReviewedBookingIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [showProfileModal, setShowProfileModal] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -88,7 +83,7 @@ export default function StudentDashboardContent() {
         setLoading(false);
       },
       () => {
-        setError("Não foi possível carregar suas aulas.");
+        console.error("student dashboard bookings subscription failed");
         setLoading(false);
       },
     );
@@ -175,10 +170,6 @@ export default function StudentDashboardContent() {
     [bookings, conversations, reviewedBookingIds, user],
   );
   const learningSummary = useMemo(() => buildLearningSummary(bookings), [bookings]);
-  const showProfileBanner = shouldPromptProfileCompletion(
-    learningProfile,
-    bookings.length,
-  );
 
   const displayName = userDoc?.displayName || user?.displayName || "Aluno";
   const firstName = firstDisplayName(displayName);
@@ -216,7 +207,7 @@ export default function StudentDashboardContent() {
         </div>
 
         <div className="rounded-3xl bg-surface p-5 shadow-soft ring-1 ring-border/60">
-          <p className="text-sm font-semibold text-primary-700">O que você quer aprender?</p>
+          <p className="text-sm font-semibold text-primary-700">Encontrar um professor</p>
           <form onSubmit={handleSearch} className="mt-3 flex flex-col gap-3 sm:flex-row">
             <div className="relative flex-1">
               <Search
@@ -250,16 +241,6 @@ export default function StudentDashboardContent() {
           </div>
         </div>
       </header>
-
-      {error && (
-        <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
-          {error}
-        </p>
-      )}
-
-      {showProfileBanner && (
-        <IncompleteStudentProfileBanner onComplete={() => setShowProfileModal(true)} />
-      )}
 
       {nextLesson ? (
         <section className="rounded-3xl bg-gradient-to-br from-primary-600 to-primary-700 p-6 text-white shadow-soft-lg">
@@ -506,15 +487,6 @@ export default function StudentDashboardContent() {
           </ul>
         )}
       </section>
-
-      {showProfileModal && user && (
-        <StudentLearningProfileModal
-          studentId={user.uid}
-          initialProfile={learningProfile}
-          onClose={() => setShowProfileModal(false)}
-          onSaved={setLearningProfile}
-        />
-      )}
     </div>
   );
 }

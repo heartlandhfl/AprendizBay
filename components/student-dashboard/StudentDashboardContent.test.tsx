@@ -72,6 +72,7 @@ describe("StudentDashboardContent", () => {
     render(<StudentDashboardContent />);
 
     expect(await screen.findByRole("heading", { name: /Olá, Maria!/ })).toBeInTheDocument();
+    expect(screen.getByText("Encontrar um professor")).toBeInTheDocument();
     expect(screen.getByLabelText("Buscar professores")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Encontrar aulas em grupo" })).toHaveAttribute(
       "href",
