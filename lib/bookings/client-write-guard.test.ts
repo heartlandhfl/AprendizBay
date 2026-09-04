@@ -58,4 +58,13 @@ describe("client booking writes", () => {
     expect(source).not.toMatch(/runTransaction/);
     expect(source).not.toMatch(/confirmedStudentIds/);
   });
+
+  it("sends reviews only to the authorized server path", () => {
+    const source = readFileSync(resolve(process.cwd(), "lib/reviews/client.ts"), "utf8");
+
+    expect(source).toMatch(/fetch\(\s*["']\/api\/reviews["']/);
+    expect(source).toMatch(/Authorization/);
+    expect(source).not.toMatch(/setDoc\s*\(/);
+    expect(source).not.toMatch(/addDoc\s*\(/);
+  });
 });

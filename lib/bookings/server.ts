@@ -21,6 +21,7 @@ import {
 } from "@/lib/bookings/complete-lesson";
 import { createIndividualBookingForStudent } from "@/lib/bookings/create-booking";
 import { createCollectiveBookingForStudent } from "@/lib/hubs/join-and-book";
+import { evaluateHubLeave, hubLeaveWrite } from "@/lib/hubs/leave";
 import { generateMeetingUrl } from "@/lib/bookings/meeting";
 import {
   notifyConfirmedBooking,
@@ -254,6 +255,38 @@ function createFirestoreCancelStore(db: Firestore): CancelStore {
                 transaction.delete(db.collection("lessonSlots").doc(booking.slotKey));
               }
             });
+          },
+          releaseCollectiveHubSeat({ hubId, studentId }) {
+            const hubRef = db.collection("collectiveHubs").doc(hubId);
+            const participantRef = hubRef.collection("participants").doc(studentId);
+            return (async () => {
+              const hubSnap = await transaction.get(hubRef);
+              const participantSnap = await transaction.get(participantRef);
+              if (!hubSnap.exists || !participantSnap.exists) {
+                return;
+              }
+              const decision = evaluateHubLeave(
+                (hubSnap.data() ?? {}) as Record<string, unknown>,
+                studentId,
+                { participantExists: true },
+              );
+              if (!decision.ok || decision.nextCount == null || !decision.nextStatus) {
+                return;
+              }
+              pendingWrites.push(() => {
+                transaction.update(
+                  hubRef,
+                  hubLeaveWrite(
+                    {
+                      nextCount: decision.nextCount,
+                      nextStatus: decision.nextStatus,
+                    },
+                    FieldValue.serverTimestamp(),
+                  ),
+                );
+                transaction.delete(participantRef);
+              });
+            })();
           },
         };
         const result = await work(tx);

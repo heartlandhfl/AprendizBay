@@ -188,7 +188,7 @@ rules_version = '2';
 //        Hostinger Express: server/api/reviews.js (firebase-admin; bypasses rules)
 //        Vercel / next start: app/api/reviews + lib/reviews/server.ts
 //        Client: lib/reviews/client.ts (never writes reviews from the browser)
-// MATCH  reviews create              → hardened rules (completed booking, student + tutor match)
+// DENY   reviews create              → POST /api/reviews only (Admin SDK)
 // ADMIN  tutors rating/reviewCount   → POST /api/reviews after a valid create
 //        (server uses the booking tutorId). Admin-only POST /recompute-rating
 //        for moderation/recalculation. Students and tutors cannot set rating
@@ -796,7 +796,9 @@ service cloud.firestore {
 
       allow read: if true;
 
-      allow create: if validReviewCreate();
+      // Reviews are created only through POST /api/reviews (Admin SDK).
+      // Clients must not write rating aggregates or bypass server validation.
+      allow create: if false;
 
       allow update: if isAdmin() || validReviewUpdate();
 

@@ -17,6 +17,7 @@ const COMPLETED_BOOKING = {
   studentId: "student-1",
   tutorId: "tutor-1",
   status: "completed",
+  paymentStatus: "paid",
 };
 
 function createFakeDb(options: {
@@ -191,6 +192,17 @@ describe("assertCanCreateReview", () => {
         tutorId: "tutor-2",
       }),
     ).toThrow(/professor desta aula/);
+  });
+
+  it("rejects a completed booking that was not paid", () => {
+    expect(() =>
+      assertCanCreateReview({
+        actorUid: "student-1",
+        booking: { ...COMPLETED_BOOKING, paymentStatus: "unpaid" },
+        existingReview: false,
+        tutorId: "tutor-1",
+      }),
+    ).toThrow(/aula paga/);
   });
 
   it("rejects a duplicate review", () => {

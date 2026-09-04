@@ -119,6 +119,7 @@ function createRatingDb(reviews, tutors = {}) {
                     studentId: "student-1",
                     tutorId: "tutor-1",
                     status: "completed",
+                    paymentStatus: "paid",
                   }),
                 };
               },

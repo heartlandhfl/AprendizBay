@@ -19,6 +19,8 @@ import {
   subscribeToTutorPendingBookings,
 } from "@/lib/bookings/service";
 import { conversationIdFor } from "@/lib/conversations/ids";
+import { subscribeToUserConversations } from "@/lib/conversations/service";
+import type { Conversation } from "@/lib/conversations/types";
 import { lessonPath } from "@/lib/lessons/paths";
 import {
   getPaymentLifecycle,
@@ -37,6 +39,7 @@ interface TutorDashboardBookingsProps {
 export default function TutorDashboardBookings({ embedded = false }: TutorDashboardBookingsProps) {
   const { user } = useAuth();
   const [bookings, setBookings] = useState<EnrichedBooking[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionId, setActionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +71,26 @@ export default function TutorDashboardBookings({ embedded = false }: TutorDashbo
 
     return unsubscribe;
   }, [user]);
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    const unsubscribe = subscribeToUserConversations(
+      user.uid,
+      (nextConversations) => {
+        setConversations(nextConversations);
+      },
+      () => {
+        console.error("tutor pending bookings conversations subscription failed");
+      },
+    );
+
+    return unsubscribe;
+  }, [user]);
+
+  const conversationStudentIds = new Set(conversations.map((conversation) => conversation.studentId));
 
   async function handleConfirm(bookingId: string) {
     setActionId(bookingId);
@@ -238,12 +261,12 @@ export default function TutorDashboardBookings({ embedded = false }: TutorDashbo
                 >
                   Ver detalhes
                 </Link>
-                {user ? (
+                {user && conversationStudentIds.has(booking.studentId) ? (
                   <Link
                     href={`/mensagens/${encodeURIComponent(conversationIdFor(booking.studentId, user.uid))}`}
                     className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
                   >
-                    Enviar mensagem
+                    Ver conversa
                   </Link>
                 ) : null}
               </div>
