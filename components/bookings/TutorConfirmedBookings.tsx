@@ -27,7 +27,13 @@ interface EnrichedBooking extends Booking {
   studentName: string;
 }
 
-export default function TutorConfirmedBookings() {
+interface TutorConfirmedBookingsProps {
+  showEmptyState?: boolean;
+}
+
+export default function TutorConfirmedBookings({
+  showEmptyState = false,
+}: TutorConfirmedBookingsProps) {
   const { user } = useAuth();
   const [bookings, setBookings] = useState<EnrichedBooking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,11 +111,32 @@ export default function TutorConfirmedBookings() {
   }
 
   if (loading) {
-    return null;
+    return (
+      <div className="flex min-h-[120px] items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-primary-600" aria-hidden="true" />
+      </div>
+    );
   }
 
   if (bookings.length === 0) {
-    return null;
+    if (!showEmptyState) {
+      return null;
+    }
+
+    return (
+      <section className="space-y-4">
+        <div>
+          <h2 className="text-xl font-bold text-foreground">{COMPLETE_COPY.tutorSectionTitle}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{COMPLETE_COPY.tutorSectionHelp}</p>
+        </div>
+        <div className="rounded-3xl bg-surface p-8 text-center shadow-soft ring-1 ring-border/60">
+          <p className="text-lg font-semibold text-foreground">Nenhuma aula confirmada</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Depois que o aluno pagar, a aula confirmada aparecerá aqui para você acompanhar e concluir.
+          </p>
+        </div>
+      </section>
+    );
   }
 
   return (

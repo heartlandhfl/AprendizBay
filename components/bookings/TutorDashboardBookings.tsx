@@ -29,7 +29,11 @@ interface EnrichedBooking extends Booking {
   studentName: string;
 }
 
-export default function TutorDashboardBookings() {
+interface TutorDashboardBookingsProps {
+  embedded?: boolean;
+}
+
+export default function TutorDashboardBookings({ embedded = false }: TutorDashboardBookingsProps) {
   const { user } = useAuth();
   const [bookings, setBookings] = useState<EnrichedBooking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,12 +113,23 @@ export default function TutorDashboardBookings() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">Meu painel</h1>
-        <p className="mt-2 text-muted-foreground">
-          Aceite solicitações para liberar o pagamento. A aula só é confirmada depois que o aluno pagar.
-        </p>
-      </div>
+      {!embedded && (
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Meu painel</h1>
+          <p className="mt-2 text-muted-foreground">
+            Aceite solicitações para liberar o pagamento. A aula só é confirmada depois que o aluno pagar.
+          </p>
+        </div>
+      )}
+
+      {embedded && (
+        <div>
+          <h2 className="text-xl font-bold text-foreground">Solicitações pendentes</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Aceite solicitações para liberar o pagamento. A aula só é confirmada depois que o aluno pagar.
+          </p>
+        </div>
+      )}
 
       {error && (
         <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
