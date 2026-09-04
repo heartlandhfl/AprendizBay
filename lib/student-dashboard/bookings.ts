@@ -1,12 +1,13 @@
 import type { Booking, BookingStatus } from "@/lib/bookings/types";
-import { BOOKING_TYPE_LABELS } from "@/lib/bookings/types";
+import { BOOKING_STATUS_LABELS, BOOKING_TYPE_LABELS } from "@/lib/bookings/types";
 import { parseSafeMeetingUrl } from "@/lib/bookings/meeting";
-import { getPaymentLifecycle, canStartCheckout } from "@/lib/payments/status";
+import { canStartCheckout, getPaymentLifecycle, getStudentPaymentCopy } from "@/lib/payments/status";
 import { studentReviewAction } from "@/lib/reviews/create-review";
 import { getLessonStatus } from "@/lib/lessons/status";
 import { lessonPath } from "@/lib/lessons/paths";
 import type { Modality } from "@/lib/mock-tutors";
 import type {
+  ActiveBookingItem,
   EnrichedStudentBooking,
   LearningSummary,
   LessonCta,
@@ -43,6 +44,103 @@ export function getNextLesson(
   return (
     sortUpcomingBookings(bookings).find(({ booking }) => isFutureBooking(booking, now)) ?? null
   );
+}
+
+export function getNextConfirmedLesson(
+  bookings: EnrichedStudentBooking[],
+  now: Date = new Date(),
+): EnrichedStudentBooking | null {
+  return (
+    sortUpcomingBookings(bookings).find(
+      ({ booking }) =>
+        booking.status === "confirmed" &&
+        booking.paymentStatus === "paid" &&
+        isFutureBooking(booking, now),
+    ) ?? null
+  );
+}
+
+const RECENT_CANCELLED_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
+
+function formatScheduledLabel(timestamp: TimestampLike): string {
+  const { date, time } = splitDateTime(timestamp);
+  return `${date} · ${time}`;
+}
+
+function activeBookingDetail(
+  booking: Booking,
+): { statusLabel: string; detail: string } {
+  if (booking.status === "cancelled") {
+    return {
+      statusLabel: BOOKING_STATUS_LABELS.cancelled,
+      detail: "Esta reserva foi cancelada.",
+    };
+  }
+
+  if (booking.status === "confirmed") {
+    const lifecycle = getPaymentLifecycle(booking);
+    if (lifecycle === "paid") {
+      return {
+        statusLabel: "Confirmada",
+        detail: "Sua aula está confirmada e paga.",
+      };
+    }
+
+    return {
+      statusLabel: BOOKING_STATUS_LABELS.confirmed,
+      detail: getStudentPaymentCopy(lifecycle).explanation,
+    };
+  }
+
+  const lifecycle = getPaymentLifecycle(booking);
+  if (canStartCheckout(booking) || lifecycle === "awaiting_payment" || lifecycle === "checkout_created") {
+    return {
+      statusLabel: "Aguardando pagamento",
+      detail: getStudentPaymentCopy(lifecycle).explanation,
+    };
+  }
+
+  return {
+    statusLabel: BOOKING_STATUS_LABELS.pending,
+    detail: getStudentPaymentCopy(lifecycle).explanation,
+  };
+}
+
+export function buildActiveBookingItems(
+  bookings: EnrichedStudentBooking[],
+  now: Date = new Date(),
+  limit = 5,
+): ActiveBookingItem[] {
+  const nowMs = now.getTime();
+
+  return bookings
+    .filter(({ booking }) => {
+      if (booking.status === "completed") {
+        return false;
+      }
+
+      if (booking.status === "cancelled") {
+        const scheduledMs = scheduledAtMs(booking);
+        return scheduledMs >= nowMs - RECENT_CANCELLED_WINDOW_MS;
+      }
+
+      return isUpcomingStatus(booking.status) || scheduledAtMs(booking) >= nowMs;
+    })
+    .sort((a, b) => scheduledAtMs(a.booking) - scheduledAtMs(b.booking))
+    .slice(0, limit)
+    .map(({ booking, tutorName, subject }) => {
+      const { statusLabel, detail } = activeBookingDetail(booking);
+
+      return {
+        id: booking.id,
+        tutorName,
+        subject,
+        scheduledLabel: formatScheduledLabel(booking.scheduledAt),
+        statusLabel,
+        detail,
+        href: "/bookings",
+      };
+    });
 }
 
 export function isOnlineLessonModality(modality: Modality): boolean {

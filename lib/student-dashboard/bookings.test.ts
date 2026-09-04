@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { Booking } from "@/lib/bookings/types";
 import {
+  buildActiveBookingItems,
   buildLearningSummary,
   buildPendingActions,
   canStudentJoinLesson,
   getLessonCta,
+  getNextConfirmedLesson,
   getNextLesson,
 } from "@/lib/student-dashboard/bookings";
 import type { EnrichedStudentBooking } from "@/lib/student-dashboard/types";
@@ -62,6 +64,65 @@ describe("student dashboard bookings", () => {
     ];
 
     expect(getNextLesson(entries, now)?.booking.id).toBe("next");
+  });
+
+  it("shows only confirmed and paid lessons in the next-lesson card", () => {
+    const entries = [
+      enriched({
+        booking: booking({
+          id: "pending",
+          status: "pending",
+          scheduledAt: timestamp("2026-09-06T14:00:00.000Z"),
+        }),
+      }),
+      enriched({
+        booking: booking({
+          id: "confirmed-unpaid",
+          status: "confirmed",
+          paymentStatus: "awaiting_payment",
+          scheduledAt: timestamp("2026-09-07T14:00:00.000Z"),
+        }),
+      }),
+      enriched({
+        booking: booking({
+          id: "confirmed-paid",
+          status: "confirmed",
+          paymentStatus: "paid",
+          scheduledAt: timestamp("2026-09-08T14:00:00.000Z"),
+        }),
+      }),
+    ];
+
+    expect(getNextConfirmedLesson(entries, now)?.booking.id).toBe("confirmed-paid");
+  });
+
+  it("builds active booking items without exposing payment internals", () => {
+    const items = buildActiveBookingItems([
+      enriched({
+        booking: booking({
+          id: "awaiting",
+          status: "pending",
+          paymentStatus: "awaiting_payment",
+          scheduledAt: timestamp("2026-09-10T14:00:00.000Z"),
+        }),
+      }),
+      enriched({
+        booking: booking({
+          id: "cancelled",
+          status: "cancelled",
+          scheduledAt: timestamp("2026-09-04T14:00:00.000Z"),
+        }),
+      }),
+    ], now);
+
+    expect(items).toHaveLength(2);
+    expect(items.find((item) => item.id === "awaiting")).toMatchObject({
+      statusLabel: "Aguardando pagamento",
+    });
+    expect(items.find((item) => item.id === "cancelled")).toMatchObject({
+      statusLabel: "Cancelada",
+    });
+    expect(JSON.stringify(items)).not.toContain("platformFee");
   });
 
   it("supports upcoming collective lessons", () => {
