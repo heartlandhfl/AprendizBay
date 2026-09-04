@@ -355,4 +355,37 @@ describe("executeCancelBooking", () => {
     const { result } = await cancel(booking(), { refundPayment });
     expect(result.refundAmount).toBe(80);
   });
+
+  it("releases a collective hub seat when cancelling an unpaid booking", async () => {
+    const hubReleases: Array<{ hubId: string; studentId: string }> = [];
+    const store = createMemoryCancelStore(
+      new Map([
+        [
+          "booking-collective",
+          booking({
+            id: "booking-collective",
+            type: "coletivo",
+            hubId: "hub-1",
+            status: "pending",
+            paymentStatus: "unpaid",
+            scheduledAt: IN_THREE_DAYS,
+          }),
+        ],
+      ]),
+      { hubReleases },
+    );
+
+    await executeCancelBooking(
+      { bookingId: "booking-collective", actorUid: "student-1" },
+      {
+        store,
+        refundPayment: vi.fn(),
+        findPaymentId: vi.fn(async () => undefined),
+        now: () => NOW,
+      },
+    );
+
+    expect(hubReleases).toEqual([{ hubId: "hub-1", studentId: "student-1" }]);
+    expect(store.bookings.get("booking-collective")?.status).toBe("cancelled");
+  });
 });

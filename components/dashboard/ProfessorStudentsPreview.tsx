@@ -8,12 +8,14 @@ interface ProfessorStudentsPreviewProps {
   students: ProfessorStudentPreview[];
   loading: boolean;
   tutorId: string;
+  conversationStudentIds?: ReadonlySet<string>;
 }
 
 export default function ProfessorStudentsPreview({
   students,
   loading,
   tutorId,
+  conversationStudentIds,
 }: ProfessorStudentsPreviewProps) {
   return (
     <section id="alunos" className="scroll-mt-24 space-y-4">
@@ -61,12 +63,20 @@ export default function ProfessorStudentsPreview({
                     </p>
                   ) : null}
                 </div>
-                <Link
-                  href={`/mensagens/${encodeURIComponent(conversationIdFor(student.studentId, tutorId))}`}
-                  className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-                >
-                  Enviar mensagem
-                </Link>
+                <div className="flex flex-wrap gap-2">
+                  {conversationStudentIds?.has(student.studentId) ? (
+                    <Link
+                      href={`/mensagens/${encodeURIComponent(conversationIdFor(student.studentId, tutorId))}`}
+                      className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                    >
+                      Ver conversa
+                    </Link>
+                  ) : (
+                    <span className="inline-flex min-h-11 items-center rounded-2xl border border-dashed border-border px-4 py-2 text-sm text-muted-foreground">
+                      Aguardando o aluno iniciar a conversa
+                    </span>
+                  )}
+                </div>
               </div>
             </li>
           ))}

@@ -2,9 +2,10 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import TutorDashboardBookings from "@/components/bookings/TutorDashboardBookings";
 
-const { mockUseAuth, mockSubscribe } = vi.hoisted(() => ({
+const { mockUseAuth, mockSubscribe, mockSubscribeConversations } = vi.hoisted(() => ({
   mockUseAuth: vi.fn(),
   mockSubscribe: vi.fn(),
+  mockSubscribeConversations: vi.fn(),
 }));
 
 vi.mock("@/lib/auth/AuthContext", () => ({
@@ -26,12 +27,20 @@ vi.mock("@/lib/payments/status", () => ({
   hasTutorRequestedPayment: () => false,
 }));
 
+vi.mock("@/lib/conversations/service", () => ({
+  subscribeToUserConversations: (...args: unknown[]) => mockSubscribeConversations(...args),
+}));
+
 describe("TutorDashboardBookings", () => {
   beforeEach(() => {
     mockUseAuth.mockReturnValue({
       user: { uid: "tutor-1" },
       userDoc: { role: "lecturer" },
       loading: false,
+    });
+    mockSubscribeConversations.mockImplementation((_id, onChange) => {
+      onChange([]);
+      return () => {};
     });
   });
 
@@ -49,7 +58,7 @@ describe("TutorDashboardBookings", () => {
     ).toBeInTheDocument();
   });
 
-  it("offers accept, decline, details and message actions without new mutation logic", async () => {
+  it("offers accept, decline and details actions for pending requests", async () => {
     mockSubscribe.mockImplementation((_id, onChange) => {
       void onChange([
         {
@@ -73,7 +82,39 @@ describe("TutorDashboardBookings", () => {
       "href",
       "/aulas/book-1",
     );
-    expect(screen.getByRole("link", { name: "Enviar mensagem" })).toHaveAttribute(
+    expect(screen.queryByRole("link", { name: "Ver conversa" })).not.toBeInTheDocument();
+  });
+
+  it("shows a conversation link only when the student already started a thread", async () => {
+    mockSubscribe.mockImplementation((_id, onChange) => {
+      void onChange([
+        {
+          id: "book-1",
+          studentId: "student-1",
+          tutorId: "tutor-1",
+          type: "individual",
+          status: "pending",
+          price: 70,
+          scheduledAt: { toDate: () => new Date(), toMillis: () => Date.now() },
+        },
+      ]);
+      return () => {};
+    });
+    mockSubscribeConversations.mockImplementation((_id, onChange) => {
+      onChange([
+        {
+          id: "student-1_tutor-1",
+          studentId: "student-1",
+          tutorId: "tutor-1",
+          participantIds: ["student-1", "tutor-1"],
+        },
+      ]);
+      return () => {};
+    });
+
+    render(<TutorDashboardBookings embedded />);
+
+    expect(await screen.findByRole("link", { name: "Ver conversa" })).toHaveAttribute(
       "href",
       "/mensagens/student-1_tutor-1",
     );

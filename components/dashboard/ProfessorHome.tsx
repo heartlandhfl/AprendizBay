@@ -215,6 +215,11 @@ export default function ProfessorHome() {
     [bookings, hubs, now, studentNames, tutorProfileContext],
   );
 
+  const conversationStudentIds = useMemo(
+    () => new Set(conversations.map((conversation) => conversation.studentId)),
+    [conversations],
+  );
+
   const students = useMemo(
     () =>
       buildProfessorStudentsPreview(bookings, studentNames, {
@@ -344,6 +349,7 @@ export default function ProfessorHome() {
         students={students}
         loading={bookingsLoading}
         tutorId={user?.uid ?? ""}
+        conversationStudentIds={conversationStudentIds}
       />
 
       <ProfessorHubsSection hubs={hubs} loading={hubsLoading} />
