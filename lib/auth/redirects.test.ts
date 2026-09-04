@@ -7,8 +7,8 @@ describe("auth redirects", () => {
     expect(postAuthPathForRole("lecturer")).toBe("/tutor/onboarding");
   });
 
-  it("routes students to bookings", () => {
-    expect(postAuthPathForRole("student")).toBe("/bookings");
+  it("routes students to dashboard", () => {
+    expect(postAuthPathForRole("student")).toBe("/dashboard");
   });
 
   it("preserves tutor intent on signup links", () => {

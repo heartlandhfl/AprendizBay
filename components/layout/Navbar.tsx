@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { BrandLogoLink } from "@/components/brand/BrandLogo";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { normalizeRole } from "@/lib/auth/roles";
 import { usePendingBookingCount } from "@/lib/bookings/usePendingBookingCount";
 import { signOut } from "@/lib/auth/service";
 
@@ -45,9 +46,11 @@ export default function Navbar() {
   const dashboardHref =
     userDoc?.role === "admin"
       ? "/admin"
-      : userDoc?.role === "tutor"
+      : userDoc?.role === "tutor" || userDoc?.role === "lecturer"
         ? "/tutor/dashboard"
-        : "/bookings";
+        : normalizeRole(userDoc?.role) === "student"
+          ? "/dashboard"
+          : "/bookings";
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-surface/80 backdrop-blur-md">

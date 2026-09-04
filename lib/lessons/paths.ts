@@ -6,5 +6,8 @@ export function lessonBackLink(role: string | undefined): { href: string; label:
   if (role === "tutor") {
     return { href: "/tutor/dashboard", label: "Voltar ao painel" };
   }
+  if (role === "student") {
+    return { href: "/dashboard", label: "Voltar ao início" };
+  }
   return { href: "/bookings", label: "Voltar para minhas aulas" };
 }

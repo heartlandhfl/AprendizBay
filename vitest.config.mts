@@ -29,6 +29,7 @@ export default defineConfig({
             "lib/storage/**/*.test.ts",
             "lib/tutors/**/*.test.ts",
             "lib/bookings/**/*.test.ts",
+            "lib/student-dashboard/**/*.test.ts",
             "lib/hubs/**/*.test.ts",
             "lib/lessons/**/*.test.ts",
             "lib/reviews/**/*.test.ts",

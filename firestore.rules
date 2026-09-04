@@ -538,6 +538,23 @@ service cloud.firestore {
         && (!("photoUrl" in data) || data.photoUrl == null || data.photoUrl is string);
     }
 
+    function validStudentLearningProfileWrite() {
+      let data = request.resource.data;
+
+      return data.keys().hasOnly([
+          "preferredSubject", "preferredLevel", "preferredModality",
+          "preferredCity", "updatedAt"
+        ])
+        && (!("preferredSubject" in data) || data.preferredSubject == null
+          || (data.preferredSubject is string && data.preferredSubject.size() <= 80))
+        && (!("preferredLevel" in data) || data.preferredLevel == null
+          || (data.preferredLevel is string && data.preferredLevel.size() <= 80))
+        && (!("preferredModality" in data) || data.preferredModality == null
+          || data.preferredModality in ["online", "presencial", "ambos"])
+        && (!("preferredCity" in data) || data.preferredCity == null
+          || (data.preferredCity is string && data.preferredCity.size() <= 80));
+    }
+
     function validTutorCreate(tutorId) {
       let data = request.resource.data;
 
@@ -602,6 +619,17 @@ service cloud.firestore {
           && validPublicProfileWrite();
 
         allow delete: if isAdmin() && docId == "profile";
+      }
+
+      match /learning/{docId} {
+        allow get: if isOwner(userId) && docId == "profile";
+        allow list: if false;
+
+        allow create, update: if isOwner(userId)
+          && docId == "profile"
+          && validStudentLearningProfileWrite();
+
+        allow delete: if isOwner(userId) && docId == "profile";
       }
     }
 

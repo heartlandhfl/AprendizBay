@@ -8,10 +8,17 @@ import type { UserRole } from "@/lib/auth/types";
 interface RequireAuthProps {
   children: ReactNode;
   roles?: UserRole[];
+  redirectTo?: string;
+  unauthorizedRedirectTo?: string;
 }
 
-export default function RequireAuth({ children, roles }: RequireAuthProps) {
-  const { loading } = useRequireAuth({ roles });
+export default function RequireAuth({
+  children,
+  roles,
+  redirectTo,
+  unauthorizedRedirectTo,
+}: RequireAuthProps) {
+  const { loading } = useRequireAuth({ roles, redirectTo, unauthorizedRedirectTo });
 
   if (loading) {
     return (

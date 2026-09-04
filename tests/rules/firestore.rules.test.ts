@@ -890,6 +890,34 @@ describe("firestore.rules", () => {
       );
     });
 
+    it("allows a student to save their own learning preferences", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertSucceeds(
+        setDoc(doc(studentDb(), "users", STUDENT_ID, "learning", "profile"), {
+          preferredSubject: "Matemática",
+          preferredLevel: "Ensino médio",
+          preferredModality: "online",
+          preferredCity: null,
+          updatedAt: new Date(),
+        }),
+      );
+    });
+
+    it("denies a student reading another user's learning preferences", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await setDoc(doc(studentBDb(), "users", STUDENT_B_ID, "learning", "profile"), {
+        preferredSubject: "Inglês",
+        preferredModality: "online",
+        updatedAt: new Date(),
+      });
+
+      await assertFails(
+        getDoc(doc(studentDb(), "users", STUDENT_B_ID, "learning", "profile")),
+      );
+    });
+
     it("denies unauthenticated reads of user documents", async () => {
       await seedBaseDocs({ tutorVerified: false });
 
