@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { verifyUserIdToken } from "@/lib/auth/admin-server";
+import { logCriticalServerFailure } from "@/lib/observability/server-log";
 import { statusFromCreateReviewError } from "@/lib/reviews/create-review";
 import { createStudentReview, listPublicTutorReviews } from "@/lib/reviews/server";
 
@@ -24,6 +25,9 @@ export async function GET(request: Request) {
     const reviews = await listPublicTutorReviews(tutorId);
     return NextResponse.json({ ok: true, reviews });
   } catch (error) {
+    logCriticalServerFailure("review", "Failed to list public tutor reviews", {
+      tutorId,
+    });
     const message =
       error instanceof Error ? error.message : "Não foi possível carregar as avaliações.";
     const status = message.includes("Firebase Admin") ? 503 : 500;
@@ -57,6 +61,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
+    logCriticalServerFailure("review", "Failed to create student review");
     const message =
       error instanceof Error ? error.message : "Não foi possível enviar a avaliação.";
     return NextResponse.json(
