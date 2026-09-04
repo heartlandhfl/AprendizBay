@@ -142,9 +142,10 @@ export default function TutorAvailabilityEditor() {
     <section className="rounded-3xl bg-surface p-6 shadow-soft ring-1 ring-border/60">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold text-foreground">Disponibilidade semanal</h2>
+          <h2 className="text-xl font-bold text-foreground">Quando você pode dar aulas?</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Informe os dias e horários em que você pode dar aulas individuais.
+            Os alunos só conseguem reservar horários que você marcar aqui. Mantenha sua agenda
+            atualizada para aparecer disponível para aulas individuais.
           </p>
         </div>
         <p className="rounded-2xl bg-muted/50 px-4 py-2 text-xs text-muted-foreground sm:max-w-sm">

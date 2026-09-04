@@ -85,12 +85,24 @@ describe("Navbar", () => {
     render(<Navbar />);
 
     expect(screen.getByText("Professor")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Meu painel" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Início" })).toHaveAttribute(
       "href",
       "/tutor/dashboard",
     );
+    expect(screen.getByRole("link", { name: "Solicitações" })).toHaveAttribute(
+      "href",
+      "/tutor/dashboard#solicitacoes",
+    );
+    expect(screen.getByRole("link", { name: "Turmas" })).toHaveAttribute(
+      "href",
+      "/tutor/dashboard#turmas",
+    );
 
     await user.click(screen.getByRole("button", { name: /Ana Silva/ }));
+    expect(screen.getByRole("menuitem", { name: "Meu painel" })).toHaveAttribute(
+      "href",
+      "/tutor/dashboard",
+    );
     expect(screen.getByRole("menuitem", { name: "Perfil de professor" })).toHaveAttribute(
       "href",
       "/tutor/settings",
@@ -103,7 +115,7 @@ describe("Navbar", () => {
     render(<Navbar />);
 
     expect(screen.getByText("Professor")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Meu painel" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Início" })).toHaveAttribute(
       "href",
       "/tutor/dashboard",
     );

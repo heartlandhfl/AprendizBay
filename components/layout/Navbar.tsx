@@ -77,7 +77,10 @@ export default function Navbar() {
         />
 
         {navItems.length > 0 && (
-          <div className="hidden items-center gap-1 md:flex" aria-label="Navegação principal">
+          <div
+            className="hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto md:flex"
+            aria-label="Navegação principal"
+          >
             {navItems.map((item) => {
               const current =
                 item.href === "/"
