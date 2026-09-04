@@ -12,8 +12,11 @@ describe("buildSearchUrlFromProfile", () => {
         preferredSubject: "Matemática",
         preferredModality: "presencial",
         preferredCity: "São Paulo",
+        preferredLevel: "Ensino médio",
       }),
-    ).toBe("/search?subject=Matem%C3%A1tica&modality=presencial&city=S%C3%A3o+Paulo");
+    ).toBe(
+      "/search?subject=Matem%C3%A1tica&level=Ensino+m%C3%A9dio&modality=presencial&city=S%C3%A3o+Paulo",
+    );
   });
 
   it("prefers explicit query over profile subject", () => {

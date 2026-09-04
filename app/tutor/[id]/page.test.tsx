@@ -6,6 +6,7 @@ vi.mock("next/navigation", () => ({
   notFound: () => {
     throw new Error("NEXT_NOT_FOUND");
   },
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 vi.mock("@/lib/tutors/server", () => ({

@@ -92,7 +92,7 @@ export async function fetchVerifiedTutors(
   }
 
   try {
-    const { subject, city } = firestoreSearchConstraints(filters);
+    const { subject, city, modality, availableOnly } = firestoreSearchConstraints(filters);
     const constraints: QueryConstraint[] = [where("isVerified", "==", true)];
 
     if (subject) {
@@ -101,6 +101,16 @@ export async function fetchVerifiedTutors(
 
     if (city) {
       constraints.push(where("city", "==", city));
+    }
+
+    if (modality === "online") {
+      constraints.push(where("modality", "in", ["online", "ambos"]));
+    } else if (modality === "presencial") {
+      constraints.push(where("modality", "in", ["presencial", "ambos"]));
+    }
+
+    if (availableOnly) {
+      constraints.push(where("hasAvailability", "==", true));
     }
 
     constraints.push(orderBy("rating", "desc"));

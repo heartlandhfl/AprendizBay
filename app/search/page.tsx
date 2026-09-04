@@ -1,20 +1,28 @@
 import type { Metadata } from "next";
 import SearchResults from "@/components/search/SearchResults";
 import { INDEX_FOLLOW_ROBOTS, NOINDEX_FOLLOW_ROBOTS } from "@/lib/seo/robots-policy";
+import { hasExplicitSearchParams } from "@/lib/tutors/search-params";
 
 interface SearchPageProps {
-  searchParams: { q?: string; subject?: string; modality?: string; city?: string };
+  searchParams: {
+    q?: string;
+    subject?: string;
+    modality?: string;
+    city?: string;
+    level?: string;
+    price?: string;
+    available?: string;
+    lessonType?: string;
+    minRating?: string;
+    verified?: string;
+    experience?: string;
+  };
 }
 
 export async function generateMetadata({
   searchParams,
 }: SearchPageProps): Promise<Metadata> {
-  const hasFilters = Boolean(
-    searchParams.q?.trim() ||
-      searchParams.subject?.trim() ||
-      searchParams.modality?.trim() ||
-      searchParams.city?.trim(),
-  );
+  const hasFilters = hasExplicitSearchParams(searchParams);
 
   return {
     title: "Buscar Professores — Aprendiz Bay",
@@ -28,11 +36,5 @@ export async function generateMetadata({
 }
 
 export default function SearchPage({ searchParams }: SearchPageProps) {
-  return (
-    <SearchResults
-      initialQuery={searchParams.q ?? searchParams.subject ?? ""}
-      initialModality={searchParams.modality}
-      initialCity={searchParams.city}
-    />
-  );
+  return <SearchResults initialSearchParams={searchParams} />;
 }

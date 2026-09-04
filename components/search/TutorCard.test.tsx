@@ -41,4 +41,33 @@ describe("TutorCard", () => {
     expect(screen.getByText("Aula individual")).toBeInTheDocument();
     expect(screen.queryByText("Aula coletiva")).not.toBeInTheDocument();
   });
+
+  it("shows education levels and availability when present", () => {
+    render(
+      <TutorCard
+        tutor={{
+          ...baseTutor,
+          educationLevels: ["Ensino médio", "Graduação"],
+          hasAvailability: true,
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Ensino médio · Graduação")).toBeInTheDocument();
+    expect(screen.getByText("Horários disponíveis")).toBeInTheDocument();
+  });
+
+  it("includes the search return URL on the profile link", () => {
+    render(
+      <TutorCard
+        tutor={baseTutor}
+        returnTo="/search?subject=Ingl%C3%AAs"
+      />,
+    );
+
+    expect(screen.getByRole("link", { name: "Ver Perfil" })).toHaveAttribute(
+      "href",
+      "/tutor/1?from=%2Fsearch%3Fsubject%3DIngl%C3%AAs",
+    );
+  });
 });

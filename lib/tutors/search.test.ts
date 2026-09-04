@@ -113,20 +113,34 @@ describe("isEligibleForSearch", () => {
 });
 
 describe("firestoreSearchConstraints", () => {
-  it("only forwards subject and city when they are specific", () => {
+  it("forwards subject, city, modality and availability when they are specific", () => {
     expect(
       firestoreSearchConstraints({
         subject: ALL_SUBJECTS_LABEL,
         city: ALL_CITIES_LABEL,
+        modality: "todos",
+        availableOnly: false,
       }),
-    ).toEqual({ subject: undefined, city: undefined });
+    ).toEqual({
+      subject: undefined,
+      city: undefined,
+      modality: undefined,
+      availableOnly: undefined,
+    });
 
     expect(
       firestoreSearchConstraints({
         subject: "Inglês",
         city: "São Paulo",
+        modality: "online",
+        availableOnly: true,
       }),
-    ).toEqual({ subject: "Inglês", city: "São Paulo" });
+    ).toEqual({
+      subject: "Inglês",
+      city: "São Paulo",
+      modality: "online",
+      availableOnly: true,
+    });
   });
 });
 
@@ -341,16 +355,17 @@ describe("search empty copy and active filter count", () => {
       city: "Recife",
     } satisfies SearchFilterState);
 
-    expect(copy.title).toBe("Ainda não há professores de Inglês em Recife");
-    expect(copy.description).toMatch(/online/i);
+    expect(copy.title).toBe("Nenhum professor encontrado com esses critérios.");
+    expect(copy.description).toMatch(/Inglês/);
+    expect(copy.description).toMatch(/Recife/i);
   });
 
-  it("describes empty aula coletiva results separately from aula individual", () => {
+  it("uses the shared no-results title for lesson-type filters", () => {
     expect(searchEmptyState({ ...DEFAULT_FILTERS, lessonType: "coletivo" }).title).toBe(
-      "Nenhuma aula coletiva encontrada",
+      "Nenhum professor encontrado com esses critérios.",
     );
     expect(searchEmptyState({ ...DEFAULT_FILTERS, lessonType: "individual" }).title).toBe(
-      "Nenhum professor encontrado para aula individual",
+      "Nenhum professor encontrado com esses critérios.",
     );
   });
 });

@@ -94,4 +94,5 @@ export interface TutorQueryFilters {
   subject?: string;
   city?: string;
   modality?: Modality | "todos";
+  availableOnly?: boolean;
 }

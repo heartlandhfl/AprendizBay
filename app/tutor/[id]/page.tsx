@@ -1,7 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { Suspense } from "react";
 import JsonLd from "@/components/seo/JsonLd";
 import TutorHeader from "@/components/tutor/TutorHeader";
 import TutorAbout from "@/components/tutor/TutorAbout";
@@ -15,6 +14,7 @@ import ProfileViewTracker from "@/components/observability/ProfileViewTracker";
 import BookingWidget from "@/components/tutor/BookingWidget";
 import SendMessageButton from "@/components/conversations/SendMessageButton";
 import TutorCatalogProblem from "@/components/catalog/TutorCatalogProblem";
+import TutorBackToSearch from "@/components/tutor/TutorBackToSearch";
 import { INDEX_FOLLOW_ROBOTS, NOINDEX_FOLLOW_ROBOTS } from "@/lib/seo/robots-policy";
 import { buildTutorPersonJsonLd } from "@/lib/seo/tutor-jsonld";
 import { isCatalogProblem, tutorsForPublicPages } from "@/lib/tutors/catalog";
@@ -95,13 +95,9 @@ export default async function TutorPage({ params }: TutorPageProps) {
     <div className="mx-auto max-w-7xl px-4 py-8 pb-28 sm:px-6 lg:px-8 lg:pb-8">
       <ProfileViewTracker tutorId={tutor.id} subject={tutor.subject} />
       <JsonLd data={buildTutorPersonJsonLd(tutor)} />
-      <Link
-        href="/search"
-        className="mb-6 inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-primary-600"
-      >
-        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        Voltar aos resultados
-      </Link>
+      <Suspense fallback={null}>
+        <TutorBackToSearch />
+      </Suspense>
 
       <div className="lg:grid lg:grid-cols-[1fr_380px] lg:gap-8 lg:items-start">
         <div className="space-y-6 sm:space-y-8">
