@@ -84,7 +84,7 @@ export async function POST(request: Request) {
       payerEmail,
       payerIdentificationType,
       payerIdentificationNumber,
-      notificationUrl: `${getSiteUrl(request)}/api/mercadopago/webhook`,
+      notificationUrl: `${getSiteUrl(request)}/api/payments/webhook/mercadopago`,
     });
 
     if (!result.ok) {

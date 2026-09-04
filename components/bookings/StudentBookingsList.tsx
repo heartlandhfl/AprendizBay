@@ -41,7 +41,8 @@ interface ReviewTarget {
 }
 
 const PAYMENT_RETURN_MESSAGES: Record<string, string> = {
-  sucesso: "Pagamento enviado. Assim que o Asaas confirmar, sua aula será liberada.",
+  sucesso:
+    "Pagamento enviado. Assim que o Mercado Pago confirmar, sua aula será liberada.",
   cancelado:
     "O pagamento foi cancelado. Nenhum valor foi confirmado. Você pode tentar novamente.",
   expirado:

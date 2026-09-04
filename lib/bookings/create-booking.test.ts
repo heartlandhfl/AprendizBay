@@ -262,6 +262,16 @@ describe("assertCanCreateIndividualBooking", () => {
     ).toThrow(CREATE_BOOKING_ERRORS.COLLECTIVE_PATH);
   });
 
+  it("rejects students booking themselves as the tutor", () => {
+    expect(() =>
+      assertCanCreateIndividualBooking({
+        actorUid: TUTOR_ID,
+        tutorId: TUTOR_ID,
+        scheduledAt: SLOT,
+      }),
+    ).toThrow(CREATE_BOOKING_ERRORS.SELF_BOOKING);
+  });
+
   it("rejects a past slot", () => {
     expect(() =>
       assertCanCreateIndividualBooking(

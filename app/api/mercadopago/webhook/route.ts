@@ -1,14 +1,10 @@
 import { NextResponse } from "next/server";
 import { captureServerException } from "@/lib/observability/sentry-server";
+import { createPaymentGateway } from "@/lib/payments/gateway/factory";
 import {
-  authorizeMercadoPagoWebhook,
-  extractMercadoPagoWebhookDataId,
-  fetchMercadoPagoPayment,
-  parseMercadoPagoWebhookNotification,
-  resolveMercadoPagoPaymentOutcome,
-} from "@/lib/payments/mercadopago";
-import { processMercadoPagoPaymentWebhook } from "@/lib/payments/process-mercadopago-webhook";
-import { WEBHOOK_INVALID_MESSAGE } from "@/lib/payments/webhook-receipts";
+  buildVerifiedPaymentWebhookEvent,
+  processPaymentWebhook,
+} from "@/lib/payments/process-payment-webhook";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,41 +19,29 @@ function webhookErrorStatus(error: unknown): number {
 
 export async function POST(request: Request) {
   try {
-    const url = new URL(request.url);
-    const queryDataId = url.searchParams.get("data.id");
+    const gateway = createPaymentGateway("mercadopago");
+    const verification = await gateway.verifyWebhook(request);
 
-    const auth = authorizeMercadoPagoWebhook(request.headers, queryDataId);
-    if (!auth.ok) {
-      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    if (!verification.ok) {
+      return NextResponse.json({ error: verification.error }, { status: verification.httpStatus });
     }
 
-    let payload: unknown;
-    try {
-      payload = await request.json();
-    } catch {
-      return NextResponse.json({ error: WEBHOOK_INVALID_MESSAGE }, { status: 400 });
+    const event = verification.event;
+    if (event.kind === "ignored" || !event.paymentId) {
+      return NextResponse.json({ received: true, ignored: event.status });
     }
 
-    const notification = parseMercadoPagoWebhookNotification(payload);
-    const paymentId = extractMercadoPagoWebhookDataId(notification, queryDataId);
-
-    if (!paymentId) {
-      return NextResponse.json({ received: true, ignored: "missing_payment_id" });
-    }
-
-    const payment = await fetchMercadoPagoPayment(paymentId);
-    const outcome = resolveMercadoPagoPaymentOutcome(payment.status);
-
-    if (outcome === "ignored") {
-      return NextResponse.json({ received: true, ignored: payment.status });
-    }
-
-    const result = await processMercadoPagoPaymentWebhook({
-      paymentId,
-      notificationId: notification.id,
-      requestId: request.headers.get("x-request-id") ?? undefined,
-      payment,
+    const payment = await gateway.getPaymentStatus(event.paymentId);
+    const verifiedEvent = buildVerifiedPaymentWebhookEvent({
+      provider: "mercadopago",
+      paymentId: payment.paymentId,
+      status: payment.status,
+      bookingId: payment.bookingId ?? event.bookingId,
+      amount: payment.amount ?? event.paidAmount,
+      checkoutId: payment.checkoutId ?? event.checkoutId,
     });
+
+    const result = await processPaymentWebhook(verifiedEvent);
 
     return NextResponse.json({
       received: result.received,
@@ -65,7 +49,7 @@ export async function POST(request: Request) {
       ...(result.confirmed ? { confirmed: true } : {}),
       ...(result.alreadyProcessed ? { alreadyProcessed: true } : {}),
       ...(result.ignored ? { ignored: result.ignored } : {}),
-      ...(result.kind === "rejected" ? { rejected: true } : {}),
+      ...(result.kind === "failed" ? { failed: true } : {}),
       ...(result.kind === "refunded" ? { refunded: true } : {}),
       ...(result.kind === "amount_mismatch" ? { amountMismatch: true } : {}),
     });

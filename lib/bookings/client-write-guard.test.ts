@@ -36,6 +36,19 @@ describe("client booking writes", () => {
     expect(createFn).not.toMatch(/paymentStatus/);
   });
 
+  it("sends tutor acceptance only to the authorized server path", () => {
+    const source = readFileSync(resolve(process.cwd(), "lib/bookings/service.ts"), "utf8");
+    const acceptFn = source.slice(
+      source.indexOf("export async function confirmBookingAsTutor"),
+      source.indexOf("export async function cancelBookingAsTutor"),
+    );
+
+    expect(acceptFn).toMatch(/fetch\(\s*["']\/api\/bookings\/accept["']/);
+    expect(acceptFn).toMatch(/Authorization/);
+    expect(acceptFn).not.toMatch(/updateDoc/);
+    expect(acceptFn).not.toMatch(/paymentStatus:\s*["']awaiting_payment["']/);
+  });
+
   it("sends collective joins only to the authorized server path", () => {
     const source = readFileSync(resolve(process.cwd(), "lib/hubs/service.ts"), "utf8");
 
