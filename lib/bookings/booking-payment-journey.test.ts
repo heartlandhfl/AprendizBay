@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { acceptBookingForTutor } from "@/lib/bookings/accept-booking";
 import type { BookingRecord } from "@/lib/bookings/server";
-import { generateMeetingUrl } from "@/lib/bookings/meeting";
+import { generateMeetingUrl } from "@/lib/bookings/meeting-server";
 import {
   buildVerifiedPaymentWebhookEvent,
   createMemoryPaymentWebhookStore,

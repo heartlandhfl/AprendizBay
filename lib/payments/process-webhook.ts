@@ -5,7 +5,7 @@ import {
   mapBookingRecord,
   type BookingRecord,
 } from "@/lib/bookings/server";
-import { generateMeetingUrl } from "@/lib/bookings/meeting";
+import { generateMeetingUrl } from "@/lib/bookings/meeting-server";
 import { getAdminApp } from "@/lib/firebase/admin";
 import { notifyConfirmedBooking, notifyPaymentFailed, safeNotify } from "@/lib/notifications/server";
 import type { AsaasWebhookMatch, AsaasWebhookOutcome } from "@/lib/payments/asaas";

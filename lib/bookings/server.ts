@@ -22,7 +22,7 @@ import {
 import { createIndividualBookingForStudent } from "@/lib/bookings/create-booking";
 import { createCollectiveBookingForStudent } from "@/lib/hubs/join-and-book";
 import { evaluateHubLeave, hubLeaveWrite } from "@/lib/hubs/leave";
-import { generateMeetingUrl } from "@/lib/bookings/meeting";
+import { generateMeetingUrl } from "@/lib/bookings/meeting-server";
 import {
   notifyConfirmedBooking,
   notifyLessonCancelled,
@@ -318,7 +318,7 @@ export async function acceptBookingAsTutor(input: {
 export async function completeLessonAsActor(input: {
   bookingId: string;
   actorUid: string;
-  actorRole?: string;
+  actorClaimRole?: string;
 }): Promise<{ bookingId: string; status: "completed" }> {
   const db = requireAdminFirestore();
   const result = await completeLessonForActor(db, input, {

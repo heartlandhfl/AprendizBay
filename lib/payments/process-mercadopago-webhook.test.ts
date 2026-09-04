@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { BookingRecord } from "@/lib/bookings/server";
-import { generateMeetingUrl } from "@/lib/bookings/meeting";
+import { generateMeetingUrl } from "@/lib/bookings/meeting-server";
 import {
   createMemoryMercadoPagoWebhookStore,
   processMercadoPagoPaymentWebhook,

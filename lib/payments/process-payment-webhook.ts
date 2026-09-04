@@ -2,7 +2,7 @@ import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firesto
 import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
 import { trackServerEvent } from "@/lib/analytics/server";
 import { mapBookingRecord, type BookingRecord } from "@/lib/bookings/server";
-import { generateMeetingUrl } from "@/lib/bookings/meeting";
+import { generateMeetingUrl } from "@/lib/bookings/meeting-server";
 import { getAdminApp } from "@/lib/firebase/admin";
 import {
   maybeCreateFacilitatorCommission,
