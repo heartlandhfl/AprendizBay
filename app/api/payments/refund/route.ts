@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { captureServerException } from "@/lib/observability/sentry-server";
-import { verifyUserIdToken } from "@/lib/auth/admin-server";
+import { verifyAdminIdToken } from "@/lib/auth/admin-server";
 import { refundBookingPayment } from "@/lib/payments/refund-booking-payment";
 
 export const runtime = "nodejs";
@@ -11,9 +10,13 @@ function readBearerToken(request: Request): string {
   return header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : "";
 }
 
+/**
+ * Admin-only manual refund. Students and tutors must use POST /api/bookings/cancel
+ * so cancellation policy and booking status stay authoritative.
+ */
 export async function POST(request: Request) {
   try {
-    const { uid } = await verifyUserIdToken(readBearerToken(request));
+    const adminUid = await verifyAdminIdToken(readBearerToken(request));
     const body = (await request.json()) as {
       bookingId?: string;
       description?: string;
@@ -25,7 +28,8 @@ export async function POST(request: Request) {
     }
 
     const result = await refundBookingPayment({
-      actorUid: uid,
+      actorUid: adminUid,
+      actorIsAdmin: true,
       bookingId,
       description: body.description?.trim(),
     });
@@ -47,12 +51,11 @@ export async function POST(request: Request) {
     const status =
       message.includes("Token") || message.includes("autenticação")
         ? 401
-        : message.includes("MERCADOPAGO_ACCESS_TOKEN") || message.includes("Firebase Admin")
-          ? 503
-          : 400;
-    if (status >= 500) {
-      captureServerException(error);
-    }
+        : message.includes("administradores")
+          ? 403
+          : message.includes("MERCADOPAGO_ACCESS_TOKEN") || message.includes("Firebase Admin")
+            ? 503
+            : 400;
 
     const publicMessage =
       status === 503

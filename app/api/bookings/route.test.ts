@@ -14,6 +14,7 @@ vi.mock("@/lib/bookings/server", () => ({
 vi.mock("@/lib/auth/admin-server", () => ({
   verifyUserIdToken: mockVerifyUserIdToken,
   getUserProfile: mockGetUserProfile,
+  assertStudentApiActor: vi.fn(),
 }));
 
 import { POST } from "@/app/api/bookings/route";

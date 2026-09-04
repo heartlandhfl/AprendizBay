@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getUserProfile, verifyUserIdToken } from "@/lib/auth/admin-server";
+import { assertStudentApiActor, getUserProfile, verifyUserIdToken } from "@/lib/auth/admin-server";
 import { createCollectiveBookingAsStudent } from "@/lib/bookings/server";
 import { statusFromJoinAndBookError } from "@/lib/hubs/join-and-book";
 
@@ -17,9 +17,10 @@ function readBearerToken(request: Request): string {
  */
 export async function POST(request: Request) {
   try {
-    const { uid } = await verifyUserIdToken(readBearerToken(request));
+    const { uid, customClaims } = await verifyUserIdToken(readBearerToken(request));
     const body = (await request.json()) as { hubId?: string };
     const profile = await getUserProfile(uid);
+    assertStudentApiActor(customClaims, profile?.role);
 
     const result = await createCollectiveBookingAsStudent({
       actorUid: uid,
@@ -31,12 +32,16 @@ export async function POST(request: Request) {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Não foi possível entrar nesta turma.";
+    const status =
+      message.includes("Apenas alunos")
+        ? 403
+        : statusFromJoinAndBookError(error);
     return NextResponse.json(
       {
         error: message,
         code: error && typeof error === "object" && "code" in error ? error.code : undefined,
       },
-      { status: statusFromJoinAndBookError(error) },
+      { status },
     );
   }
 }
