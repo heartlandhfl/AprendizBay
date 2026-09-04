@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Users } from "lucide-react";
 import CollectiveClassCard from "@/components/hubs/CollectiveClassCard";
 import SearchFilters, {
@@ -12,51 +13,31 @@ import TutorCard from "@/components/search/TutorCard";
 import { trackEvent } from "@/lib/analytics/client";
 import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
 import CatalogLoadState from "@/components/catalog/CatalogLoadState";
+import { useAuth } from "@/lib/auth/AuthContext";
 import { fetchOpenCollectiveHubs } from "@/lib/hubs/service";
 import type { CollectiveHubLive } from "@/lib/hubs/types";
-import type { FilterModality, Tutor } from "@/lib/mock-tutors";
-import { PRICE_RANGES, SUBJECTS } from "@/lib/tutors/catalog-options";
+import type { Tutor } from "@/lib/mock-tutors";
+import { PRICE_RANGES } from "@/lib/tutors/catalog-options";
 import { isCatalogProblem, type TutorCatalogState } from "@/lib/tutors/catalog";
-import { SEARCH_CITIES } from "@/lib/tutors/constants";
 import { fetchVerifiedTutors } from "@/lib/tutors/client";
+import { subscribeToStudentLearningProfile } from "@/lib/student-dashboard/preferences";
+import type { StudentLearningProfile } from "@/lib/student-dashboard/types";
 import {
-  ALL_CITIES_LABEL,
   applyTutorSearchFilters,
+  firestoreSearchConstraints,
+  SEARCH_LANDING_TITLE,
   searchEmptyState,
 } from "@/lib/tutors/search";
-
-function subjectFromQuery(query: string): string {
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) {
-    return DEFAULT_FILTERS.subject;
-  }
-
-  const match = SUBJECTS.find(
-    (subject) => subject !== "Todas as matérias" && subject.toLowerCase() === normalized,
-  );
-  return match ?? DEFAULT_FILTERS.subject;
-}
-
-function modalityFromQuery(value?: string): FilterModality {
-  if (value === "online" || value === "presencial") {
-    return value;
-  }
-  return DEFAULT_FILTERS.modality;
-}
-
-function cityFromQuery(value?: string): string {
-  if (!value) {
-    return DEFAULT_FILTERS.city;
-  }
-
-  const normalized = value.trim().toLowerCase();
-  if (!normalized || normalized === ALL_CITIES_LABEL.toLowerCase()) {
-    return DEFAULT_FILTERS.city;
-  }
-
-  const match = SEARCH_CITIES.find((city) => city.toLowerCase() === normalized);
-  return match ?? value.trim();
-}
+import {
+  broadenSearchFilters,
+  buildSearchHref,
+  hasActiveSearchCriteria,
+  hasExplicitSearchParams,
+  mergeProfileDefaults,
+  parseSearchFiltersFromParams,
+  serializeSearchFilters,
+  type SearchPageParams,
+} from "@/lib/tutors/search-params";
 
 function enrichHub(hub: CollectiveHubLive, tutors: Tutor[]): CollectiveHubLive {
   const tutor = tutors.find((item) => item.id === hub.tutorId);
@@ -91,27 +72,76 @@ function hubMatchesFilters(hub: CollectiveHubLive, filters: SearchFilterState): 
 }
 
 interface SearchResultsProps {
-  initialQuery?: string;
-  initialModality?: string;
-  initialCity?: string;
+  initialSearchParams?: SearchPageParams;
 }
 
-export default function SearchResults({
-  initialQuery = "",
-  initialModality,
-  initialCity,
-}: SearchResultsProps) {
-  const [filters, setFilters] = useState<SearchFilterState>({
-    ...DEFAULT_FILTERS,
-    subject: subjectFromQuery(initialQuery),
-    modality: modalityFromQuery(initialModality),
-    city: cityFromQuery(initialCity),
-  });
+export default function SearchResults({ initialSearchParams = {} }: SearchResultsProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const liveSearchParams = useSearchParams();
+  const { user, userDoc } = useAuth();
+  const [learningProfile, setLearningProfile] = useState<StudentLearningProfile | null>(null);
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const [filters, setFilters] = useState<SearchFilterState>(() =>
+    parseSearchFiltersFromParams(initialSearchParams),
+  );
   const [tutors, setTutors] = useState<Tutor[]>([]);
   const [hubs, setHubs] = useState<CollectiveHubLive[]>([]);
   const [loading, setLoading] = useState(true);
   const [catalogState, setCatalogState] = useState<TutorCatalogState>("ok");
   const [reloadToken, setReloadToken] = useState(0);
+  const initializedProfileDefaultsRef = useRef(false);
+  const explicitUrlFiltersRef = useRef(hasExplicitSearchParams(initialSearchParams));
+
+  const firestoreFilters = useMemo(() => firestoreSearchConstraints(filters), [filters]);
+  const searchReturnTo = useMemo(() => buildSearchHref(filters), [filters]);
+
+  useEffect(() => {
+    if (!user || userDoc?.role !== "student") {
+      setLearningProfile(null);
+      setProfileLoaded(true);
+      return;
+    }
+
+    return subscribeToStudentLearningProfile(user.uid, (profile) => {
+      setLearningProfile(profile);
+      setProfileLoaded(true);
+    });
+  }, [user, userDoc?.role]);
+
+  const searchParamsKey = liveSearchParams.toString();
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchParamsKey);
+    explicitUrlFiltersRef.current = hasExplicitSearchParams(
+      Object.fromEntries(params.entries()),
+    );
+    setFilters(parseSearchFiltersFromParams(params));
+  }, [searchParamsKey]);
+
+  useEffect(() => {
+    if (!profileLoaded || initializedProfileDefaultsRef.current || explicitUrlFiltersRef.current) {
+      return;
+    }
+
+    initializedProfileDefaultsRef.current = true;
+    const withProfile = mergeProfileDefaults(DEFAULT_FILTERS, learningProfile);
+    setFilters(withProfile);
+    router.replace(buildSearchHref(withProfile), { scroll: false });
+  }, [learningProfile, profileLoaded, router]);
+
+  const updateFilters = useCallback(
+    (nextFilters: SearchFilterState) => {
+      explicitUrlFiltersRef.current = true;
+      initializedProfileDefaultsRef.current = true;
+      setFilters(nextFilters);
+
+      const query = serializeSearchFilters(nextFilters).toString();
+      const nextUrl = query ? `${pathname}?${query}` : pathname;
+      router.replace(nextUrl, { scroll: false });
+    },
+    [pathname, router],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -121,10 +151,7 @@ export default function SearchResults({
 
       try {
         const [tutorCatalog, hubCatalog] = await Promise.all([
-          fetchVerifiedTutors({
-            subject: filters.subject,
-            city: filters.city,
-          }),
+          fetchVerifiedTutors(firestoreFilters),
           fetchOpenCollectiveHubs(),
         ]);
 
@@ -165,7 +192,7 @@ export default function SearchResults({
     return () => {
       cancelled = true;
     };
-  }, [filters.subject, filters.city, reloadToken]);
+  }, [firestoreFilters, reloadToken]);
 
   useEffect(() => {
     trackEvent(ANALYTICS_EVENTS.search, {
@@ -204,27 +231,33 @@ export default function SearchResults({
   const visibleTutors = showTutors ? tutorResults : [];
   const resultCount = visibleTutors.length + classResults.length;
   const emptyCopy = searchEmptyState(filters);
+  const landingView = !hasActiveSearchCriteria(filters);
+  const pageTitle = landingView ? SEARCH_LANDING_TITLE : "Resultados da Busca";
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold text-foreground sm:text-3xl">
-          Resultados da Busca
-        </h1>
+        <h1 className="text-2xl font-bold text-foreground sm:text-3xl">{pageTitle}</h1>
         <p className="mt-2 text-muted-foreground">
-          Encontre professores e{" "}
-          <span className="inline-flex items-center gap-1 font-medium text-secondary-600">
-            <Users className="h-4 w-4" aria-hidden="true" />
-            aulas coletivas
-          </span>{" "}
-          no mesmo lugar.
+          {landingView
+            ? "Use os filtros para encontrar professores verificados e turmas coletivas que combinem com você."
+            : (
+              <>
+                Encontre professores e{" "}
+                <span className="inline-flex items-center gap-1 font-medium text-secondary-600">
+                  <Users className="h-4 w-4" aria-hidden="true" />
+                  aulas coletivas
+                </span>{" "}
+                no mesmo lugar.
+              </>
+            )}
         </p>
       </div>
 
       <div className="lg:grid lg:grid-cols-[280px_1fr] lg:gap-8">
         <SearchFilters
           filters={filters}
-          onChange={setFilters}
+          onChange={updateFilters}
           resultCount={resultCount}
         />
 
@@ -283,7 +316,11 @@ export default function SearchResults({
                   ) : null}
                   <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-2">
                     {visibleTutors.map((tutor) => (
-                      <TutorCard key={tutor.id} tutor={tutor} />
+                      <TutorCard
+                        key={tutor.id}
+                        tutor={tutor}
+                        returnTo={searchReturnTo}
+                      />
                     ))}
                   </div>
                 </div>
@@ -296,8 +333,15 @@ export default function SearchResults({
               <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
                 <button
                   type="button"
-                  onClick={() => setFilters(DEFAULT_FILTERS)}
+                  onClick={() => updateFilters(broadenSearchFilters(filters))}
                   className="rounded-2xl bg-primary-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-700"
+                >
+                  Ampliar busca
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateFilters(DEFAULT_FILTERS)}
+                  className="rounded-2xl border border-border px-5 py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
                 >
                   Limpar filtros
                 </button>

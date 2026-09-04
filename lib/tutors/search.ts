@@ -67,6 +67,8 @@ export const DEFAULT_FILTERS: SearchFilterState = {
 export interface FirestoreTutorSearchConstraints {
   subject?: string;
   city?: string;
+  modality?: FilterModality;
+  availableOnly?: boolean;
 }
 
 export interface SearchEmptyCopy {
@@ -120,11 +122,18 @@ export function isEligibleForSearch(
 }
 
 export function firestoreSearchConstraints(
-  filters: Pick<SearchFilterState, "subject" | "city"> | { subject?: string; city?: string },
+  filters:
+    | Pick<SearchFilterState, "subject" | "city" | "modality" | "availableOnly">
+    | { subject?: string; city?: string; modality?: FilterModality; availableOnly?: boolean },
 ): FirestoreTutorSearchConstraints {
+  const modality =
+    filters.modality && filters.modality !== "todos" ? filters.modality : undefined;
+
   return {
     subject: isSpecificSubject(filters.subject) ? filters.subject : undefined,
     city: isSpecificCity(filters.city) ? filters.city : undefined,
+    modality,
+    availableOnly: filters.availableOnly ? true : undefined,
   };
 }
 
@@ -249,66 +258,47 @@ export function countActiveSearchFilters(filters: SearchFilterState): number {
   return count;
 }
 
+export const SEARCH_LANDING_TITLE = "Encontre o professor ideal para você.";
+export const SEARCH_NO_RESULTS_TITLE = "Nenhum professor encontrado com esses critérios.";
+
 export function searchEmptyState(filters: SearchFilterState): SearchEmptyCopy {
   const subject = isSpecificSubject(filters.subject) ? filters.subject : null;
   const city = isSpecificCity(filters.city) ? filters.city : null;
 
   if (filters.lessonType === "coletivo") {
-    if (subject && city) {
-      return {
-        title: `Nenhuma aula coletiva de ${subject} em ${city}`,
-        description:
-          "Tente outra cidade, aulas online ou limpe os filtros para ver turmas disponíveis.",
-      };
-    }
-
     return {
-      title: "Nenhuma aula coletiva encontrada",
+      title: SEARCH_NO_RESULTS_TITLE,
       description:
-        "Ajuste a disciplina, a cidade ou a faixa de preço para ver turmas com vagas.",
-    };
-  }
-
-  if (filters.lessonType === "individual") {
-    if (subject && city) {
-      return {
-        title: `Nenhum professor de ${subject} em ${city} para aula individual`,
-        description:
-          "Experimente aulas online, outra cidade ou limpe os filtros para ver mais professores.",
-      };
-    }
-
-    return {
-      title: "Nenhum professor encontrado para aula individual",
-      description: "Tente ajustar os filtros para ver mais resultados.",
+        subject && city
+          ? `Não encontramos turmas coletivas de ${subject} em ${city}. Tente aulas online, outra cidade ou amplie os filtros.`
+          : "Ajuste a disciplina, a cidade ou a faixa de preço para ver turmas com vagas.",
     };
   }
 
   if (subject && city) {
     return {
-      title: `Ainda não há professores de ${subject} em ${city}`,
-      description:
-        "Veja quem ensina essa disciplina online, explore outra cidade ou limpe os filtros.",
+      title: SEARCH_NO_RESULTS_TITLE,
+      description: `Não encontramos professores de ${subject} em ${city}. Experimente aulas online, outra cidade ou amplie os filtros.`,
     };
   }
 
   if (subject) {
     return {
-      title: `Nenhum professor de ${subject} com esses filtros`,
-      description: "Tente outra cidade, modalidade ou limpe os filtros para ver mais resultados.",
+      title: SEARCH_NO_RESULTS_TITLE,
+      description: `Não encontramos professores de ${subject} com esses filtros. Tente outra cidade, modalidade ou amplie a busca.`,
     };
   }
 
   if (city) {
     return {
-      title: `Nenhum professor encontrado em ${city}`,
-      description:
-        "Experimente aulas online, outra disciplina ou limpe os filtros para ver mais resultados.",
+      title: SEARCH_NO_RESULTS_TITLE,
+      description: `Não encontramos professores em ${city}. Experimente aulas online, outra disciplina ou amplie os filtros.`,
     };
   }
 
   return {
-    title: "Nenhum professor ou turma encontrada",
-    description: "Tente ajustar os filtros para ver mais resultados.",
+    title: SEARCH_NO_RESULTS_TITLE,
+    description:
+      "Tente remover alguns filtros, escolher aulas online ou explorar outra disciplina.",
   };
 }

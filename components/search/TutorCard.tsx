@@ -1,12 +1,13 @@
 import Link from "next/link";
-import { BadgeCheck, MapPin, Monitor, Star, Users } from "lucide-react";
+import { BadgeCheck, Calendar, MapPin, Monitor, Star, Users } from "lucide-react";
 import TutorAvatar from "@/components/tutor/TutorAvatar";
 import type { Tutor } from "@/lib/mock-tutors";
-import { hasPublicRating } from "@/lib/tutors/profile-display";
 import { formatReviewCountLabel, formatTutorRating } from "@/lib/tutors/format";
+import { hasPublicRating } from "@/lib/tutors/profile-display";
 
 interface TutorCardProps {
   tutor: Tutor;
+  returnTo?: string;
 }
 
 function formatPrice(value: number) {
@@ -18,13 +19,42 @@ function formatPrice(value: number) {
   });
 }
 
-export default function TutorCard({ tutor }: TutorCardProps) {
-    const savingsPercent =
-      tutor.individualPrice > 0
-        ? Math.round(
-            ((tutor.individualPrice - tutor.collectivePrice) / tutor.individualPrice) * 100,
-          )
-        : 0;
+function formatEducationLevels(levels?: string[]): string | null {
+  if (!levels?.length) {
+    return null;
+  }
+
+  if (levels.length <= 2) {
+    return levels.join(" · ");
+  }
+
+  return `${levels.slice(0, 2).join(" · ")} +${levels.length - 2}`;
+}
+
+function profileHref(tutorId: string, returnTo?: string): string {
+  if (!returnTo) {
+    return `/tutor/${tutorId}`;
+  }
+
+  let normalizedReturnTo = returnTo;
+  try {
+    normalizedReturnTo = decodeURIComponent(returnTo);
+  } catch {
+    normalizedReturnTo = returnTo;
+  }
+
+  return `/tutor/${tutorId}?from=${encodeURIComponent(normalizedReturnTo)}`;
+}
+
+export default function TutorCard({ tutor, returnTo }: TutorCardProps) {
+  const savingsPercent =
+    tutor.individualPrice > 0
+      ? Math.round(
+          ((tutor.individualPrice - tutor.collectivePrice) / tutor.individualPrice) * 100,
+        )
+      : 0;
+  const educationLabel = formatEducationLevels(tutor.educationLevels);
+  const showLocation = tutor.modality !== "online";
 
   return (
     <article className="group flex flex-col rounded-2xl bg-surface p-5 shadow-card ring-1 ring-border/50 transition-all duration-300 hover:-translate-y-1 hover:shadow-soft-lg hover:ring-primary-200/60">
@@ -47,6 +77,9 @@ export default function TutorCard({ tutor }: TutorCardProps) {
             </span>
           ) : null}
           <p className="text-sm font-medium text-primary-600">{tutor.subject}</p>
+          {educationLabel ? (
+            <p className="mt-1 text-xs text-muted-foreground">{educationLabel}</p>
+          ) : null}
           <div className="mt-1 flex items-center gap-1.5 text-sm">
             {hasPublicRating(tutor) ? (
               <>
@@ -65,18 +98,31 @@ export default function TutorCard({ tutor }: TutorCardProps) {
               <span className="text-muted-foreground">Ainda sem avaliações</span>
             )}
           </div>
-          <div className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
             {tutor.modality === "online" ? (
-              <Monitor className="h-3.5 w-3.5" aria-hidden="true" />
-            ) : (
-              <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-            )}
-            <span>
-              {tutor.city}, {tutor.state}
-              {tutor.modality === "ambos" && " · Online e Presencial"}
-              {tutor.modality === "online" && " · Online"}
-              {tutor.modality === "presencial" && " · Presencial"}
-            </span>
+              <span className="inline-flex items-center gap-1">
+                <Monitor className="h-3.5 w-3.5" aria-hidden="true" />
+                Online
+              </span>
+            ) : null}
+            {showLocation ? (
+              <span className="inline-flex items-center gap-1">
+                <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
+                {tutor.city}, {tutor.state}
+              </span>
+            ) : null}
+            {tutor.modality === "ambos" ? (
+              <span className="inline-flex items-center gap-1">
+                <Monitor className="h-3.5 w-3.5" aria-hidden="true" />
+                Online e presencial
+              </span>
+            ) : null}
+            {tutor.hasAvailability ? (
+              <span className="inline-flex items-center gap-1 text-primary-700">
+                <Calendar className="h-3.5 w-3.5" aria-hidden="true" />
+                Horários disponíveis
+              </span>
+            ) : null}
           </div>
         </div>
       </div>
@@ -118,7 +164,7 @@ export default function TutorCard({ tutor }: TutorCardProps) {
       </div>
 
       <Link
-        href={`/tutor/${tutor.id}`}
+        href={profileHref(tutor.id, returnTo)}
         className="mt-5 inline-flex w-full items-center justify-center rounded-2xl bg-primary-600 px-4 py-2.5 text-sm font-semibold text-white shadow-soft transition-all duration-200 hover:bg-primary-700 hover:shadow-soft-lg active:scale-[0.98]"
       >
         Ver Perfil

@@ -1,4 +1,5 @@
 import type { StudentLearningProfile } from "@/lib/student-dashboard/types";
+import { buildSearchHref } from "@/lib/tutors/search-params";
 
 /**
  * Builds a `/search` URL using the student's learning profile preferences.
@@ -15,6 +16,10 @@ export function buildSearchUrlFromProfile(
     params.set("subject", subject);
   }
 
+  if (profile?.preferredLevel?.trim()) {
+    params.set("level", profile.preferredLevel.trim());
+  }
+
   if (profile?.preferredModality === "online" || profile?.preferredModality === "presencial") {
     params.set("modality", profile.preferredModality);
   }
@@ -27,3 +32,5 @@ export function buildSearchUrlFromProfile(
   const queryString = params.toString();
   return queryString ? `/search?${queryString}` : "/search";
 }
+
+export { buildSearchHref };
