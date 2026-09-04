@@ -514,7 +514,8 @@ service cloud.firestore {
           "role", "displayName", "email", "photoUrl", "createdAt", "updatedAt"
         ])
         && data.role in ["student", "tutor", "lecturer"]
-        && data.email == request.auth.token.email;
+        && request.auth.token.email != null
+        && data.email.lower() == request.auth.token.email.lower();
     }
 
     function validUserSelfUpdate(userId) {

@@ -6,6 +6,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import RoleToggle from "@/components/auth/RoleToggle";
 import { getAuthErrorMessage } from "@/lib/auth/errors";
+import { postAuthPathForRole } from "@/lib/auth/redirects";
 import {
   completeGoogleSignup,
   signUpWithEmail,
@@ -30,7 +31,7 @@ interface SignupFormProps {
 
 export default function SignupForm({ defaultRole = "student" }: SignupFormProps) {
   const router = useRouter();
-  const { user, userDoc, loading: authLoading } = useAuth();
+  const { user, userDoc, loading } = useAuth();
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -40,16 +41,14 @@ export default function SignupForm({ defaultRole = "student" }: SignupFormProps)
   const completingGoogleProfile = !!user && !userDoc;
 
   useEffect(() => {
-    if (authLoading) {
+    if (loading) {
       return;
     }
 
     if (user && userDoc) {
-      router.replace(
-        userDoc.role === "tutor" ? "/tutor/onboarding" : "/bookings",
-      );
+      router.replace(postAuthPathForRole(userDoc.role));
     }
-  }, [authLoading, router, user, userDoc]);
+  }, [loading, router, user, userDoc]);
 
   useEffect(() => {
     if (user?.displayName && !displayName) {
@@ -70,6 +69,16 @@ export default function SignupForm({ defaultRole = "student" }: SignupFormProps)
     clearReferralCookie();
   }
 
+  async function finishSignup(createdUser: { uid: string }, method: "email" | "google") {
+    trackEvent(ANALYTICS_EVENTS.signUp, { role, method });
+    void requestNotification({ type: "user_registered", userId: createdUser.uid });
+    if (method === "email") {
+      void requestNotification({ type: "email_verification", userId: createdUser.uid });
+    }
+    await attachStoredReferralIfPresent();
+    router.replace(postAuthPathForRole(role === "tutor" ? "tutor" : "student"));
+  }
+
   async function handleEmailSignup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -77,11 +86,7 @@ export default function SignupForm({ defaultRole = "student" }: SignupFormProps)
 
     try {
       const createdUser = await signUpWithEmail(email.trim(), password, displayName.trim(), role);
-      trackEvent(ANALYTICS_EVENTS.signUp, { role, method: "email" });
-      void requestNotification({ type: "user_registered", userId: createdUser.uid });
-      void requestNotification({ type: "email_verification", userId: createdUser.uid });
-      await attachStoredReferralIfPresent();
-      router.replace(role === "tutor" ? "/tutor/onboarding" : "/bookings");
+      await finishSignup(createdUser, "email");
     } catch (signupError) {
       setError(getAuthErrorMessage(signupError));
     } finally {
@@ -94,13 +99,8 @@ export default function SignupForm({ defaultRole = "student" }: SignupFormProps)
     setSubmitting(true);
 
     try {
-      const signedUpUser = completingGoogleProfile
-        ? await completeGoogleSignup(role)
-        : await signUpWithGoogle(role);
-      trackEvent(ANALYTICS_EVENTS.signUp, { role, method: "google" });
-      void requestNotification({ type: "user_registered", userId: signedUpUser.uid });
-      await attachStoredReferralIfPresent();
-      router.replace(role === "tutor" ? "/tutor/onboarding" : "/bookings");
+      const signedUpUser = await signUpWithGoogle(role);
+      await finishSignup(signedUpUser, "google");
     } catch (signupError) {
       setError(getAuthErrorMessage(signupError));
     } finally {
@@ -108,7 +108,21 @@ export default function SignupForm({ defaultRole = "student" }: SignupFormProps)
     }
   }
 
-  if (authLoading) {
+  async function handleCompleteProfile() {
+    setError(null);
+    setSubmitting(true);
+
+    try {
+      const signedUpUser = await completeGoogleSignup(role);
+      await finishSignup(signedUpUser, "google");
+    } catch (signupError) {
+      setError(getAuthErrorMessage(signupError));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (loading) {
     return (
       <div className="flex justify-center py-12">
         <Loader2 className="h-8 w-8 animate-spin text-primary-600" aria-hidden="true" />
@@ -125,7 +139,7 @@ export default function SignupForm({ defaultRole = "student" }: SignupFormProps)
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
             {completingGoogleProfile
-              ? "Escolha como deseja usar a Aprendiz Bay."
+              ? "Escolha como deseja usar a Aprendiz Bay e conclua o cadastro."
               : "Junte-se à comunidade de aprendizado coletivo."}
           </p>
         </div>
@@ -210,26 +224,41 @@ export default function SignupForm({ defaultRole = "student" }: SignupFormProps)
             </p>
           )}
 
-          {!completingGoogleProfile && (
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                <div className="w-full border-t border-border" />
+          {completingGoogleProfile ? (
+            <button
+              type="button"
+              onClick={handleCompleteProfile}
+              disabled={submitting}
+              className="inline-flex h-11 w-full items-center justify-center rounded-2xl bg-primary-600 text-sm font-semibold text-white shadow-soft transition-colors hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {submitting ? (
+                <Loader2 className="h-5 w-5 animate-spin" aria-hidden="true" />
+              ) : (
+                "Concluir cadastro"
+              )}
+            </button>
+          ) : (
+            <>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                  <div className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-surface px-3 text-muted-foreground">ou</span>
+                </div>
               </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-surface px-3 text-muted-foreground">ou</span>
-              </div>
-            </div>
-          )}
 
-          <button
-            type="button"
-            onClick={handleGoogleSignup}
-            disabled={submitting}
-            className="inline-flex h-11 w-full items-center justify-center gap-3 rounded-2xl border border-border bg-surface text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <GoogleIcon />
-            {completingGoogleProfile ? "Confirmar com Google" : "Continuar com Google"}
-          </button>
+              <button
+                type="button"
+                onClick={handleGoogleSignup}
+                disabled={submitting}
+                className="inline-flex h-11 w-full items-center justify-center gap-3 rounded-2xl border border-border bg-surface text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <GoogleIcon />
+                Continuar com Google
+              </button>
+            </>
+          )}
         </div>
 
         <p className="mt-6 text-center text-xs leading-relaxed text-muted-foreground">
@@ -246,7 +275,10 @@ export default function SignupForm({ defaultRole = "student" }: SignupFormProps)
 
         <p className="mt-4 text-center text-sm text-muted-foreground">
           Já tem uma conta?{" "}
-          <Link href="/login" className="font-medium text-primary-700 hover:text-primary-600">
+          <Link
+            href={role === "tutor" ? "/login?role=tutor" : "/login"}
+            className="font-medium text-primary-700 hover:text-primary-600"
+          >
             Entrar
           </Link>
         </p>

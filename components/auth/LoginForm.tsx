@@ -6,12 +6,15 @@ import { FormEvent, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { doc, getDoc } from "firebase/firestore";
 import { getAuthErrorMessage } from "@/lib/auth/errors";
+import { postAuthPathForRole, signupPathForRole } from "@/lib/auth/redirects";
 import { signInWithEmail, signInWithGoogle } from "@/lib/auth/service";
+import type { UserDoc } from "@/lib/auth/types";
 import { db, requireFirebaseApp } from "@/lib/firebase/client";
 
 export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const signupRole = searchParams.get("role");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -22,12 +25,13 @@ export default function LoginForm() {
     const profile = await getDoc(doc(db, "users", uid));
 
     if (!profile.exists()) {
-      router.replace("/signup");
+      router.replace(signupPathForRole(signupRole));
       return;
     }
 
+    const profileData = profile.data() as UserDoc;
     const redirectParam = searchParams.get("next") || searchParams.get("redirect");
-    router.replace(redirectParam || "/");
+    router.replace(redirectParam || postAuthPathForRole(profileData.role));
   }
 
   async function handleEmailLogin(event: FormEvent<HTMLFormElement>) {
@@ -144,7 +148,10 @@ export default function LoginForm() {
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
           Ainda não tem conta?{" "}
-          <Link href="/signup" className="font-medium text-primary-700 hover:text-primary-600">
+          <Link
+            href={signupPathForRole(signupRole)}
+            className="font-medium text-primary-700 hover:text-primary-600"
+          >
             Cadastrar
           </Link>
         </p>
