@@ -32,7 +32,7 @@ describe("role route guards", () => {
 
     const home = source("components/student-dashboard/StudentDashboardContent.tsx");
     expect(home).not.toContain("StudentBookingsList");
-    expect(home).toContain('href="/search"');
+    expect(home).toContain("Encontrar um professor");
     expect(home).toContain('href="/bookings"');
   });
 

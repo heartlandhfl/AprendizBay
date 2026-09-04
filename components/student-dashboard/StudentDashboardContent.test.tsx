@@ -35,7 +35,11 @@ vi.mock("@/lib/reviews/client", () => ({
 
 vi.mock("@/lib/student-dashboard/preferences", () => ({
   subscribeToStudentLearningProfile: vi.fn((_uid, onChange) => {
-    onChange({});
+    onChange({
+      preferredSubject: "Matemática",
+      preferredModality: "online",
+      learningObjective: "Reforço escolar",
+    });
     return vi.fn();
   }),
 }));
@@ -66,21 +70,37 @@ describe("StudentDashboardContent", () => {
       userDoc: { role: "student", displayName: "Maria Silva" } as never,
       loading: false,
     });
+    vi.mocked(subscribeToStudentBookings).mockImplementation((_uid, onChange) => {
+      onChange([]);
+      return vi.fn();
+    });
+    vi.mocked(subscribeToUserConversations).mockImplementation((_uid, onChange) => {
+      onChange([]);
+      return vi.fn();
+    });
+    vi.mocked(fetchOpenCollectiveHubs).mockResolvedValue({ state: "ok", items: [] } as never);
   });
 
-  it("renders the dashboard header and search CTA", async () => {
+  it("renders the production dashboard header and primary CTA", async () => {
     render(<StudentDashboardContent />);
 
     expect(await screen.findByRole("heading", { name: /Olá, Maria!/ })).toBeInTheDocument();
-    expect(screen.getByText("Encontrar um professor")).toBeInTheDocument();
-    expect(screen.getByLabelText("Buscar professores")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Encontrar aulas em grupo" })).toHaveAttribute(
+    expect(screen.getAllByRole("link", { name: "Encontrar um professor" }).length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: "Minhas aulas" })).toHaveAttribute("href", "/bookings");
+    expect(screen.getByRole("link", { name: "Mensagens" })).toHaveAttribute("href", "/mensagens");
+  });
+
+  it("prefills search links from the learning profile", async () => {
+    render(<StudentDashboardContent />);
+
+    expect(await screen.findByRole("heading", { name: /Olá, Maria!/ })).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Encontrar um professor" })[0]).toHaveAttribute(
       "href",
-      "/search?lessonType=coletivo",
+      "/search?subject=Matem%C3%A1tica&modality=online",
     );
   });
 
-  it("shows upcoming individual lesson details", async () => {
+  it("shows confirmed paid upcoming lesson details", async () => {
     vi.mocked(subscribeToStudentBookings).mockImplementation((_uid, onChange) => {
       onChange([
         {
@@ -116,7 +136,13 @@ describe("StudentDashboardContent", () => {
     );
   });
 
-  it("shows pending payment action", async () => {
+  it("shows the next-lesson empty state when there is no confirmed paid lesson", async () => {
+    render(<StudentDashboardContent />);
+
+    expect(await screen.findByText("Você ainda não tem uma próxima aula.")).toBeInTheDocument();
+  });
+
+  it("shows active booking activity for pending payment", async () => {
     vi.mocked(subscribeToStudentBookings).mockImplementation((_uid, onChange) => {
       onChange([
         {
@@ -143,7 +169,8 @@ describe("StudentDashboardContent", () => {
 
     render(<StudentDashboardContent />);
 
-    expect(await screen.findByText("Pagamento pendente")).toBeInTheDocument();
+    expect(await screen.findByText("Atividade nas reservas")).toBeInTheDocument();
+    expect(screen.getByText("Aguardando pagamento")).toBeInTheDocument();
   });
 
   it("shows messages preview", async () => {
@@ -163,7 +190,7 @@ describe("StudentDashboardContent", () => {
 
     render(<StudentDashboardContent />);
 
-    expect(await screen.findByText("Mensagens")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Mensagens" })).toBeInTheDocument();
     expect(screen.getByText("Prof. Ana")).toBeInTheDocument();
     expect(screen.getByText("Mensagem de teste")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Ver mensagens" })).toHaveAttribute(
@@ -202,6 +229,18 @@ describe("StudentDashboardContent", () => {
     expect(screen.getByRole("link", { name: "Ver turma" })).toHaveAttribute(
       "href",
       "/turmas?id=hub-1",
+    );
+  });
+
+  it("shows profile summary and edit link", async () => {
+    render(<StudentDashboardContent />);
+
+    expect(await screen.findByText("Meu perfil de aprendizagem")).toBeInTheDocument();
+    expect(screen.getByText("Matéria de interesse")).toBeInTheDocument();
+    expect(screen.getByText("Reforço escolar")).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "Editar meu perfil" })[0]).toHaveAttribute(
+      "href",
+      "/account/setup",
     );
   });
 });

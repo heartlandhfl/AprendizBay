@@ -61,3 +61,13 @@ export interface LessonCta {
   href: string;
   external?: boolean;
 }
+
+export interface ActiveBookingItem {
+  id: string;
+  tutorName: string;
+  subject: string;
+  scheduledLabel: string;
+  statusLabel: string;
+  detail: string;
+  href: string;
+}
