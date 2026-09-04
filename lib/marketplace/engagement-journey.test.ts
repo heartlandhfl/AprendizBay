@@ -52,6 +52,9 @@ describe("marketplace engagement journeys", () => {
       confirmedCount: 1,
     });
     expect(join.ok).toBe(true);
+    if (!join.ok) {
+      throw new Error("expected hub join to succeed");
+    }
 
     const joinedHub = {
       ...hub,

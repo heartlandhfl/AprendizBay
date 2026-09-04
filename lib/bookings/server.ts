@@ -238,13 +238,15 @@ function createFirestoreCancelStore(db: Firestore): CancelStore {
               if (!decision.ok || decision.nextCount == null || !decision.nextStatus) {
                 return;
               }
+              const nextCount = decision.nextCount;
+              const nextStatus = decision.nextStatus;
               pendingWrites.push(() => {
                 transaction.update(
                   hubRef,
                   hubLeaveWrite(
                     {
-                      nextCount: decision.nextCount,
-                      nextStatus: decision.nextStatus,
+                      nextCount,
+                      nextStatus,
                     },
                     FieldValue.serverTimestamp(),
                   ),

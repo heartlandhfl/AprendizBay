@@ -9,10 +9,10 @@ const nextConfig = {
   // `npm run build:hostinger` to output committed `hostinger-next/`.
   distDir: process.env.HOSTINGER_BUILD ? "hostinger-next" : ".next",
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
   },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   experimental: {
     serverComponentsExternalPackages: ["firebase-admin"],

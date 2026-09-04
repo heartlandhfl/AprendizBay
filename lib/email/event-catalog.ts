@@ -121,7 +121,7 @@ export const TRANSACTIONAL_EMAIL_MATRIX: EmailEventMatrixRow[] = [
     subject: "Lembrete: sua aula é amanhã / começa em 1 hora",
     template: "buildLessonReminderEmail",
     cta: "Link da aula (quando disponível)",
-    idempotencyKey: buildLessonReminderEventKey("{bookingId}", "{recipientUserId}", "{reminderType}"),
+    idempotencyKey: buildLessonReminderEventKey("{bookingId}", "{recipientUserId}", "one_hour"),
   },
   {
     event: EMAIL_EVENTS.LESSON_COMPLETED,

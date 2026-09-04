@@ -11,6 +11,7 @@ interface RequireAuthProps {
   redirectTo?: string;
   unauthorizedRedirectTo?: string;
   skipSetupGate?: boolean;
+  skipEmailVerification?: boolean;
 }
 
 export default function RequireAuth({
@@ -19,12 +20,14 @@ export default function RequireAuth({
   redirectTo,
   unauthorizedRedirectTo,
   skipSetupGate,
+  skipEmailVerification,
 }: RequireAuthProps) {
   const { loading } = useRequireAuth({
     roles,
     redirectTo,
     unauthorizedRedirectTo,
     skipSetupGate,
+    skipEmailVerification,
   });
 
   if (loading) {

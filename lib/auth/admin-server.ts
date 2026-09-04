@@ -48,7 +48,7 @@ export async function verifyAdminIdToken(idToken: string): Promise<string> {
 
   const auth = getAuth(getAdminApp());
   const decoded = await auth.verifyIdToken(idToken);
-  assertAdminFromClaims(decoded);
+  assertAdminFromClaims(decoded as { role?: unknown });
 
   return decoded.uid;
 }
@@ -58,7 +58,7 @@ export function assertStudentApiActor(
   customClaims: Record<string, unknown> | undefined,
   profileRole?: string | null,
 ): void {
-  assertStudentActor(customClaims);
+  assertStudentActor(customClaims as Parameters<typeof assertStudentActor>[0]);
   const normalized = profileRole ? normalizeRole(profileRole) : null;
   if (normalized && normalized !== "student") {
     throw new Error("Apenas alunos podem realizar esta ação.");

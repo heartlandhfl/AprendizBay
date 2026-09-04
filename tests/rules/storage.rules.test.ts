@@ -396,9 +396,29 @@ describe("storage.rules collective hub materials", () => {
     await assertSucceeds(getBytes(ref(storageFor(STUDENT_ID, "ana@test.com"), materialPath)));
   });
 
+  it("lets enrolled students upload hub materials via the participants subcollection", async () => {
+    await seedHubWithParticipant();
+    const student = storageFor(STUDENT_ID, "ana@test.com");
+    const uploadPath = `hubs/${hubId}/materials/notes.pdf`;
+
+    await assertSucceeds(
+      uploadBytes(ref(student, uploadPath), PDF_BYTES, { contentType: "application/pdf" }),
+    );
+  });
+
   it("denies a non-participant from reading hub materials", async () => {
     await seedHubWithParticipant();
 
     await assertFails(getBytes(ref(storageFor(OTHER_TUTOR_ID, "lucas@test.com"), materialPath)));
+  });
+
+  it("denies outsiders from uploading hub materials", async () => {
+    await seedHubWithParticipant();
+    const outsider = storageFor(OTHER_TUTOR_ID, "lucas@test.com");
+    const uploadPath = `hubs/${hubId}/materials/notes.pdf`;
+
+    await assertFails(
+      uploadBytes(ref(outsider, uploadPath), PDF_BYTES, { contentType: "application/pdf" }),
+    );
   });
 });

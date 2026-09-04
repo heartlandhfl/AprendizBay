@@ -36,7 +36,7 @@ function booking(overrides: Partial<BookingRecord> = {}): BookingRecord {
 function successfulRefund() {
   return {
     paymentId: "pay_080225913252",
-    status: "REFUNDED",
+    status: "refunded" as const,
     refundId: "E123",
     refundAmount: 80,
   };
@@ -47,7 +47,7 @@ async function cancel(
   options: {
     uid?: string;
     refundPayment?: CancelBookingDeps["refundPayment"];
-    findPaymentId?: CancelBookingDeps["findPaymentId"];
+    reverseCommission?: CancelBookingDeps["reverseCommission"];
     now?: Date;
   } = {},
 ) {
@@ -60,8 +60,7 @@ async function cancel(
     {
       store,
       refundPayment,
-      findPaymentId:
-        options.findPaymentId ?? vi.fn(async () => undefined),
+      reverseCommission: options.reverseCommission ?? vi.fn(async () => undefined),
       now: () => options.now ?? NOW,
     },
   );
@@ -171,11 +170,16 @@ describe("executeCancelBooking", () => {
     expect(result.refundId).toBe("E123");
     expect(result.refundAmount).toBe(80);
     expect(refundPayment).toHaveBeenCalledWith(
-      expect.objectContaining({ paymentId: "pay_080225913252", value: 80 }),
+      expect.objectContaining({
+        paymentId: "pay_080225913252",
+        bookingId: "booking-123",
+        amount: 80,
+      }),
     );
     expect(store.bookings.get("booking-123")).toMatchObject({
       status: "cancelled",
-      refundStatus: "REFUNDED",
+      paymentStatus: "refunded",
+      refundStatus: "refunded",
       refundAmount: 80,
     });
   });
@@ -216,9 +220,13 @@ describe("executeCancelBooking", () => {
   });
 
   it("E. refunds a paid booking cancelled by the student", async () => {
-    const { result } = await cancel(booking({ status: "confirmed", paymentStatus: "paid" }));
+    const { result, store } = await cancel(booking({ status: "confirmed", paymentStatus: "paid" }));
     expect(result.refunded).toBe(true);
     expect(result.refundAmount).toBe(80);
+    expect(store.bookings.get("booking-123")).toMatchObject({
+      status: "cancelled",
+      paymentStatus: "refunded",
+    });
   });
 
   it("F. refunds a paid booking cancelled by the tutor", async () => {
@@ -345,10 +353,16 @@ describe("executeCancelBooking", () => {
     });
   });
 
-  it("caps the recorded refund when Asaas returns more than the amount paid", async () => {
+  it("reverses facilitator commission after a successful refund", async () => {
+    const reverseCommission = vi.fn(async () => undefined);
+    await cancel(booking(), { reverseCommission });
+    expect(reverseCommission).toHaveBeenCalledWith("booking-123");
+  });
+
+  it("caps the recorded refund when the gateway returns more than the amount paid", async () => {
     const refundPayment = vi.fn(async () => ({
       paymentId: "pay_080225913252",
-      status: "REFUNDED",
+      status: "refunded" as const,
       refundId: "E123",
       refundAmount: 999,
     }));
@@ -380,7 +394,6 @@ describe("executeCancelBooking", () => {
       {
         store,
         refundPayment: vi.fn(),
-        findPaymentId: vi.fn(async () => undefined),
         now: () => NOW,
       },
     );

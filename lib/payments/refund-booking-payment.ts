@@ -1,13 +1,14 @@
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { mapBookingRecord, type BookingRecord } from "@/lib/bookings/server";
 import { getAdminApp } from "@/lib/firebase/admin";
-import { createPaymentGateway } from "@/lib/payments/gateway/factory";
+import { getPaymentProvider } from "@/lib/payments/gateway/factory";
 import type { RefundResult } from "@/lib/payments/gateway/types";
+import { refundViaGateway } from "@/lib/payments/refund-via-gateway";
+import { reverseFacilitatorCommissionForBooking } from "@/lib/facilitators/commission";
 import {
   PAYMENTS_COLLECTION,
   paymentRecordDocId,
 } from "@/lib/payments/payment-records";
-import { getMercadoPagoAccessToken } from "@/lib/payments/mercadopago";
 
 export const REFUND_ERRORS = {
   notFound: "Reserva não encontrada.",
@@ -55,8 +56,12 @@ export interface RefundStore {
 
 export interface RefundBookingPaymentDeps {
   store?: RefundStore;
-  refundPayment?: (paymentId: string, description?: string) => Promise<RefundResult>;
-  requireMercadoPagoConfigured?: () => void;
+  refundPayment?: (input: {
+    paymentId?: string;
+    bookingId: string;
+    description?: string;
+  }) => Promise<RefundResult>;
+  reverseCommission?: (bookingId: string) => Promise<void>;
 }
 
 function fail(status: number, error: string): RefundBookingPaymentFailure {
@@ -114,11 +119,15 @@ function getDefaultStore(): RefundStore {
   };
 }
 
-function defaultRefundPayment(paymentId: string, description?: string): Promise<RefundResult> {
-  const gateway = createPaymentGateway("mercadopago");
-  return gateway.refund({
-    paymentId,
-    description: description ?? "Estorno da aula no Aprendiz Bay",
+function defaultRefundPayment(input: {
+  paymentId?: string;
+  bookingId: string;
+  description?: string;
+}): Promise<RefundResult> {
+  return refundViaGateway({
+    paymentId: input.paymentId,
+    bookingId: input.bookingId,
+    description: input.description ?? "Estorno da aula no Aprendiz Bay",
   });
 }
 
@@ -128,7 +137,12 @@ export async function refundBookingPayment(
 ): Promise<RefundBookingPaymentResult> {
   const store = deps.store ?? getDefaultStore();
   const refundPayment = deps.refundPayment ?? defaultRefundPayment;
-  const requireMercadoPago = deps.requireMercadoPagoConfigured ?? getMercadoPagoAccessToken;
+  const reverseCommission =
+    deps.reverseCommission ??
+    (async (bookingId) => {
+      const db = getFirestore(getAdminApp());
+      await reverseFacilitatorCommissionForBooking(db, bookingId);
+    });
 
   let booking: BookingRecord | null;
   try {
@@ -155,21 +169,22 @@ export async function refundBookingPayment(
     return fail(409, REFUND_ERRORS.missingPaymentId);
   }
 
-  try {
-    requireMercadoPago();
-  } catch {
-    return fail(503, REFUND_ERRORS.providerMissing);
-  }
-
-  const refund = await refundPayment(paymentId, input.description);
-  const recordId = paymentRecordDocId("mercadopago", paymentId);
+  const refund = await refundPayment({
+    paymentId,
+    bookingId: booking.id,
+    description: input.description,
+  });
+  const provider = getPaymentProvider();
+  const recordId = paymentRecordDocId(provider, paymentId);
 
   await store.runAtomic(async (tx) => {
     tx.updateBooking(booking!.id, {
+      status: "cancelled",
+      paymentStatus: "refunded",
       refundId: refund.refundId ?? paymentId,
       refundStatus: "refunded",
       refundAmount: refund.refundAmount,
-      mercadopagoPaymentStatus: "refunded",
+      mercadopagoPaymentStatus: provider === "mercadopago" ? "refunded" : undefined,
     });
     tx.updatePaymentRecord(recordId, {
       status: "refunded",
@@ -177,6 +192,12 @@ export async function refundBookingPayment(
       refundAmount: refund.refundAmount,
     });
   });
+
+  try {
+    await reverseCommission(booking.id);
+  } catch (error) {
+    console.error("[Aprendiz Bay] Falha ao estornar comissão do facilitador:", error);
+  }
 
   return {
     ok: true,

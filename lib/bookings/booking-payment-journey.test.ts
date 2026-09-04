@@ -25,7 +25,7 @@ function pendingBooking(overrides: Partial<BookingRecord> = {}): BookingRecord {
   };
 }
 
-function createFakeAcceptDb(booking: Record<string, unknown>) {
+function createFakeAcceptDb(booking: BookingRecord) {
   let current = { ...booking };
   const bookingRef = {
     async get() {
@@ -69,7 +69,7 @@ describe("booking payment journey", () => {
   it("moves unpaid → awaiting_payment → paid with a meeting URL and idempotent webhook replay", async () => {
     const { db, getBooking } = createFakeAcceptDb(pendingBooking());
 
-    expect(canStartCheckout(getBooking() as BookingRecord)).toBe(false);
+    expect(canStartCheckout(getBooking())).toBe(false);
 
     await acceptBookingForTutor(
       db,
@@ -80,7 +80,7 @@ describe("booking payment journey", () => {
     const awaiting = getBooking();
     expect(awaiting.paymentStatus).toBe("awaiting_payment");
     expect(awaiting.status).toBe("pending");
-    expect(canStartCheckout(awaiting as BookingRecord)).toBe(true);
+    expect(canStartCheckout(awaiting)).toBe(true);
 
     const store = createMemoryPaymentWebhookStore(
       new Map([

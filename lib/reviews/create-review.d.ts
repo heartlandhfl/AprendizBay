@@ -61,7 +61,12 @@ export function validateReviewFields(input: {
 
 export function assertCanCreateReview(input: {
   actorUid: string;
-  booking: { studentId?: unknown; tutorId?: unknown; status?: unknown } | null;
+  booking: {
+    studentId?: unknown;
+    tutorId?: unknown;
+    status?: unknown;
+    paymentStatus?: unknown;
+  } | null;
   existingReview: unknown;
   tutorId: string;
 }): void;

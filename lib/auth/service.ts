@@ -1,6 +1,7 @@
 import {
   createUserWithEmailAndPassword,
   GoogleAuthProvider,
+  sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut as firebaseSignOut,
@@ -11,6 +12,7 @@ import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db, requireFirebaseApp } from "@/lib/firebase/client";
 import type { SignupRole } from "@/lib/auth/types";
 import { writeOwnPublicProfile } from "@/lib/users/public-profile";
+import { clearAuthSession, establishAuthSession } from "@/lib/auth/session-client";
 
 const PUBLIC_DISPLAY_NAME_MAX_LENGTH = 120;
 
@@ -105,6 +107,7 @@ export async function signUpWithEmail(
   });
 
   await ensureTutorClaim(credential.user, role);
+  await establishAuthSession(credential.user);
 
   return credential.user;
 }
@@ -129,6 +132,7 @@ export async function signUpWithGoogle(role: SignupRole): Promise<User> {
   });
 
   await ensureTutorClaim(user, role);
+  await establishAuthSession(user);
 
   return user;
 }
@@ -136,12 +140,14 @@ export async function signUpWithGoogle(role: SignupRole): Promise<User> {
 export async function signInWithEmail(email: string, password: string): Promise<User> {
   await requireFirebaseApp();
   const credential = await signInWithEmailAndPassword(auth, email, password);
+  await establishAuthSession(credential.user);
   return credential.user;
 }
 
 export async function signInWithGoogle(): Promise<User> {
   await requireFirebaseApp();
   const result = await signInWithPopup(auth, googleProvider);
+  await establishAuthSession(result.user);
   return result.user;
 }
 
@@ -156,6 +162,7 @@ export async function completeGoogleSignup(role: SignupRole): Promise<User> {
   const existingDoc = await getDoc(doc(db, "users", user.uid));
   if (existingDoc.exists()) {
     await ensureTutorClaim(user, role);
+    await establishAuthSession(user);
     return user;
   }
 
@@ -169,11 +176,22 @@ export async function completeGoogleSignup(role: SignupRole): Promise<User> {
   });
 
   await ensureTutorClaim(user, role);
+  await establishAuthSession(user);
 
   return user;
 }
 
 export async function signOut(): Promise<void> {
   await requireFirebaseApp();
+  await clearAuthSession();
   await firebaseSignOut(auth);
+}
+
+export async function sendPasswordReset(email: string): Promise<void> {
+  await requireFirebaseApp();
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) {
+    throw new Error("Informe o e-mail da sua conta.");
+  }
+  await sendPasswordResetEmail(auth, normalized);
 }

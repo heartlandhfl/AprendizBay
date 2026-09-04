@@ -184,7 +184,6 @@ export async function notifyLessonReminders(now: Date = new Date()): Promise<{
 
   return {
     scanned: snapshot.size,
-    sent: sent24h + sent1h,
     sent24h,
     sent1h,
     outboxProcessed: outboxRetry.processed,

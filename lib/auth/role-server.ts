@@ -16,9 +16,9 @@ import {
 
 export type { CanonicalRole, ProfileRole };
 
-export function roleFromDecodedToken(
-  decoded: Pick<DecodedIdToken, "role"> | null | undefined,
-): CanonicalRole | null {
+type RoleClaims = { role?: unknown } | null | undefined;
+
+export function roleFromDecodedToken(decoded: RoleClaims): CanonicalRole | null {
   const claim = decoded?.role;
   return typeof claim === "string" ? normalizeRole(claim) : null;
 }
@@ -177,9 +177,7 @@ export function assertPrivilegedRoleFromClaims(
   return role;
 }
 
-export function assertAdminFromClaims(
-  decoded: Pick<DecodedIdToken, "role"> | null | undefined,
-): void {
+export function assertAdminFromClaims(decoded: RoleClaims): void {
   if (roleFromDecodedToken(decoded) !== "admin") {
     throw new Error("Acesso restrito a administradores.");
   }

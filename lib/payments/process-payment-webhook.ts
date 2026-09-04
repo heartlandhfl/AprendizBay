@@ -300,7 +300,7 @@ async function claimUnsuccessfulPayment(
       : event.status === "expired" || event.status === "cancelled"
         ? "expired"
         : event.status === "refunded"
-          ? "paid"
+          ? "refunded"
           : "awaiting_payment";
 
   const updates: Record<string, unknown> = {
@@ -312,6 +312,8 @@ async function claimUnsuccessfulPayment(
   if (event.status === "refunded") {
     updates.refundStatus = "refunded";
     updates.refundId = event.paymentId;
+    updates.paymentStatus = "refunded";
+    updates.status = "cancelled";
   }
 
   tx.updateBooking(booking.id, updates);

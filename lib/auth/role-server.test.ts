@@ -36,7 +36,7 @@ import {
   roleFromDecodedToken,
   setRole,
   syncSignupRoleFromProfile,
-} from "@/lib/auth/role-server.ts";
+} from "@/lib/auth/role-server";
 
 describe("role-server", () => {
   beforeEach(() => {

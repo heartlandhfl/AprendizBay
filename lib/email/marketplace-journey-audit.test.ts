@@ -28,6 +28,13 @@ const REVIEW_ID = "review-journey-1";
 const SCHEDULED_AT = new Date("2026-09-08T19:00:00.000Z");
 const SITE_URL = "https://aprendizbay.com.br";
 
+function emailWasSent(result: EmailResult | EmailResult[]): boolean {
+  if (Array.isArray(result)) {
+    return result.length > 0 && result.every((item) => item.sent);
+  }
+  return result.sent === true;
+}
+
 interface SentEmail {
   to: string;
   subject: string;
@@ -267,7 +274,7 @@ describe("marketplace transactional email journey audit", () => {
 
     // 1. Register
     const register = await onEvent(EMAIL_EVENTS.USER_REGISTERED, { userId: STUDENT_ID }, deps);
-    recordAudit("1. Register", EMAIL_EVENTS.USER_REGISTERED, register.sent === true);
+    recordAudit("1. Register", EMAIL_EVENTS.USER_REGISTERED, emailWasSent(register));
     assertEmailQuality(emails.at(-1)!, {
       to: "ana@example.com",
       subject: matrixRow(EMAIL_EVENTS.USER_REGISTERED)!.subject,
@@ -282,7 +289,7 @@ describe("marketplace transactional email journey audit", () => {
       { userId: STUDENT_ID, verificationUrl: `${SITE_URL}/verify?token=abc` },
       deps,
     );
-    recordAudit("2. Verify email", EMAIL_EVENTS.EMAIL_VERIFICATION, verify.sent === true);
+    recordAudit("2. Verify email", EMAIL_EVENTS.EMAIL_VERIFICATION, emailWasSent(verify));
     assertEmailQuality(emails.at(-1)!, {
       to: "ana@example.com",
       subject: matrixRow(EMAIL_EVENTS.EMAIL_VERIFICATION)!.subject,
@@ -293,8 +300,8 @@ describe("marketplace transactional email journey audit", () => {
     // 4. Request lesson (student + tutor emails)
     const requested = await onEvent(EMAIL_EVENTS.BOOKING_REQUESTED, { bookingId: BOOKING_ID }, deps);
     const created = await onEvent(EMAIL_EVENTS.BOOKING_CREATED, { bookingId: BOOKING_ID }, deps);
-    recordAudit("4. Request lesson (student)", EMAIL_EVENTS.BOOKING_REQUESTED, requested.sent === true);
-    recordAudit("5. Booking request (tutor)", EMAIL_EVENTS.BOOKING_CREATED, created.sent === true);
+    recordAudit("4. Request lesson (student)", EMAIL_EVENTS.BOOKING_REQUESTED, emailWasSent(requested));
+    recordAudit("5. Booking request (tutor)", EMAIL_EVENTS.BOOKING_CREATED, emailWasSent(created));
     assertEmailQuality(
       emails.find((email) => email.to === "ana@example.com" && email.subject.includes("pedido"))!,
       {
@@ -322,9 +329,9 @@ describe("marketplace transactional email journey audit", () => {
       { bookingId: BOOKING_ID },
       deps,
     );
-    recordAudit("7. Accept booking", EMAIL_EVENTS.BOOKING_ACCEPTED, accepted.sent === true);
-    recordAudit("8. Tutor accepted", EMAIL_EVENTS.BOOKING_ACCEPTED, accepted.sent === true);
-    recordAudit("8b. Payment required", EMAIL_EVENTS.PAYMENT_REQUIRED, paymentRequired.sent === true);
+    recordAudit("7. Accept booking", EMAIL_EVENTS.BOOKING_ACCEPTED, emailWasSent(accepted));
+    recordAudit("8. Tutor accepted", EMAIL_EVENTS.BOOKING_ACCEPTED, emailWasSent(accepted));
+    recordAudit("8b. Payment required", EMAIL_EVENTS.PAYMENT_REQUIRED, emailWasSent(paymentRequired));
     assertEmailQuality(emails.at(-2)!, {
       to: "ana@example.com",
       subject: /aceitou seu pedido de aula/,
@@ -350,7 +357,7 @@ describe("marketplace transactional email journey audit", () => {
       },
       deps,
     );
-    recordAudit("10. New message email", EMAIL_EVENTS.NEW_MESSAGE, newMessage.sent === true);
+    recordAudit("10. New message email", EMAIL_EVENTS.NEW_MESSAGE, emailWasSent(newMessage));
     assertEmailQuality(emails.at(-1)!, {
       to: "ana@example.com",
       subject: /nova mensagem de Prof\. João/,
@@ -376,11 +383,11 @@ describe("marketplace transactional email journey audit", () => {
       { bookingId: BOOKING_ID },
       deps,
     );
-    recordAudit("14. Payment confirmation", EMAIL_EVENTS.PAYMENT_CONFIRMED, paymentConfirmed.sent === true);
+    recordAudit("14. Payment confirmation", EMAIL_EVENTS.PAYMENT_CONFIRMED, emailWasSent(paymentConfirmed));
     recordAudit(
       "15. Tutor payment confirmation",
       EMAIL_EVENTS.TUTOR_PAYMENT_RECEIVED,
-      tutorPayment.sent === true,
+      emailWasSent(tutorPayment),
     );
     assertEmailQuality(
       emails.find((email) => email.subject === "Pagamento confirmado")!,
@@ -393,7 +400,7 @@ describe("marketplace transactional email journey audit", () => {
       },
     );
     const lessonEmails = emails.filter((email) => email.subject.includes("confirmada"));
-    expect(Array.isArray(lessonConfirmed) ? lessonConfirmed.every((r) => r.sent) : lessonConfirmed.sent).toBe(
+    expect(emailWasSent(lessonConfirmed)).toBe(
       true,
     );
     recordAudit(
@@ -435,8 +442,8 @@ describe("marketplace transactional email journey audit", () => {
       { bookingId: BOOKING_ID, recipientUserId: TUTOR_ID, reminderType: "one_hour" },
       deps,
     );
-    recordAudit("16. 24h reminder", EMAIL_EVENTS.LESSON_REMINDER, reminder24Student.sent && reminder24Tutor.sent);
-    recordAudit("17. 1h reminder", EMAIL_EVENTS.LESSON_REMINDER, reminder1Student.sent && reminder1Tutor.sent);
+    recordAudit("16. 24h reminder", EMAIL_EVENTS.LESSON_REMINDER, emailWasSent(reminder24Student) && emailWasSent(reminder24Tutor));
+    recordAudit("17. 1h reminder", EMAIL_EVENTS.LESSON_REMINDER, emailWasSent(reminder1Student) && emailWasSent(reminder1Tutor));
     expect(emails.some((email) => email.subject.includes("amanhã"))).toBe(true);
     expect(emails.some((email) => email.subject.includes("1 hora"))).toBe(true);
 
@@ -444,7 +451,7 @@ describe("marketplace transactional email journey audit", () => {
     const lessonCompleted = await onEvent(EMAIL_EVENTS.LESSON_COMPLETED, { bookingId: BOOKING_ID }, deps);
     const reviewRequest = await onEvent(EMAIL_EVENTS.REVIEW_REQUEST, { bookingId: BOOKING_ID }, deps);
     recordAudit("19. Complete lesson", EMAIL_EVENTS.LESSON_COMPLETED, Array.isArray(lessonCompleted));
-    recordAudit("20. Review request", EMAIL_EVENTS.REVIEW_REQUEST, reviewRequest.sent === true);
+    recordAudit("20. Review request", EMAIL_EVENTS.REVIEW_REQUEST, emailWasSent(reviewRequest));
     assertEmailQuality(emails.at(-1)!, {
       to: "ana@example.com",
       subject: matrixRow(EMAIL_EVENTS.REVIEW_REQUEST)!.subject,
@@ -454,7 +461,7 @@ describe("marketplace transactional email journey audit", () => {
 
     // 21. Tutor review notification
     const newReview = await onNewReviewEmail(REVIEW_ID, deps);
-    recordAudit("21. Tutor review notification", EMAIL_EVENTS.NEW_REVIEW, newReview.sent === true);
+    recordAudit("21. Tutor review notification", EMAIL_EVENTS.NEW_REVIEW, emailWasSent(newReview));
     assertEmailQuality(emails.at(-1)!, {
       to: "joao@example.com",
       subject: matrixRow(EMAIL_EVENTS.NEW_REVIEW)!.subject,
@@ -472,7 +479,7 @@ describe("marketplace transactional email journey audit", () => {
       deps,
     );
     recordAudit("22. Cancellation email", EMAIL_EVENTS.LESSON_CANCELLED, Array.isArray(cancelled));
-    recordAudit("23. Refund email", EMAIL_EVENTS.REFUND_COMPLETED, refund.sent === true);
+    recordAudit("23. Refund email", EMAIL_EVENTS.REFUND_COMPLETED, emailWasSent(refund));
     assertEmailQuality(
       emails.find((email) => email.subject === "Estorno confirmado")!,
       {
