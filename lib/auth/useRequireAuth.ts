@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthContext";
 import type { UserRole } from "@/lib/auth/types";
@@ -8,21 +8,28 @@ import type { UserRole } from "@/lib/auth/types";
 interface UseRequireAuthOptions {
   roles?: UserRole[];
   redirectTo?: string;
+  unauthorizedRedirectTo?: string;
 }
 
 export function useRequireAuth(options: UseRequireAuthOptions = {}) {
-  const { roles, redirectTo = "/login" } = options;
+  const { roles, redirectTo = "/login", unauthorizedRedirectTo = "/" } = options;
   const { user, userDoc, loading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [redirecting, setRedirecting] = useState(false);
+
+  const hasRoleMismatch =
+    !!roles && !!userDoc && !roles.includes(userDoc.role);
+  const missingProfileForRoleGate = !!roles && !!user && !loading && !userDoc;
 
   useEffect(() => {
-    if (loading) {
+    if (loading || redirecting) {
       return;
     }
 
     if (!user) {
+      setRedirecting(true);
       const nextPath = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
       const loginUrl =
         nextPath === "/"
@@ -33,10 +40,28 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
       return;
     }
 
-    if (roles && userDoc && !roles.includes(userDoc.role)) {
-      router.replace("/");
+    if (hasRoleMismatch) {
+      setRedirecting(true);
+      router.replace(unauthorizedRedirectTo);
+      return;
     }
-  }, [loading, pathname, redirectTo, roles, router, searchParams, user, userDoc]);
+
+    if (missingProfileForRoleGate) {
+      setRedirecting(true);
+      router.replace(redirectTo);
+    }
+  }, [
+    hasRoleMismatch,
+    loading,
+    missingProfileForRoleGate,
+    pathname,
+    redirectTo,
+    redirecting,
+    router,
+    searchParams,
+    unauthorizedRedirectTo,
+    user,
+  ]);
 
   const isAuthorized =
     !!user && (!roles || (!!userDoc && roles.includes(userDoc.role)));
@@ -44,7 +69,7 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
   return {
     user,
     userDoc,
-    loading: loading || !isAuthorized,
+    loading: loading || redirecting || (!!user && !!roles && !userDoc) || !isAuthorized,
     isAuthorized,
   };
 }
