@@ -15,6 +15,7 @@ import {
   type CancelStore,
   type CancelTransaction,
 } from "@/lib/bookings/cancel-booking";
+import { acceptBookingForTutor } from "@/lib/bookings/accept-booking";
 import {
   completeLessonForActor,
 } from "@/lib/bookings/complete-lesson";
@@ -263,6 +264,22 @@ function createFirestoreCancelStore(db: Firestore): CancelStore {
       });
     },
   };
+}
+
+export async function acceptBookingAsTutor(input: {
+  bookingId: string;
+  actorUid: string;
+}): Promise<{ bookingId: string; paymentStatus: "awaiting_payment" }> {
+  const db = requireAdminFirestore();
+  const { FieldValue } = await import("firebase-admin/firestore");
+  return acceptBookingForTutor(
+    db,
+    {
+      actorUid: input.actorUid,
+      bookingId: input.bookingId,
+    },
+    { timestamp: FieldValue.serverTimestamp() },
+  );
 }
 
 export async function completeLessonAsActor(input: {

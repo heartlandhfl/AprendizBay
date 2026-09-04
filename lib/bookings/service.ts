@@ -148,10 +148,26 @@ export async function cancelBookingAsStudent(bookingId: string): Promise<void> {
 
 export async function confirmBookingAsTutor(bookingId: string): Promise<void> {
   await requireFirebaseApp();
-  await updateDoc(doc(db, "bookings", bookingId), {
-    paymentStatus: "awaiting_payment" as PaymentStatus,
-    updatedAt: serverTimestamp(),
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error("Faça login para confirmar esta reserva.");
+  }
+
+  const idToken = await user.getIdToken();
+  const response = await fetch("/api/bookings/accept", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: JSON.stringify({ bookingId }),
   });
+
+  const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+  if (!response.ok) {
+    throw new Error(payload?.error || "Não foi possível aceitar a reserva.");
+  }
+
   void requestNotification({ type: "booking_accepted", bookingId });
 }
 

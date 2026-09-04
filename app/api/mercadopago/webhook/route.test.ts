@@ -1,28 +1,35 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   WEBHOOK_UNAUTHORIZED_MESSAGE,
   WEBHOOK_UNCONFIGURED_MESSAGE,
 } from "@/lib/payments/webhook-receipts";
-import {
-  buildMercadoPagoWebhookManifest,
-  computeMercadoPagoWebhookSignature,
-} from "@/lib/payments/mercadopago";
 
-const { mockFetchPayment, mockProcessWebhook } = vi.hoisted(() => ({
-  mockFetchPayment: vi.fn(),
-  mockProcessWebhook: vi.fn(),
+const { mockVerifyWebhook, mockGetPaymentStatus, mockProcessPaymentWebhook } = vi.hoisted(
+  () => ({
+    mockVerifyWebhook: vi.fn(),
+    mockGetPaymentStatus: vi.fn(),
+    mockProcessPaymentWebhook: vi.fn(),
+  }),
+);
+
+vi.mock("@/lib/payments/gateway/factory", () => ({
+  createPaymentGateway: () => ({
+    provider: "mercadopago",
+    verifyWebhook: mockVerifyWebhook,
+    getPaymentStatus: mockGetPaymentStatus,
+  }),
 }));
 
-vi.mock("@/lib/payments/mercadopago", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/payments/mercadopago")>();
-  return {
-    ...actual,
-    fetchMercadoPagoPayment: mockFetchPayment,
-  };
-});
-
-vi.mock("@/lib/payments/process-mercadopago-webhook", () => ({
-  processMercadoPagoPaymentWebhook: mockProcessWebhook,
+vi.mock("@/lib/payments/process-payment-webhook", () => ({
+  buildVerifiedPaymentWebhookEvent: vi.fn((input) => ({
+    provider: input.provider,
+    eventId: `mercadopago_${input.paymentId}`,
+    paymentId: input.paymentId,
+    status: input.status,
+    bookingId: input.bookingId,
+    amount: input.amount,
+  })),
+  processPaymentWebhook: mockProcessPaymentWebhook,
 }));
 
 vi.mock("@/lib/observability/sentry-server", () => ({
@@ -31,64 +38,24 @@ vi.mock("@/lib/observability/sentry-server", () => ({
 
 import { POST, GET } from "@/app/api/mercadopago/webhook/route";
 
-const TEST_SECRET = "test-webhook-secret";
-
-function signedRequest(body: unknown, dataId = "12345"): Request {
-  const ts = "1704908010";
-  const requestId = "req-123";
-  const manifest = buildMercadoPagoWebhookManifest({ dataId, requestId, ts });
-  const v1 = computeMercadoPagoWebhookSignature(manifest, TEST_SECRET);
-
-  return new Request(`http://localhost/api/mercadopago/webhook?data.id=${dataId}`, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-signature": `ts=${ts},v1=${v1}`,
-      "x-request-id": requestId,
-    },
-    body: JSON.stringify(body),
-  });
-}
-
 describe("POST /api/mercadopago/webhook", () => {
-  const originalSecret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
-
   beforeEach(() => {
-    mockFetchPayment.mockReset();
-    mockProcessWebhook.mockReset();
-    process.env.MERCADOPAGO_WEBHOOK_SECRET = TEST_SECRET;
+    mockVerifyWebhook.mockReset();
+    mockGetPaymentStatus.mockReset();
+    mockProcessPaymentWebhook.mockReset();
   });
 
-  afterEach(() => {
-    if (originalSecret === undefined) {
-      delete process.env.MERCADOPAGO_WEBHOOK_SECRET;
-    } else {
-      process.env.MERCADOPAGO_WEBHOOK_SECRET = originalSecret;
-    }
-  });
+  it("rejects invalid webhook signatures", async () => {
+    mockVerifyWebhook.mockResolvedValue({
+      ok: false,
+      httpStatus: 401,
+      error: WEBHOOK_UNAUTHORIZED_MESSAGE,
+    });
 
-  it("rejects webhooks when the secret is missing", async () => {
-    delete process.env.MERCADOPAGO_WEBHOOK_SECRET;
-
-    const response = await POST(
-      signedRequest({ type: "payment", data: { id: "12345" } }),
-    );
-    const payload = (await response.json()) as Record<string, unknown>;
-
-    expect(response.status).toBe(503);
-    expect(payload.error).toBe(WEBHOOK_UNCONFIGURED_MESSAGE);
-    expect(mockFetchPayment).not.toHaveBeenCalled();
-  });
-
-  it("rejects invalid signatures", async () => {
     const response = await POST(
       new Request("http://localhost/api/mercadopago/webhook?data.id=12345", {
         method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-signature": "ts=1704908010,v1=deadbeef",
-          "x-request-id": "req-123",
-        },
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({ type: "payment", data: { id: "12345" } }),
       }),
     );
@@ -96,19 +63,28 @@ describe("POST /api/mercadopago/webhook", () => {
 
     expect(response.status).toBe(401);
     expect(payload.error).toBe(WEBHOOK_UNAUTHORIZED_MESSAGE);
-    expect(mockFetchPayment).not.toHaveBeenCalled();
+    expect(mockGetPaymentStatus).not.toHaveBeenCalled();
   });
 
-  it("fetches the payment from Mercado Pago before updating state", async () => {
-    mockFetchPayment.mockResolvedValue({
-      id: "12345",
-      status: "approved",
-      externalReference: "booking-123",
-      transactionAmount: 80,
-      currencyId: "BRL",
+  it("re-fetches payment status and uses the canonical webhook processor", async () => {
+    mockVerifyWebhook.mockResolvedValue({
+      ok: true,
+      event: {
+        kind: "payment_update",
+        status: "paid",
+        paymentId: "12345",
+        bookingId: "booking-123",
+        paidAmount: 80,
+      },
     });
-    mockProcessWebhook.mockResolvedValue({
-      kind: "approved",
+    mockGetPaymentStatus.mockResolvedValue({
+      paymentId: "12345",
+      status: "paid",
+      bookingId: "booking-123",
+      amount: 80,
+    });
+    mockProcessPaymentWebhook.mockResolvedValue({
+      kind: "paid",
       httpStatus: 200,
       received: true,
       confirmed: true,
@@ -116,21 +92,46 @@ describe("POST /api/mercadopago/webhook", () => {
     });
 
     const response = await POST(
-      signedRequest({ type: "payment", action: "payment.updated", data: { id: "12345" } }),
+      new Request("http://localhost/api/mercadopago/webhook?data.id=12345", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ type: "payment", action: "payment.updated", data: { id: "12345" } }),
+      }),
     );
     const payload = (await response.json()) as Record<string, unknown>;
 
     expect(response.status).toBe(200);
     expect(payload.confirmed).toBe(true);
-    expect(mockFetchPayment).toHaveBeenCalledWith("12345");
-    expect(mockProcessWebhook).toHaveBeenCalledTimes(1);
+    expect(mockGetPaymentStatus).toHaveBeenCalledWith("12345");
+    expect(mockProcessPaymentWebhook).toHaveBeenCalledTimes(1);
+  });
+
+  it("surfaces gateway configuration failures", async () => {
+    mockVerifyWebhook.mockResolvedValue({
+      ok: false,
+      httpStatus: 503,
+      error: WEBHOOK_UNCONFIGURED_MESSAGE,
+    });
+
+    const response = await POST(
+      new Request("http://localhost/api/mercadopago/webhook", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      }),
+    );
+    const payload = (await response.json()) as Record<string, unknown>;
+
+    expect(response.status).toBe(503);
+    expect(payload.error).toBe(WEBHOOK_UNCONFIGURED_MESSAGE);
   });
 });
 
 describe("GET /api/mercadopago/webhook", () => {
   beforeEach(() => {
-    mockFetchPayment.mockReset();
-    mockProcessWebhook.mockReset();
+    mockVerifyWebhook.mockReset();
+    mockGetPaymentStatus.mockReset();
+    mockProcessPaymentWebhook.mockReset();
   });
 
   it("returns a harmless health response without touching payment state", async () => {
@@ -139,7 +140,7 @@ describe("GET /api/mercadopago/webhook", () => {
 
     expect(response.status).toBe(200);
     expect(payload).toEqual({ ok: true });
-    expect(mockFetchPayment).not.toHaveBeenCalled();
-    expect(mockProcessWebhook).not.toHaveBeenCalled();
+    expect(mockGetPaymentStatus).not.toHaveBeenCalled();
+    expect(mockProcessPaymentWebhook).not.toHaveBeenCalled();
   });
 });

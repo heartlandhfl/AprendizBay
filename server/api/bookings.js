@@ -3,6 +3,10 @@
 const express = require("express");
 const { Router } = require("express");
 const {
+  acceptBookingForTutor,
+  statusFromAcceptBookingError,
+} = require("../../lib/bookings/accept-booking");
+const {
   completeLessonForActor,
   statusFromCompleteLessonError,
 } = require("../../lib/bookings/complete-lesson");
@@ -48,6 +52,31 @@ bookingsRouter.post("/", async (req, res) => {
       error: message,
       code: error && typeof error === "object" ? error.code : undefined,
     });
+  }
+});
+
+bookingsRouter.post("/accept", async (req, res) => {
+  try {
+    const { uid } = await verifyIdToken(readBearerToken(req));
+    const db = getAdminFirestore();
+    const { FieldValue } = require("firebase-admin/firestore");
+    const result = await acceptBookingForTutor(
+      db,
+      {
+        actorUid: uid,
+        bookingId: req.body?.bookingId,
+      },
+      { timestamp: FieldValue.serverTimestamp() },
+    );
+    res.json({ ok: true, ...result });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Não foi possível aceitar a reserva.";
+    const status = statusFromAcceptBookingError(error);
+    if (status >= 500) {
+      captureException(error);
+    }
+    res.status(status).json({ error: message });
   }
 });
 

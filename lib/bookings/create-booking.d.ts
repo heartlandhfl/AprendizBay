@@ -10,6 +10,7 @@ export type CreateBookingErrorCode =
   | "INVALID_PRICE"
   | "TUTOR_UNAVAILABLE"
   | "COLLECTIVE_PATH"
+  | "SELF_BOOKING"
   | "SLOT_TAKEN";
 
 export const CREATE_BOOKING_ERRORS: Record<CreateBookingErrorCode, string>;
