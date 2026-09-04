@@ -71,5 +71,9 @@ export function isWithinLessonReminderWindow(
   scheduledAt: Date | string,
   now: Date | string,
 ): boolean;
+export function isWithinLessonReminder24HourWindow(
+  scheduledAt: Date | string,
+  now: Date | string,
+): boolean;
 export function toDate(value: unknown): Date;
 export function getSiteUrl(): string;

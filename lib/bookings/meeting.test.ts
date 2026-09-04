@@ -1,10 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { generateMeetingUrl, parseSafeMeetingUrl } from "@/lib/bookings/meeting";
+import {
+  generateMeetingRoomToken,
+  generateMeetingUrl,
+} from "@/lib/bookings/meeting-server";
+import { parseSafeMeetingUrl } from "@/lib/bookings/meeting";
+
+describe("generateMeetingRoomToken", () => {
+  it("creates unpredictable room tokens instead of booking ids", () => {
+    const first = generateMeetingRoomToken();
+    const second = generateMeetingRoomToken();
+
+    expect(first).toMatch(/^[a-f0-9]{32}$/);
+    expect(second).toMatch(/^[a-f0-9]{32}$/);
+    expect(first).not.toBe(second);
+    expect(generateMeetingUrl(first)).toBe(`https://meet.jit.si/aprendizbay-${first}`);
+  });
+});
 
 describe("parseSafeMeetingUrl", () => {
   it("accepts the generated Jitsi meeting URL", () => {
-    const url = generateMeetingUrl("booking-123");
-    expect(parseSafeMeetingUrl(url)).toBe("https://meet.jit.si/aprendizbay-booking-123");
+    const token = generateMeetingRoomToken();
+    const url = generateMeetingUrl(token);
+    expect(parseSafeMeetingUrl(url)).toBe(`https://meet.jit.si/aprendizbay-${token}`);
   });
 
   it("accepts a normal https meeting link", () => {

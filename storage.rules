@@ -128,6 +128,7 @@ service firebase.storage {
       let hub = firestore.get(/databases/(default)/documents/collectiveHubs/$(hubId)).data;
       return isAuthenticated()
         && (hub.tutorId == request.auth.uid
+          || firestore.exists(/databases/(default)/documents/collectiveHubs/$(hubId)/participants/$(request.auth.uid))
           || request.auth.uid in hub.confirmedStudentIds
           || isAdmin());
     }

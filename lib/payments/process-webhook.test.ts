@@ -17,6 +17,14 @@ import {
   buildAsaasWebhookReceiptIds,
 } from "@/lib/payments/webhook-receipts";
 
+function expectGeneratedMeetingUrl(booking: {
+  meetingRoomToken?: string;
+  meetingUrl?: string;
+}) {
+  expect(booking.meetingRoomToken).toMatch(/^[a-f0-9]{32}$/);
+  expect(booking.meetingUrl).toBe(generateMeetingUrl(booking.meetingRoomToken ?? ""));
+}
+
 function pendingBooking(overrides: Partial<BookingRecord> = {}): BookingRecord {
   return {
     id: "booking-123",
@@ -66,7 +74,7 @@ describe("processAsaasPaymentWebhook", () => {
     const booking = store.bookings.get("booking-123")!;
     expect(booking.status).toBe("confirmed");
     expect(booking.paymentStatus).toBe("paid");
-    expect(booking.meetingUrl).toBe(generateMeetingUrl("booking-123"));
+    expectGeneratedMeetingUrl(booking);
     expect(booking.paymentId).toBe("pay_080225913252");
     expect(Object.keys(booking)).not.toContain("tutorBalance");
 
@@ -91,9 +99,7 @@ describe("processAsaasPaymentWebhook", () => {
     expect(duplicate.alreadyProcessed).toBe(true);
     expect(duplicate.httpStatus).toBe(200);
     expect(onConfirmed).toHaveBeenCalledTimes(1);
-    expect(store.bookings.get("booking-123")?.meetingUrl).toBe(
-      generateMeetingUrl("booking-123"),
-    );
+    expectGeneratedMeetingUrl(store.bookings.get("booking-123")!);
   });
 
   it("treats a later replay of the same payment as already processed", async () => {
@@ -343,12 +349,13 @@ describe("processAsaasPaymentWebhook", () => {
 
     expect(result.kind).toBe("confirmed");
     expect(onConfirmed).toHaveBeenCalledTimes(1);
-    expect(store.bookings.get("booking-123")).toMatchObject({
+    const confirmedBooking = store.bookings.get("booking-123")!;
+    expect(confirmedBooking).toMatchObject({
       status: "confirmed",
       paymentStatus: "paid",
-      meetingUrl: generateMeetingUrl("booking-123"),
       paymentId: "pay_080225913252",
     });
+    expectGeneratedMeetingUrl(confirmedBooking);
   });
 
   it("does not confirm a lesson when a webhook arrives after checkout expiration", async () => {
@@ -437,8 +444,8 @@ describe("processAsaasPaymentWebhook", () => {
     expect(store.bookings.get("booking-123")).toMatchObject({
       status: "confirmed",
       paymentStatus: "paid",
-      meetingUrl: generateMeetingUrl("booking-123"),
     });
+    expectGeneratedMeetingUrl(store.bookings.get("booking-123")!);
     expect(onConfirmed).toHaveBeenCalledTimes(1);
   });
 
@@ -464,11 +471,12 @@ describe("processAsaasPaymentWebhook", () => {
         message: WEBHOOK_CONFIRMED_MESSAGE,
       });
       expect(onConfirmed).toHaveBeenCalledTimes(1);
-      expect(store.bookings.get("booking-123")).toMatchObject({
+      const confirmedBooking = store.bookings.get("booking-123")!;
+      expect(confirmedBooking).toMatchObject({
         status: "confirmed",
         paymentStatus: "paid",
-        meetingUrl: generateMeetingUrl("booking-123"),
       });
+      expectGeneratedMeetingUrl(confirmedBooking);
     });
 
     it("rejects a R$1 payment for a R$70 booking", async () => {

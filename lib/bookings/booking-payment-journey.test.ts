@@ -67,9 +67,11 @@ function createFakeAcceptDb(booking: Record<string, unknown>) {
 
 describe("booking payment journey", () => {
   it("moves unpaid → awaiting_payment → paid with a meeting URL and idempotent webhook replay", async () => {
-    const { db, getBooking } = createFakeAcceptDb(pendingBooking());
+    const { db, getBooking } = createFakeAcceptDb(
+      pendingBooking() as unknown as Record<string, unknown>,
+    );
 
-    expect(canStartCheckout(getBooking() as BookingRecord)).toBe(false);
+    expect(canStartCheckout(getBooking() as unknown as BookingRecord)).toBe(false);
 
     await acceptBookingForTutor(
       db,
@@ -80,7 +82,7 @@ describe("booking payment journey", () => {
     const awaiting = getBooking();
     expect(awaiting.paymentStatus).toBe("awaiting_payment");
     expect(awaiting.status).toBe("pending");
-    expect(canStartCheckout(awaiting as BookingRecord)).toBe(true);
+    expect(canStartCheckout(awaiting as unknown as BookingRecord)).toBe(true);
 
     const store = createMemoryPaymentWebhookStore(
       new Map([
@@ -110,14 +112,15 @@ describe("booking payment journey", () => {
       status: "confirmed",
       paymentStatus: "paid",
       paymentId: "mp-12345",
-      meetingUrl: generateMeetingUrl("booking-journey-1"),
     });
+    expect(confirmed?.meetingRoomToken).toMatch(/^[a-f0-9]{32}$/);
+    expect(confirmed?.meetingUrl).toBe(
+      generateMeetingUrl(confirmed?.meetingRoomToken ?? ""),
+    );
 
     const duplicate = await processPaymentWebhook(event, { store, onPaid });
     expect(duplicate.alreadyProcessed).toBe(true);
     expect(onPaid).toHaveBeenCalledTimes(1);
-    expect(store.bookings.get("booking-journey-1")?.meetingUrl).toBe(
-      generateMeetingUrl("booking-journey-1"),
-    );
+    expect(store.bookings.get("booking-journey-1")?.meetingUrl).toBe(confirmed?.meetingUrl);
   });
 });

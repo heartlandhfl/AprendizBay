@@ -103,7 +103,7 @@ describe("buildAdminEmailDeliveryMonitor", () => {
   });
 
   it("raises complaint and backlog alerts", async () => {
-    const recentRows = Array.from({ length: 25 }, (_, index) => ({
+    const recentRows: Array<{ id: string; data: Record<string, unknown> }> = Array.from({ length: 25 }, (_, index) => ({
       id: `pending-${index}`,
       data: {
         eventName: "NEW_MESSAGE",

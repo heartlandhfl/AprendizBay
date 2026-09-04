@@ -364,3 +364,44 @@ describe("storage.rules profile photos", () => {
     );
   });
 });
+
+describe("storage.rules hub materials", () => {
+  const hubId = "hub-materials";
+  const materialPath = `hubs/${hubId}/materials/slides.pdf`;
+  const PDF_BYTES = new Uint8Array([0x25, 0x50, 0x44, 0x46]);
+
+  async function seedHubWithParticipant() {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, "collectiveHubs", hubId), {
+        tutorId: TUTOR_ID,
+        title: "Turma de teste",
+        confirmedStudentCount: 1,
+      });
+      await setDoc(doc(db, "collectiveHubs", hubId, "participants", STUDENT_ID), {
+        studentId: STUDENT_ID,
+        joinedAt: new Date(),
+      });
+    });
+  }
+
+  it("lets enrolled students read and upload hub materials via participants subcollection", async () => {
+    await seedHubWithParticipant();
+    const student = storageFor(STUDENT_ID, "ana@test.com");
+
+    await assertSucceeds(
+      uploadBytes(ref(student, materialPath), PDF_BYTES, { contentType: "application/pdf" }),
+    );
+    await assertSucceeds(getBytes(ref(student, materialPath)));
+  });
+
+  it("denies outsiders from hub materials", async () => {
+    await seedHubWithParticipant();
+    const outsider = storageFor(OTHER_TUTOR_ID, "lucas@test.com");
+
+    await assertFails(getBytes(ref(outsider, materialPath)));
+    await assertFails(
+      uploadBytes(ref(outsider, materialPath), PDF_BYTES, { contentType: "application/pdf" }),
+    );
+  });
+});

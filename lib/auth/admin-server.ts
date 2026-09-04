@@ -48,7 +48,7 @@ export async function verifyAdminIdToken(idToken: string): Promise<string> {
 
   const auth = getAuth(getAdminApp());
   const decoded = await auth.verifyIdToken(idToken);
-  assertAdminFromClaims(decoded);
+  assertAdminFromClaims(decoded as { role?: unknown });
 
   return decoded.uid;
 }

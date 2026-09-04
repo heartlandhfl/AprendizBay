@@ -49,8 +49,10 @@ describe("processPaymentWebhook", () => {
     expect(store.bookings.get("booking-123")).toMatchObject({
       status: "confirmed",
       paymentStatus: "paid",
-      meetingUrl: generateMeetingUrl("booking-123"),
     });
+    const confirmed = store.bookings.get("booking-123");
+    expect(confirmed?.meetingRoomToken).toMatch(/^[a-f0-9]{32}$/);
+    expect(confirmed?.meetingUrl).toBe(generateMeetingUrl(confirmed?.meetingRoomToken ?? ""));
     expect(store.payments.get("mercadopago_12345")).toMatchObject({
       status: "paid",
       bookingId: "booking-123",

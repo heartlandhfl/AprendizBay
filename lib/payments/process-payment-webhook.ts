@@ -2,7 +2,7 @@ import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firesto
 import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
 import { trackServerEvent } from "@/lib/analytics/server";
 import { mapBookingRecord, type BookingRecord } from "@/lib/bookings/server";
-import { generateMeetingUrl } from "@/lib/bookings/meeting";
+import { generateMeetingRoomToken, generateMeetingUrl } from "@/lib/bookings/meeting-server";
 import { getAdminApp } from "@/lib/firebase/admin";
 import {
   maybeCreateFacilitatorCommission,
@@ -235,12 +235,14 @@ async function claimPaidPayment(
     return { kind: "amount_mismatch", booking };
   }
 
-  const meetingUrl = booking.meetingUrl || generateMeetingUrl(booking.id);
+  const roomToken = booking.meetingRoomToken?.trim() || generateMeetingRoomToken();
+  const meetingUrl = booking.meetingUrl || generateMeetingUrl(roomToken);
   tx.updateBooking(booking.id, {
     status: "confirmed",
     paymentStatus: "paid",
     paymentId: event.paymentId,
     mercadopagoPaymentStatus: event.status === "paid" ? "approved" : undefined,
+    meetingRoomToken: roomToken,
     meetingUrl,
   });
   tx.setPaymentRecord(paymentRecordDocId(event.provider, event.paymentId), {
@@ -299,7 +301,7 @@ async function claimUnsuccessfulPayment(
       : event.status === "expired" || event.status === "cancelled"
         ? "expired"
         : event.status === "refunded"
-          ? "paid"
+          ? "refunded"
           : "awaiting_payment";
 
   const updates: Record<string, unknown> = {
@@ -311,6 +313,8 @@ async function claimUnsuccessfulPayment(
   if (event.status === "refunded") {
     updates.refundStatus = "refunded";
     updates.refundId = event.paymentId;
+    updates.paymentStatus = "refunded";
+    updates.status = "cancelled";
   }
 
   tx.updateBooking(booking.id, updates);

@@ -596,11 +596,11 @@ describe("firestore.rules", () => {
   });
 
   describe("reviews", () => {
-    it("allows a student to review a completed booking with the booking id", async () => {
+    it("denies client-side review creation (server API only)", async () => {
       await seedBaseDocs({ tutorVerified: true });
       await seedBooking("booking-done", "completed");
 
-      await assertSucceeds(
+      await assertFails(
         setDoc(doc(studentDb(), "reviews", "booking-done"), reviewPayload("booking-done")),
       );
     });

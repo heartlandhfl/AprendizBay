@@ -91,7 +91,9 @@ interface TutorPerson extends Person {
 
 function tutorSubjectLabel(data: Record<string, unknown>): string | undefined {
   const subjects = Array.isArray(data.subjects)
-    ? data.subjects.filter((value): value is string => typeof value === "string" && value.trim())
+    ? data.subjects.filter(
+        (value): value is string => typeof value === "string" && value.trim().length > 0,
+      )
     : [];
   if (subjects.length > 0) {
     return subjects[0]?.trim();

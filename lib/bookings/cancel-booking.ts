@@ -11,12 +11,11 @@ import {
   resolveCancelActor,
 } from "@/lib/bookings/cancellation";
 import type { BookingRecord } from "@/lib/bookings/server";
-import {
-  findAsaasPaymentIdByExternalReference,
-  refundAsaasPayment,
-  resolveAsaasPaymentId,
-  type AsaasRefundResult,
-} from "@/lib/payments/asaas";
+import { getFirestore } from "firebase-admin/firestore";
+import { getAdminApp } from "@/lib/firebase/admin";
+import { reverseFacilitatorCommissionForBooking } from "@/lib/facilitators/commission";
+import { refundViaGateway } from "@/lib/payments/refund-via-gateway";
+import type { RefundResult } from "@/lib/payments/gateway/types";
 
 export interface CancelBookingInput {
   bookingId: string;
@@ -43,11 +42,12 @@ export interface CancelStore {
 export interface CancelBookingDeps {
   store: CancelStore;
   refundPayment?: (input: {
-    paymentId: string;
+    paymentId?: string;
+    bookingId: string;
     description?: string;
-    value?: number;
-  }) => Promise<AsaasRefundResult>;
-  findPaymentId?: (externalReference: string) => Promise<string | undefined>;
+    amount?: number;
+  }) => Promise<RefundResult>;
+  reverseCommission?: (bookingId: string) => Promise<void>;
   now?: () => Date;
 }
 
@@ -94,6 +94,9 @@ function applyBookingUpdates(
   }
   if (typeof updates.refundAmount === "number") {
     next.refundAmount = updates.refundAmount;
+  }
+  if (typeof updates.paymentStatus === "string") {
+    next.paymentStatus = updates.paymentStatus as BookingRecord["paymentStatus"];
   }
   if (updates.refundLockUntil instanceof Date) {
     next.refundLockUntil = updates.refundLockUntil;
@@ -236,7 +239,7 @@ async function claimCancellation(
     return {
       kind: "needs_refund",
       booking,
-      paymentId: resolveAsaasPaymentId(booking),
+      paymentId: booking.paymentId?.trim() || undefined,
       paidAmount: booking.price,
     };
   });
@@ -262,12 +265,12 @@ async function finalizeRefund(
   store: CancelStore,
   bookingId: string,
   paymentId: string,
-  refund: AsaasRefundResult,
+  refund: RefundResult,
   paidAmount: number,
 ): Promise<CancelBookingResult> {
   const refundAmount = capRefundAmount(paidAmount, refund.refundAmount);
   const refundId = refund.refundId ?? refund.paymentId ?? paymentId;
-  const refundStatus = refund.status ?? "REFUNDED";
+  const refundStatus = refund.status === "refunded" ? "refunded" : (refund.status ?? "refunded");
 
   return store.runAtomic(async (tx) => {
     const booking = await tx.getBooking(bookingId);
@@ -286,11 +289,13 @@ async function finalizeRefund(
 
     tx.updateBooking(booking.id, {
       status: "cancelled",
+      paymentStatus: "refunded",
       paymentId,
       refundId,
       refundStatus,
       refundAmount,
       refundLockUntil: null,
+      mercadopagoPaymentStatus: refund.status === "refunded" ? "refunded" : undefined,
     });
 
     return {
@@ -309,8 +314,21 @@ export async function executeCancelBooking(
 ): Promise<CancelBookingResult> {
   const store = deps.store;
   const now = deps.now?.() ?? new Date();
-  const refundPayment = deps.refundPayment ?? refundAsaasPayment;
-  const findPaymentId = deps.findPaymentId ?? findAsaasPaymentIdByExternalReference;
+  const refundPayment =
+    deps.refundPayment ??
+    ((params) =>
+      refundViaGateway({
+        paymentId: params.paymentId,
+        bookingId: input.bookingId,
+        description: params.description,
+        amount: params.amount,
+      }));
+  const reverseCommission =
+    deps.reverseCommission ??
+    (async (bookingId) => {
+      const db = getFirestore(getAdminApp());
+      await reverseFacilitatorCommissionForBooking(db, bookingId);
+    });
 
   const claimed = await claimCancellation(store, input, now);
   if (claimed.error) {
@@ -324,26 +342,40 @@ export async function executeCancelBooking(
   }
 
   const paidAmount = claimed.paidAmount ?? claimed.booking.price;
-  let paymentId = claimed.paymentId;
-  if (!paymentId) {
-    paymentId = await findPaymentId(claimed.booking.id);
-  }
-  if (!paymentId) {
-    await clearRefundClaim(store, claimed.booking.id, now);
-    throw new CancelBookingError("missing_payment", 409, CANCEL_ERRORS.missingPayment);
-  }
+  const paymentId = claimed.paymentId;
 
-  let refund: AsaasRefundResult;
+  let refund: RefundResult;
   try {
     refund = await refundPayment({
       paymentId,
+      bookingId: claimed.booking.id,
       description: "Cancelamento da aula no Aprendiz Bay",
-      value: capRefundAmount(paidAmount),
+      amount: capRefundAmount(paidAmount),
     });
   } catch (error) {
     await clearRefundClaim(store, claimed.booking.id, now).catch(() => undefined);
     throw toCancelError(error);
   }
 
-  return finalizeRefund(store, claimed.booking.id, paymentId, refund, paidAmount);
+  const resolvedPaymentId = refund.paymentId ?? paymentId;
+  if (!resolvedPaymentId) {
+    await clearRefundClaim(store, claimed.booking.id, now);
+    throw new CancelBookingError("missing_payment", 409, CANCEL_ERRORS.missingPayment);
+  }
+
+  const result = await finalizeRefund(
+    store,
+    claimed.booking.id,
+    resolvedPaymentId,
+    refund,
+    paidAmount,
+  );
+
+  try {
+    await reverseCommission(claimed.booking.id);
+  } catch (error) {
+    console.error("[Aprendiz Bay] Falha ao estornar comissão do facilitador:", error);
+  }
+
+  return result;
 }

@@ -21,7 +21,7 @@ import {
 } from "@/lib/bookings/complete-lesson";
 import { createIndividualBookingForStudent } from "@/lib/bookings/create-booking";
 import { createCollectiveBookingForStudent } from "@/lib/hubs/join-and-book";
-import { generateMeetingUrl } from "@/lib/bookings/meeting";
+import { generateMeetingRoomToken, generateMeetingUrl } from "@/lib/bookings/meeting-server";
 import {
   notifyConfirmedBooking,
   notifyLessonCancelled,
@@ -88,6 +88,7 @@ export interface BookingRecord {
   refundStatus?: string;
   refundAmount?: number;
   refundLockUntil?: Date;
+  meetingRoomToken?: string;
   meetingUrl?: string;
   scheduledAt: Date;
   completedAt?: Date;
@@ -140,6 +141,7 @@ export function mapBookingRecord(
         ? data.refundAmount
         : undefined,
     refundLockUntil: optionalDate(data.refundLockUntil),
+    meetingRoomToken: data.meetingRoomToken ? String(data.meetingRoomToken) : undefined,
     meetingUrl: data.meetingUrl ? String(data.meetingUrl) : undefined,
     scheduledAt: toScheduledDate(data.scheduledAt),
     completedAt: optionalDate(data.completedAt),
@@ -191,10 +193,12 @@ export async function confirmBookingWithMeetingUrl(
   payment?: ConfirmBookingPaymentInput,
 ): Promise<void> {
   const db = requireAdminFirestore();
+  const roomToken = generateMeetingRoomToken();
   const updates: Record<string, unknown> = {
     status: "confirmed",
     paymentStatus: "paid",
-    meetingUrl: generateMeetingUrl(bookingId),
+    meetingRoomToken: roomToken,
+    meetingUrl: generateMeetingUrl(roomToken),
     updatedAt: FieldValue.serverTimestamp(),
   };
 

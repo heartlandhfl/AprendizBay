@@ -13,6 +13,11 @@ interface UseRequireAuthOptions {
   redirectTo?: string;
   unauthorizedRedirectTo?: string;
   skipSetupGate?: boolean;
+  skipEmailVerification?: boolean;
+}
+
+function usesPasswordProvider(user: { providerData?: Array<{ providerId: string }> }): boolean {
+  return user.providerData?.some((provider) => provider.providerId === "password") ?? false;
 }
 
 export function useRequireAuth(options: UseRequireAuthOptions = {}) {
@@ -21,6 +26,7 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
     redirectTo = "/login",
     unauthorizedRedirectTo = "/",
     skipSetupGate = false,
+    skipEmailVerification = false,
   } = options;
   const { user, userDoc, loading } = useAuth();
   const {
@@ -32,13 +38,47 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [redirecting, setRedirecting] = useState(false);
+  const [tokenRole, setTokenRole] = useState<string | null>(null);
+  const [claimsLoading, setClaimsLoading] = useState(false);
 
-  const hasRoleMismatch =
-    !!roles && !!userDoc && !roleMatchesAny(userDoc.role, roles);
-  const missingProfileForRoleGate = !!roles && !!user && !loading && !userDoc;
+  const requiresAdminClaim = !!roles?.includes("admin");
 
   useEffect(() => {
-    if (loading || redirecting) {
+    if (!user || !requiresAdminClaim) {
+      setTokenRole(null);
+      setClaimsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setClaimsLoading(true);
+    void user.getIdTokenResult().then((result) => {
+      if (cancelled) {
+        return;
+      }
+      const role = result.claims.role;
+      setTokenRole(typeof role === "string" ? role : null);
+      setClaimsLoading(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [requiresAdminClaim, user]);
+
+  const hasRoleMismatch = requiresAdminClaim
+    ? !!user && tokenRole !== "admin"
+    : !!roles && !!userDoc && !roleMatchesAny(userDoc.role, roles);
+  const missingProfileForRoleGate = !!roles && !!user && !loading && !userDoc && !requiresAdminClaim;
+  const needsEmailVerification =
+    !skipEmailVerification &&
+    !!user &&
+    !user.emailVerified &&
+    usesPasswordProvider(user) &&
+    pathname !== "/verify-email";
+
+  useEffect(() => {
+    if (loading || redirecting || claimsLoading) {
       return;
     }
 
@@ -51,6 +91,12 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
           : `${redirectTo}?redirect=${encodeURIComponent(nextPath)}`;
 
       router.replace(loginUrl);
+      return;
+    }
+
+    if (needsEmailVerification) {
+      setRedirecting(true);
+      router.replace("/verify-email");
       return;
     }
 
@@ -83,10 +129,12 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
       router.replace(setupRedirect);
     }
   }, [
+    claimsLoading,
     hasRoleMismatch,
     learningProfile,
     loading,
     missingProfileForRoleGate,
+    needsEmailVerification,
     pathname,
     redirectTo,
     redirecting,
@@ -100,17 +148,19 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
     userDoc,
   ]);
 
-  const isAuthorized =
-    !!user && (!roles || (!!userDoc && roleMatchesAny(userDoc.role, roles)));
+  const isAuthorized = requiresAdminClaim
+    ? !!user && tokenRole === "admin"
+    : !!user && (!roles || (!!userDoc && roleMatchesAny(userDoc.role, roles)));
 
   return {
     user,
     userDoc,
     loading:
       loading ||
+      claimsLoading ||
       redirecting ||
       (!skipSetupGate && setupLoading) ||
-      (!!user && !!roles && !userDoc) ||
+      (!!user && !!roles && !requiresAdminClaim && !userDoc) ||
       !isAuthorized,
     isAuthorized,
   };

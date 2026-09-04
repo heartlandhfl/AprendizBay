@@ -434,7 +434,7 @@ export async function processMercadoPagoBookingPayment(
       },
       description: `Pagamento da aula ${typeLabel.toLowerCase()} no Aprendiz Bay`,
       notificationUrl: input.notificationUrl,
-      idempotencyKey: `${payable.id}:${now.getTime()}`,
+      idempotencyKey: payable.id,
     });
   } catch (error) {
     await clearPaymentLock(store, payable.id).catch(() => undefined);
