@@ -288,6 +288,30 @@ export function subscribeToTutorConfirmedBookings(
   });
 }
 
+export function subscribeToTutorOwnedBookings(
+  tutorId: string,
+  onChange: (bookings: Booking[]) => void,
+  onError?: (error: Error) => void,
+): Unsubscribe {
+  return whenFirebaseReady(() => {
+    const bookingsQuery = query(collection(db, "bookings"), where("tutorId", "==", tutorId));
+
+    return onSnapshot(
+      bookingsQuery,
+      (snapshot) => {
+        const bookings = snapshot.docs
+          .map((docSnap) =>
+            mapBookingDoc(docSnap.id, docSnap.data() as Record<string, unknown>),
+          )
+          .sort((a, b) => a.scheduledAt.toMillis() - b.scheduledAt.toMillis());
+
+        onChange(bookings);
+      },
+      (error) => onError?.(error),
+    );
+  });
+}
+
 export function subscribeToTutorPendingBookingCount(
   tutorId: string,
   onChange: (count: number) => void,

@@ -17,6 +17,11 @@ describe("role route guards", () => {
       expect(contents).toContain('roles={["lecturer"]}');
       expect(contents).not.toContain('roles={["tutor"]}');
     }
+
+    const dashboard = source("app/tutor/dashboard/page.tsx");
+    expect(dashboard).toContain("ProfessorHome");
+    expect(dashboard).not.toContain("StudentHome");
+    expect(source("components/dashboard/ProfessorHome.tsx")).not.toContain("jitsi");
   });
 
   it("keeps the student dashboard student-only and does not duplicate bookings", () => {

@@ -115,6 +115,9 @@ async function withHttpRoute() {
     const missingResubmitToken = await postJson(port, "/api/tutors/resubmit", {});
     assert.equal(missingResubmitToken.status, 401);
 
+    const missingEarningsToken = await fetch(`http://127.0.0.1:${port}/api/tutors/me/earnings`);
+    assert.equal(missingEarningsToken.status, 401);
+
     assert.equal(statusFromError({ code: "FORBIDDEN" }), 403);
     assert.equal(statusFromError({ code: "SELF_REVIEW" }), 403);
     assert.equal(statusFromError({ code: "REASON_REQUIRED" }), 400);

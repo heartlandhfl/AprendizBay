@@ -55,11 +55,16 @@ describe("auth redirects", () => {
       { href: "/mensagens", label: "Mensagens" },
     ]);
     expect(primaryNavItemsForRole("lecturer")).toEqual([
-      { href: "/tutor/dashboard", label: "Meu painel" },
+      { href: "/tutor/dashboard", label: "Início" },
+      { href: "/tutor/dashboard#solicitacoes", label: "Solicitações" },
+      { href: "/bookings", label: "Minhas Aulas" },
+      { href: "/tutor/dashboard#alunos", label: "Meus Alunos" },
+      { href: "/tutor/dashboard#turmas", label: "Turmas" },
+      { href: "/mensagens", label: "Mensagens" },
+      { href: "/tutor/dashboard#ganhos", label: "Ganhos" },
+      { href: "/tutor/settings", label: "Meu Perfil" },
     ]);
-    expect(primaryNavItemsForRole("tutor")).toEqual([
-      { href: "/tutor/dashboard", label: "Meu painel" },
-    ]);
+    expect(primaryNavItemsForRole("tutor")).toEqual(primaryNavItemsForRole("lecturer"));
     expect(primaryNavItemsForRole("facilitator")).toEqual([
       { href: "/", label: "Início" },
       { href: "/facilitador", label: "Painel do Facilitador" },

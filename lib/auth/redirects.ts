@@ -64,7 +64,16 @@ export function primaryNavItemsForRole(
         { href: "/mensagens", label: "Mensagens" },
       ];
     case "lecturer":
-      return [{ href: "/tutor/dashboard", label: "Meu painel" }];
+      return [
+        { href: "/tutor/dashboard", label: "Início" },
+        { href: "/tutor/dashboard#solicitacoes", label: "Solicitações" },
+        { href: "/bookings", label: "Minhas Aulas" },
+        { href: "/tutor/dashboard#alunos", label: "Meus Alunos" },
+        { href: "/tutor/dashboard#turmas", label: "Turmas" },
+        { href: "/mensagens", label: "Mensagens" },
+        { href: "/tutor/dashboard#ganhos", label: "Ganhos" },
+        { href: "/tutor/settings", label: "Meu Perfil" },
+      ];
     case "facilitator":
       return [
         { href: "/", label: "Início" },
