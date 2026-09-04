@@ -5,7 +5,7 @@ import {
   mapBookingRecord,
   type BookingRecord,
 } from "@/lib/bookings/server";
-import { generateMeetingUrl } from "@/lib/bookings/meeting-server";
+import { resolveClassroomJoinUrl } from "@/lib/classroom";
 import { getAdminApp } from "@/lib/firebase/admin";
 import { notifyConfirmedBooking, notifyPaymentFailed, safeNotify } from "@/lib/notifications/server";
 import type { AsaasWebhookMatch, AsaasWebhookOutcome } from "@/lib/payments/asaas";
@@ -250,7 +250,7 @@ async function claimSuccessfulPayment(
     return { kind: "amount_mismatch", booking };
   }
 
-  const meetingUrl = booking.meetingUrl || generateMeetingUrl(booking.id);
+  const meetingUrl = resolveClassroomJoinUrl(booking);
   const updates: Record<string, unknown> = {
     status: "confirmed",
     paymentStatus: "paid",

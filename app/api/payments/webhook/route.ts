@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logCriticalServerFailure } from "@/lib/observability/server-log";
 import { captureServerException } from "@/lib/observability/sentry-server";
 import {
   authorizeAsaasWebhook,
@@ -23,6 +24,9 @@ export async function POST(request: Request) {
   try {
     const auth = authorizeAsaasWebhook(request.headers);
     if (!auth.ok) {
+      logCriticalServerFailure("webhook", "Asaas webhook authorization failed", {
+        provider: "asaas",
+      });
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
@@ -49,6 +53,13 @@ export async function POST(request: Request) {
 
     const result = await processAsaasPaymentWebhook(event);
 
+    if (result.kind === "amount_mismatch") {
+      logCriticalServerFailure("payment", "Webhook amount mismatch", {
+        provider: "asaas",
+        bookingId: event.bookingId ?? null,
+      });
+    }
+
     return NextResponse.json({
       received: result.received,
       message: result.message,
@@ -60,6 +71,9 @@ export async function POST(request: Request) {
       ...(result.kind === "amount_mismatch" ? { amountMismatch: true } : {}),
     });
   } catch (error) {
+    logCriticalServerFailure("webhook", "Asaas webhook processing failed", {
+      provider: "asaas",
+    });
     captureServerException(error);
     const message =
       error instanceof Error ? error.message : "Não foi possível processar o webhook.";

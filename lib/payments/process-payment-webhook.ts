@@ -1,8 +1,9 @@
 import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
 import { ANALYTICS_EVENTS } from "@/lib/analytics/events";
 import { trackServerEvent } from "@/lib/analytics/server";
+import { logCriticalServerFailure } from "@/lib/observability/server-log";
 import { mapBookingRecord, type BookingRecord } from "@/lib/bookings/server";
-import { generateMeetingUrl } from "@/lib/bookings/meeting-server";
+import { resolveClassroomJoinUrl } from "@/lib/classroom";
 import { getAdminApp } from "@/lib/firebase/admin";
 import {
   maybeCreateFacilitatorCommission,
@@ -235,7 +236,7 @@ async function claimPaidPayment(
     return { kind: "amount_mismatch", booking };
   }
 
-  const meetingUrl = booking.meetingUrl || generateMeetingUrl(booking.id);
+  const meetingUrl = resolveClassroomJoinUrl(booking);
   tx.updateBooking(booking.id, {
     status: "confirmed",
     paymentStatus: "paid",
@@ -495,8 +496,10 @@ async function defaultOnPaid(booking: BookingRecord): Promise<void> {
       booking,
       booking.paymentId ?? "",
     );
-  } catch (error) {
-    console.error("[Aprendiz Bay] Falha ao registrar comissão do facilitador:", error);
+  } catch {
+    logCriticalServerFailure("facilitator_commission", "Failed to record facilitator commission", {
+      bookingId: booking.id,
+    });
   }
 }
 
@@ -513,8 +516,10 @@ async function defaultOnRefunded(booking: BookingRecord): Promise<void> {
   try {
     const db = getFirestore(getAdminApp());
     await reverseFacilitatorCommissionForBooking(db, booking.id);
-  } catch (error) {
-    console.error("[Aprendiz Bay] Falha ao estornar comissão do facilitador:", error);
+  } catch {
+    logCriticalServerFailure("facilitator_commission", "Failed to reverse facilitator commission", {
+      bookingId: booking.id,
+    });
   }
 }
 
