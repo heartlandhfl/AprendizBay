@@ -1,10 +1,9 @@
 /**
  * Hostinger audit — firebase-admin (Next.js server modules only)
  *
- * confirmBookingWithMeetingUrl is for payment webhooks / server-side flows. Not wired to
- * Express yet. No hostinger-next page bundle references this file today.
- *
- * Not imported by server.js or server/api/. Production Express must not require this module.
+ * Payment confirmation and classroom URLs are handled by webhook processors
+ * (`lib/payments/process-webhook.ts`, `lib/payments/process-payment-webhook.ts`)
+ * via `lib/classroom`. Not imported by server.js or server/api/.
  */
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
@@ -22,9 +21,7 @@ import {
 import { createIndividualBookingForStudent } from "@/lib/bookings/create-booking";
 import { createCollectiveBookingForStudent } from "@/lib/hubs/join-and-book";
 import { evaluateHubLeave, hubLeaveWrite } from "@/lib/hubs/leave";
-import { generateMeetingUrl } from "@/lib/bookings/meeting-server";
 import {
-  notifyConfirmedBooking,
   notifyLessonCancelled,
   notifyLessonCompleted,
   notifyRefundCompleted,
@@ -176,38 +173,6 @@ export async function saveBookingFeeSplit(
     tutorAmount: split.tutorAmount,
     updatedAt: FieldValue.serverTimestamp(),
   });
-}
-
-export interface ConfirmBookingPaymentInput {
-  paymentId?: string;
-  asaasCheckoutId?: string;
-}
-
-/**
- * Direct confirmation write. Payment webhooks must use
- * `processAsaasPaymentWebhook` so receipts stay idempotent.
- */
-export async function confirmBookingWithMeetingUrl(
-  bookingId: string,
-  payment?: ConfirmBookingPaymentInput,
-): Promise<void> {
-  const db = requireAdminFirestore();
-  const updates: Record<string, unknown> = {
-    status: "confirmed",
-    paymentStatus: "paid",
-    meetingUrl: generateMeetingUrl(bookingId),
-    updatedAt: FieldValue.serverTimestamp(),
-  };
-
-  if (payment?.paymentId) {
-    updates.paymentId = payment.paymentId;
-  }
-  if (payment?.asaasCheckoutId) {
-    updates.asaasCheckoutId = payment.asaasCheckoutId;
-  }
-
-  await db.collection("bookings").doc(bookingId).update(updates);
-  await safeNotify(() => notifyConfirmedBooking(bookingId), "confirmed_booking");
 }
 
 export interface CancelBookingInput {

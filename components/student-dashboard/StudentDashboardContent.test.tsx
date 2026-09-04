@@ -228,7 +228,7 @@ describe("StudentDashboardContent", () => {
     expect(screen.getByText("Inglês em grupo")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Ver turma" })).toHaveAttribute(
       "href",
-      "/turmas?id=hub-1",
+      "/turmas/hub-1",
     );
   });
 

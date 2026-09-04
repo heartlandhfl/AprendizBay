@@ -913,7 +913,7 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // Mercado Pago webhook receipts — Admin SDK only (lib/payments/process-mercadopago-webhook.ts)
+    // Legacy Mercado Pago webhook receipts — Admin SDK only (historical; unused since unified processor)
     match /mercadopagoWebhookReceipts/{receiptId} {
       allow read, write: if false;
     }
