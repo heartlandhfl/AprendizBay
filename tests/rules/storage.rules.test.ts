@@ -364,3 +364,41 @@ describe("storage.rules profile photos", () => {
     );
   });
 });
+
+describe("storage.rules collective hub materials", () => {
+  const hubId = "hub-materials";
+  const materialPath = `hubs/${hubId}/materials/slide.pdf`;
+
+  async function seedHubWithParticipant() {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, "collectiveHubs", hubId), {
+        tutorId: TUTOR_ID,
+        title: "Turma de inglês",
+        confirmedStudentCount: 1,
+        maxStudents: 6,
+        status: "open",
+        currentPrice: 25,
+      });
+      await setDoc(doc(db, "collectiveHubs", hubId, "participants", STUDENT_ID), {
+        studentId: STUDENT_ID,
+        joinedAt: new Date(),
+      });
+      await uploadBytes(ref(context.storage(), materialPath), PDF_BYTES, {
+        contentType: "application/pdf",
+      });
+    });
+  }
+
+  it("lets a joined student read hub materials via the participants subcollection", async () => {
+    await seedHubWithParticipant();
+
+    await assertSucceeds(getBytes(ref(storageFor(STUDENT_ID, "ana@test.com"), materialPath)));
+  });
+
+  it("denies a non-participant from reading hub materials", async () => {
+    await seedHubWithParticipant();
+
+    await assertFails(getBytes(ref(storageFor(OTHER_TUTOR_ID, "lucas@test.com"), materialPath)));
+  });
+});
