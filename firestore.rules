@@ -603,6 +603,19 @@ service cloud.firestore {
           ]);
     }
 
+    // Students may cancel only unpaid bookings from the client. Every other booking
+    // field — especially paymentStatus — stays immutable on this path.
+    function validStudentBookingCancel() {
+      return resource.data.studentId == request.auth.uid
+        && request.resource.data.status == "cancelled"
+        && resource.data.status in ["pending", "confirmed"]
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(["status", "updatedAt"])
+        && unchanged("paymentStatus")
+        && (!("paymentStatus" in resource.data)
+          || resource.data.paymentStatus != "paid");
+    }
+
     // -------------------------------------------------------------------------
     // users
     // -------------------------------------------------------------------------
@@ -713,13 +726,7 @@ service cloud.firestore {
       allow create: if false;
 
       allow update: if isAdmin()
-        || (resource.data.studentId == request.auth.uid
-          && request.resource.data.status == "cancelled"
-          && resource.data.status in ["pending", "confirmed"]
-          && !request.resource.data.diff(resource.data).affectedKeys()
-            .hasAny(["price", "platformFee", "tutorAmount", "hubId"])
-          && (!("paymentStatus" in resource.data)
-            || resource.data.paymentStatus != "paid"))
+        || validStudentBookingCancel()
         || (resource.data.tutorId == request.auth.uid
           && resource.data.status == "pending"
           && request.resource.data.diff(resource.data).affectedKeys()

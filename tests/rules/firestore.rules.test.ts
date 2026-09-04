@@ -466,6 +466,29 @@ describe("firestore.rules", () => {
       );
     });
 
+    it("blocks a student from changing paymentStatus while cancelling an unpaid booking", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      await seedBooking("booking-payment-tamper", "pending", { paymentStatus: "unpaid" });
+
+      await assertFails(
+        updateDoc(doc(studentDb(), "bookings", "booking-payment-tamper"), {
+          status: "cancelled",
+          paymentStatus: "paid",
+        }),
+      );
+    });
+
+    it("blocks a student from changing paymentStatus without cancelling", async () => {
+      await seedBaseDocs({ tutorVerified: true });
+      await seedBooking("booking-payment-only", "pending", { paymentStatus: "unpaid" });
+
+      await assertFails(
+        updateDoc(doc(studentDb(), "bookings", "booking-payment-only"), {
+          paymentStatus: "paid",
+        }),
+      );
+    });
+
     it("blocks a tutor from cancelling another tutor's booking", async () => {
       await seedBaseDocs({ tutorVerified: true });
       await testEnv.withSecurityRulesDisabled(async (context) => {
@@ -904,6 +927,34 @@ describe("firestore.rules", () => {
       );
     });
 
+    it("allows a student to save Phase A learning profile fields on their own profile", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertSucceeds(
+        setDoc(doc(studentDb(), "users", STUDENT_ID, "learning", "profile"), {
+          city: "São Paulo",
+          state: "SP",
+          phone: "11999998888",
+          learningObjective: "Viagem",
+          preferredSubject: "Inglês",
+          preferredModality: "online",
+          updatedAt: new Date(),
+        }),
+      );
+    });
+
+    it("denies a student writing another user's learning profile", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertFails(
+        setDoc(doc(studentDb(), "users", STUDENT_B_ID, "learning", "profile"), {
+          city: "Rio de Janeiro",
+          state: "RJ",
+          updatedAt: new Date(),
+        }),
+      );
+    });
+
     it("denies a student reading another user's learning preferences", async () => {
       await seedBaseDocs({ tutorVerified: false });
 
@@ -1213,6 +1264,131 @@ describe("firestore.rules", () => {
       await seedBaseDocs({ tutorVerified: false });
 
       await assertFails(deleteDoc(doc(tutorDb(), "tutors", TUTOR_ID)));
+    });
+
+    it("allows a lecturer profile role to update their own tutor profile", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await setDoc(doc(context.firestore(), "users", TUTOR_ID), {
+          role: "lecturer",
+          displayName: "Mariana Silva",
+          email: "mariana@test.com",
+          createdAt: new Date(),
+        });
+      });
+
+      await assertSucceeds(
+        updateDoc(doc(tutorDb(), "tutors", TUTOR_ID), {
+          bio: "Professora de inglês com foco em conversação.",
+          updatedAt: new Date(),
+        }),
+      );
+    });
+  });
+
+  describe("financial records", () => {
+    async function seedFinancialRecords() {
+      await seedBaseDocs({ tutorVerified: true });
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const db = context.firestore();
+        await setDoc(doc(db, "payments", "payment-1"), {
+          bookingId: "booking-student-a",
+          studentId: STUDENT_ID,
+          tutorId: TUTOR_ID,
+          provider: "asaas",
+          providerPaymentId: "pay_1",
+          grossAmount: 70,
+          platformFee: 7,
+          status: "paid",
+          createdAt: new Date(),
+        });
+        await setDoc(doc(db, "tutorPayouts", "payout-1"), {
+          payoutId: "payout-1",
+          tutorId: TUTOR_ID,
+          bookingId: "booking-student-a",
+          amount: 63,
+          status: "pending",
+          createdAt: new Date(),
+        });
+      });
+    }
+
+    it("allows a tutor to read their own payout records but not write them", async () => {
+      await seedFinancialRecords();
+
+      await assertSucceeds(getDoc(doc(tutorDb(), "tutorPayouts", "payout-1")));
+      await assertFails(
+        setDoc(doc(tutorDb(), "tutorPayouts", "payout-forged"), {
+          payoutId: "payout-forged",
+          tutorId: TUTOR_ID,
+          bookingId: "booking-student-a",
+          amount: 9999,
+          status: "paid",
+          createdAt: new Date(),
+        }),
+      );
+      await assertFails(
+        updateDoc(doc(tutorDb(), "tutorPayouts", "payout-1"), {
+          amount: 9999,
+          status: "paid",
+        }),
+      );
+    });
+
+    it("allows a tutor to read their own payment ledger rows but not write them", async () => {
+      await seedFinancialRecords();
+
+      await assertSucceeds(getDoc(doc(tutorDb(), "payments", "payment-1")));
+      await assertFails(
+        updateDoc(doc(tutorDb(), "payments", "payment-1"), {
+          status: "refunded",
+          grossAmount: 1,
+        }),
+      );
+    });
+
+    it("blocks a student from writing payment or payout records", async () => {
+      await seedFinancialRecords();
+
+      await assertFails(
+        setDoc(doc(studentDb(), "tutorPayouts", "payout-student"), {
+          payoutId: "payout-student",
+          tutorId: TUTOR_ID,
+          bookingId: "booking-student-a",
+          amount: 9999,
+          status: "paid",
+          createdAt: new Date(),
+        }),
+      );
+      await assertFails(
+        updateDoc(doc(studentDb(), "payments", "payment-1"), { status: "paid" }),
+      );
+    });
+  });
+
+  describe("private profile isolation", () => {
+    it("denies a student from reading another student's private account document", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await assertFails(getDoc(doc(studentDb(), "users", STUDENT_B_ID)));
+    });
+
+    it("denies a student from reading another student's learning profile", async () => {
+      await seedBaseDocs({ tutorVerified: false });
+
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await setDoc(doc(context.firestore(), "users", STUDENT_B_ID, "learning", "profile"), {
+          city: "Curitiba",
+          state: "PR",
+          phone: "41999998888",
+          preferredSubject: "Inglês",
+          updatedAt: new Date(),
+        });
+      });
+
+      await assertFails(
+        getDoc(doc(studentDb(), "users", STUDENT_B_ID, "learning", "profile")),
+      );
     });
   });
 
