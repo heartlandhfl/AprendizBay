@@ -31,6 +31,7 @@ describe("buildSitemapEntries", () => {
     expect(urls).not.toContain(`${origin}/professores/ingles/curitiba`);
     expect(urls).not.toContain(`${origin}/admin`);
     expect(urls).not.toContain(`${origin}/bookings`);
+    expect(urls).not.toContain(`${origin}/dashboard`);
     expect(urls).not.toContain(`${origin}/tutor/dashboard`);
   });
 

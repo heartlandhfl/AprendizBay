@@ -49,7 +49,7 @@ function TutorOnboardingContent() {
 export default function TutorOnboardingPage() {
   return (
     <Suspense fallback={null}>
-      <RequireAuth roles={["tutor"]}>
+      <RequireAuth roles={["lecturer"]}>
         <TutorOnboardingContent />
       </RequireAuth>
     </Suspense>

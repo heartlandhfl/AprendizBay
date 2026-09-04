@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { roleMatchesAny } from "@/lib/auth/roles";
 import type { UserRole } from "@/lib/auth/types";
 
 interface UseRequireAuthOptions {
@@ -20,7 +21,7 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
   const [redirecting, setRedirecting] = useState(false);
 
   const hasRoleMismatch =
-    !!roles && !!userDoc && !roles.includes(userDoc.role);
+    !!roles && !!userDoc && !roleMatchesAny(userDoc.role, roles);
   const missingProfileForRoleGate = !!roles && !!user && !loading && !userDoc;
 
   useEffect(() => {
@@ -64,7 +65,7 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
   ]);
 
   const isAuthorized =
-    !!user && (!roles || (!!userDoc && roles.includes(userDoc.role)));
+    !!user && (!roles || (!!userDoc && roleMatchesAny(userDoc.role, roles)));
 
   return {
     user,

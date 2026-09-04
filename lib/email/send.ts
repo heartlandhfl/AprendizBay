@@ -36,7 +36,7 @@ import {
 import { getAdminApp } from "@/lib/firebase/admin";
 import { lessonPath } from "@/lib/lessons/paths";
 import { getSiteOrigin } from "@/lib/seo/site-url";
-import { roleDisplayLabel } from "@/lib/auth/roles";
+import { isLecturerRole, roleDisplayLabel } from "@/lib/auth/roles";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const notificationCore = require("../notifications/core.js") as {
   toDate(value: unknown): Date;
@@ -279,7 +279,7 @@ export async function onEvent(
       const user = await loadUser(db, eventPayload.userId);
       const roleSnapshot = await db.collection("users").doc(eventPayload.userId).get();
       const role = typeof roleSnapshot.data()?.role === "string" ? roleSnapshot.data()?.role : undefined;
-      const isTutor = role === "tutor";
+      const isTutor = isLecturerRole(role);
       return sendContent(
         db,
         provider,
@@ -291,7 +291,7 @@ export async function onEvent(
           actionUrl: baseUrl
             ? isTutor
               ? `${baseUrl}/tutor/onboarding`
-              : `${baseUrl}/bookings`
+              : `${baseUrl}/dashboard`
             : undefined,
         }),
         {

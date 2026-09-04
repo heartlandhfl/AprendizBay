@@ -9,7 +9,7 @@ const SAMPLE_INPUTS: Record<string, Record<string, unknown>> = {
   [EMAIL_EVENTS.USER_REGISTERED]: {
     displayName: "Ana Silva",
     roleLabel: "aluno",
-    actionUrl: "https://aprendizbay.com/bookings",
+    actionUrl: "https://aprendizbay.com/dashboard",
   },
   [EMAIL_EVENTS.EMAIL_VERIFICATION]: {
     displayName: "Ana Silva",

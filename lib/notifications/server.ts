@@ -1,6 +1,7 @@
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
 import { EMAIL_EVENTS } from "@/lib/email/events";
+import { isLecturerRole } from "@/lib/auth/roles";
 import { onEvent, onNewReviewEmail } from "@/lib/email/send";
 import { getActiveEmailProvider } from "@/lib/email/resend-sendgrid-provider";
 import {
@@ -24,7 +25,7 @@ export async function notifyUserRegistered(userId: string): Promise<void> {
   const db = requireDb();
   const userSnap = await db.collection("users").doc(userId).get();
   const role = userSnap.data()?.role;
-  if (role === "tutor") {
+  if (isLecturerRole(typeof role === "string" ? role : undefined)) {
     const tutorSnap = await db.collection("tutors").doc(userId).get();
     if (!tutorSnap.exists) {
       await onEvent(EMAIL_EVENTS.TUTOR_PROFILE_INCOMPLETE, { tutorId: userId });

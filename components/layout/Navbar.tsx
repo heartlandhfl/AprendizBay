@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
   ChevronDown,
@@ -11,17 +11,26 @@ import {
   MessageCircle,
   Search,
   Settings,
+  X,
 } from "lucide-react";
 import { BrandLogoLink } from "@/components/brand/BrandLogo";
 import { useAuth } from "@/lib/auth/AuthContext";
+import {
+  panelLabelForRole,
+  panelPathForRole,
+  primaryNavItemsForRole,
+} from "@/lib/auth/redirects";
+import { isLecturerRole, isStudentRole, roleDisplayLabel } from "@/lib/auth/roles";
 import { usePendingBookingCount } from "@/lib/bookings/usePendingBookingCount";
 import { signOut } from "@/lib/auth/service";
 
 export default function Navbar() {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, userDoc, loading } = useAuth();
   const pendingBookingCount = usePendingBookingCount();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -35,19 +44,26 @@ export default function Navbar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
+
   async function handleSignOut() {
     setMenuOpen(false);
+    setMobileNavOpen(false);
     await signOut();
     router.push("/");
   }
 
   const displayName = userDoc?.displayName || user?.displayName || "Usuário";
-  const dashboardHref =
-    userDoc?.role === "admin"
-      ? "/admin"
-      : userDoc?.role === "tutor"
-        ? "/tutor/dashboard"
-        : "/bookings";
+  const role = userDoc?.role;
+  const dashboardHref = panelPathForRole(role);
+  const panelLabel = panelLabelForRole(role);
+  const navItems = user ? primaryNavItemsForRole(role) : [];
+  const showLecturerLinks = isLecturerRole(role);
+  const showGuestSearch = !user;
+  const showBecomeProfessor = !user || isStudentRole(role);
+  const navIncludesMessages = navItems.some((item) => item.href === "/mensagens");
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-surface/80 backdrop-blur-md">
@@ -59,26 +75,56 @@ export default function Navbar() {
           className="transition-opacity hover:opacity-90"
         />
 
-        <div className="relative mx-auto hidden max-w-md flex-1 md:block">
-          <Search
-            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <input
-            type="search"
-            placeholder="Busque por matéria, professor ou cidade..."
-            className="h-10 w-full rounded-2xl border border-border bg-muted/50 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground transition-colors focus:border-primary-300 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary-200"
-            aria-label="Buscar professores ou matérias"
-          />
-        </div>
+        {navItems.length > 0 && (
+          <div className="hidden items-center gap-1 md:flex" aria-label="Navegação principal">
+            {navItems.map((item) => {
+              const current =
+                item.href === "/"
+                  ? pathname === "/"
+                  : pathname === item.href || pathname.startsWith(`${item.href}/`);
+
+              return (
+                <Link
+                  key={`${item.href}-${item.label}`}
+                  href={item.href}
+                  className={`rounded-2xl px-3 py-2 text-sm font-medium transition-colors ${
+                    current
+                      ? "bg-primary-50 text-primary-700"
+                      : "text-foreground hover:bg-muted"
+                  }`}
+                  aria-current={current ? "page" : undefined}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        )}
+
+        {showGuestSearch && (
+          <div className="relative mx-auto hidden max-w-md flex-1 md:block">
+            <Search
+              className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <input
+              type="search"
+              placeholder="Busque por matéria, professor ou cidade..."
+              className="h-10 w-full rounded-2xl border border-border bg-muted/50 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground transition-colors focus:border-primary-300 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary-200"
+              aria-label="Buscar professores ou matérias"
+            />
+          </div>
+        )}
 
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
-          <Link
-            href="/seja-professor"
-            className="hidden rounded-2xl px-3 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50 sm:inline-flex"
-          >
-            Seja um Professor
-          </Link>
+          {showBecomeProfessor && (
+            <Link
+              href="/seja-professor"
+              className="hidden rounded-2xl px-3 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50 sm:inline-flex"
+            >
+              Seja um Professor
+            </Link>
+          )}
 
           {!loading && !user && (
             <>
@@ -98,7 +144,7 @@ export default function Navbar() {
             </>
           )}
 
-          {!loading && user && (
+          {!loading && user && !navIncludesMessages && (
             <Link
               href="/mensagens"
               className="inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
@@ -117,7 +163,14 @@ export default function Navbar() {
                 aria-expanded={menuOpen}
                 aria-haspopup="menu"
               >
-                <span className="max-w-[8rem] truncate sm:max-w-[12rem]">{displayName}</span>
+                <span className="flex min-w-0 flex-col items-start">
+                  <span className="max-w-[8rem] truncate sm:max-w-[12rem]">{displayName}</span>
+                  {role ? (
+                    <span className="text-[11px] font-medium text-muted-foreground">
+                      {roleDisplayLabel(role)}
+                    </span>
+                  ) : null}
+                </span>
                 <ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               </button>
 
@@ -133,14 +186,14 @@ export default function Navbar() {
                     role="menuitem"
                   >
                     <LayoutDashboard className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                    {userDoc?.role === "admin" ? "Painel admin" : "Meu painel"}
-                    {userDoc?.role === "tutor" && pendingBookingCount > 0 && (
+                    {panelLabel}
+                    {showLecturerLinks && pendingBookingCount > 0 && (
                       <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-secondary-500 px-1.5 text-[10px] font-bold text-white">
                         {pendingBookingCount > 9 ? "9+" : pendingBookingCount}
                       </span>
                     )}
                   </Link>
-                  {userDoc?.role === "tutor" && (
+                  {showLecturerLinks && (
                     <Link
                       href="/tutor/settings"
                       onClick={() => setMenuOpen(false)}
@@ -186,27 +239,63 @@ export default function Navbar() {
           <button
             type="button"
             className="inline-flex h-10 w-10 items-center justify-center rounded-2xl text-foreground transition-colors hover:bg-muted md:hidden"
-            aria-label="Abrir menu"
+            aria-label={mobileNavOpen ? "Fechar menu" : "Abrir menu"}
+            aria-expanded={mobileNavOpen}
+            onClick={() => setMobileNavOpen((open) => !open)}
           >
-            <Menu className="h-5 w-5" />
+            {mobileNavOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
       </nav>
 
-      <div className="border-t border-border/60 px-4 py-3 md:hidden">
-        <div className="relative">
-          <Search
-            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <input
-            type="search"
-            placeholder="Busque por matéria, professor ou cidade..."
-            className="h-10 w-full rounded-2xl border border-border bg-muted/50 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary-300 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary-200"
-            aria-label="Buscar professores ou matérias"
-          />
+      {mobileNavOpen && (
+        <div className="border-t border-border/60 px-4 py-3 md:hidden">
+          <div className="flex flex-col gap-1">
+            {navItems.map((item) => (
+              <Link
+                key={`mobile-${item.href}-${item.label}`}
+                href={item.href}
+                className="rounded-2xl px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+              >
+                {item.label}
+              </Link>
+            ))}
+            {showBecomeProfessor && (
+              <Link
+                href="/seja-professor"
+                className="rounded-2xl px-3 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
+              >
+                Seja um Professor
+              </Link>
+            )}
+            {!user && (
+              <Link
+                href="/login"
+                className="rounded-2xl px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+              >
+                Entrar
+              </Link>
+            )}
+          </div>
         </div>
-      </div>
+      )}
+
+      {showGuestSearch && (
+        <div className="border-t border-border/60 px-4 py-3 md:hidden">
+          <div className="relative">
+            <Search
+              className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <input
+              type="search"
+              placeholder="Busque por matéria, professor ou cidade..."
+              className="h-10 w-full rounded-2xl border border-border bg-muted/50 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary-300 focus:bg-surface focus:outline-none focus:ring-2 focus:ring-primary-200"
+              aria-label="Buscar professores ou matérias"
+            />
+          </div>
+        </div>
+      )}
     </header>
   );
 }
