@@ -5,7 +5,7 @@ import Navbar from "@/components/layout/Navbar";
 import { useAuth } from "@/lib/auth/AuthContext";
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
   usePathname: () => "/",
 }));
 
@@ -22,7 +22,7 @@ vi.mock("@/lib/auth/service", () => ({
 }));
 
 vi.mock("@/components/brand/BrandLogo", () => ({
-  BrandLogoLink: () => <a href="/">Aprendiz Bay</a>,
+  BrandLogoLink: ({ href }: { href?: string }) => <a href={href ?? "/"}>Aprendiz Bay</a>,
 }));
 
 function mockAuth(role?: string | null) {
@@ -48,6 +48,7 @@ describe("Navbar", () => {
     expect(screen.getByRole("link", { name: "Cadastrar" })).toHaveAttribute("href", "/signup");
     expect(screen.getByRole("link", { name: "Seja um Professor" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Minhas Aulas" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Aprendiz Bay" })).toHaveAttribute("href", "/");
   });
 
   it("shows student destinations including search", async () => {
@@ -55,6 +56,10 @@ describe("Navbar", () => {
     const user = userEvent.setup();
     render(<Navbar />);
 
+    expect(screen.getByRole("link", { name: "Aprendiz Bay" })).toHaveAttribute(
+      "href",
+      "/dashboard",
+    );
     expect(screen.getByRole("link", { name: "Início" })).toHaveAttribute("href", "/dashboard");
     expect(screen.getByRole("link", { name: "Encontrar Professor" })).toHaveAttribute(
       "href",

@@ -69,6 +69,7 @@ export default function Navbar() {
     <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-surface/80 backdrop-blur-md">
       <nav className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:gap-6 sm:px-6 lg:px-8">
         <BrandLogoLink
+          href={user ? dashboardHref : "/"}
           height={40}
           priority
           variant="compact"
