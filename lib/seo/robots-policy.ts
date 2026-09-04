@@ -11,6 +11,8 @@ export const ROBOTS_DISALLOW_PATHS = [
   "/aulas/",
   "/bookings",
   "/bookings/",
+  "/dashboard",
+  "/dashboard/",
   "/configuracoes",
   "/dashboard",
   "/dashboard/",

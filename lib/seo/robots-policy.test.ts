@@ -13,5 +13,6 @@ describe("buildRobotsPolicy", () => {
     expect(robots.rules.disallow).toContain("/dashboard");
     expect(robots.rules.disallow).toContain("/mensagens");
     expect(robots.rules.disallow).toContain("/tutor/dashboard");
+    expect(robots.rules.disallow).toContain("/dashboard");
   });
 });

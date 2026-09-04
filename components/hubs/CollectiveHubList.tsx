@@ -17,6 +17,7 @@ interface CollectiveHubListProps {
   selectable?: boolean;
   showDetailLinks?: boolean;
   initialHubs?: CollectiveHub[];
+  emptyMessage?: string;
 }
 
 function toLiveHubs(tutorId: string, hubs: CollectiveHub[]): CollectiveHubLive[] {
@@ -36,6 +37,7 @@ export default function CollectiveHubList({
   selectable = false,
   showDetailLinks = false,
   initialHubs = [],
+  emptyMessage = "Nenhuma turma aberta no momento.",
 }: CollectiveHubListProps) {
   const { user } = useAuth();
   const [hubs, setHubs] = useState<CollectiveHubLive[]>(() => toLiveHubs(tutorId, initialHubs));
@@ -83,7 +85,7 @@ export default function CollectiveHubList({
   if (hubs.length === 0) {
     return (
       <div className="rounded-2xl bg-muted/40 px-4 py-8 text-center text-sm text-muted-foreground">
-        Nenhuma turma aberta no momento.
+        {emptyMessage}
       </div>
     );
   }

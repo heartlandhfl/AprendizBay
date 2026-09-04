@@ -9,6 +9,8 @@ const PEER_PROFILE_CLIENTS = [
   "components/bookings/TutorConfirmedBookings.tsx",
   "components/lessons/LessonExperience.tsx",
   "components/conversations/SendMessageButton.tsx",
+  "components/dashboard/ProfessorHome.tsx",
+  "components/dashboard/ProfessorStudentsPreview.tsx",
 ];
 
 describe("client user-document boundary", () => {

@@ -8,7 +8,16 @@ export type {
   UserRole,
 } from "@/lib/auth/roles";
 
-export { roleDisplayLabel, normalizeRole, isLecturerRole } from "@/lib/auth/roles";
+export {
+  roleDisplayLabel,
+  normalizeRole,
+  isLecturerRole,
+  isStudentRole,
+  isAdminRole,
+  isFacilitatorRole,
+  isSupportRole,
+  roleMatchesAny,
+} from "@/lib/auth/roles";
 
 /**
  * Private account document at users/{uid}.

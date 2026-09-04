@@ -1,5 +1,7 @@
 "use strict";
 
+require("tsx/cjs");
+
 const { Router } = require("express");
 const { buildAdminOperationsDashboard } = require("../../lib/admin/dashboard");
 const { buildEmailDiagnosticsPayload } = require("../../lib/admin/email-diagnostics.ts");
@@ -7,8 +9,6 @@ const { statusFromAdminError } = require("../../lib/admin/authorize");
 const { requireAdminUid } = require("./authorize");
 const { getAdminFirestore, readBearerToken } = require("./firebase-admin");
 const { captureException } = require("./sentry");
-
-require("tsx/cjs");
 
 const { JetSendApiError } = require("../../lib/jetsend/client.ts");
 const {

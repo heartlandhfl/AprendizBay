@@ -20,6 +20,7 @@ const { captureException } = require("./sentry");
  * Hostinger Express counterpart to:
  *   POST /api/tutors/review
  *   POST /api/tutors/resubmit
+ *   GET  /api/tutors/me/earnings
  * (app/api/tutors/* on Vercel / next start).
  */
 
@@ -113,6 +114,56 @@ tutorsRouter.post("/review", async (req, res) => {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Não foi possível atualizar a verificação.";
+    const status = statusFromError(error);
+    if (status >= 500) {
+      captureException(error);
+    }
+    res.status(status).json({ error: message });
+  }
+});
+
+function summarizeTutorPayouts(records) {
+  const summary = {
+    paidTotal: 0,
+    pendingTotal: 0,
+    processingTotal: 0,
+    paidCount: 0,
+    pendingCount: 0,
+    processingCount: 0,
+  };
+
+  for (const record of records) {
+    const amount =
+      typeof record?.amount === "number" && Number.isFinite(record.amount) && record.amount >= 0
+        ? Math.round(record.amount * 100) / 100
+        : 0;
+    if (record?.status === "paid") {
+      summary.paidTotal = Math.round((summary.paidTotal + amount) * 100) / 100;
+      summary.paidCount += 1;
+    } else if (record?.status === "pending") {
+      summary.pendingTotal = Math.round((summary.pendingTotal + amount) * 100) / 100;
+      summary.pendingCount += 1;
+    } else if (record?.status === "processing") {
+      summary.processingTotal = Math.round((summary.processingTotal + amount) * 100) / 100;
+      summary.processingCount += 1;
+    }
+  }
+
+  return summary;
+}
+
+tutorsRouter.get("/me/earnings", async (req, res) => {
+  try {
+    const tutorId = await requireTutorUid(readBearerToken(req));
+    const snapshot = await getAdminFirestore()
+      .collection("tutorPayouts")
+      .where("tutorId", "==", tutorId)
+      .get();
+    const earnings = summarizeTutorPayouts(snapshot.docs.map((doc) => doc.data()));
+    res.json({ ok: true, earnings });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Não foi possível carregar os ganhos.";
     const status = statusFromError(error);
     if (status >= 500) {
       captureException(error);

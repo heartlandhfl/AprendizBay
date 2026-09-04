@@ -18,6 +18,7 @@ import {
   formatBookingPrice,
   subscribeToTutorPendingBookings,
 } from "@/lib/bookings/service";
+import { conversationIdFor } from "@/lib/conversations/ids";
 import { lessonPath } from "@/lib/lessons/paths";
 import {
   getPaymentLifecycle,
@@ -124,7 +125,7 @@ export default function TutorDashboardBookings({ embedded = false }: TutorDashbo
 
       {embedded && (
         <div>
-          <h2 className="text-xl font-bold text-foreground">Solicitações pendentes</h2>
+          <h2 className="text-xl font-bold text-foreground">Novas solicitações</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Aceite solicitações para liberar o pagamento. A aula só é confirmada depois que o aluno pagar.
           </p>
@@ -139,9 +140,11 @@ export default function TutorDashboardBookings({ embedded = false }: TutorDashbo
 
       {bookings.length === 0 ? (
         <div className="rounded-3xl bg-surface p-8 text-center shadow-soft ring-1 ring-border/60">
-          <p className="text-lg font-semibold text-foreground">Nenhuma reserva pendente</p>
+          <p className="text-lg font-semibold text-foreground">
+            Você ainda não recebeu solicitações de aula.
+          </p>
           <p className="mt-2 text-sm text-muted-foreground">
-            Quando um aluno reservar uma aula, ela aparecerá aqui.
+            Quando um aluno reservar uma aula, ela aparecerá aqui para você aceitar ou recusar.
           </p>
         </div>
       ) : (
@@ -208,12 +211,6 @@ export default function TutorDashboardBookings({ embedded = false }: TutorDashbo
               )}
 
               <div className="mt-4 flex flex-wrap gap-2">
-                <Link
-                  href={lessonPath(booking.id)}
-                  className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-                >
-                  Abrir aula
-                </Link>
                 {!paymentRequested && (
                   <button
                     type="button"
@@ -221,7 +218,7 @@ export default function TutorDashboardBookings({ embedded = false }: TutorDashbo
                     disabled={actionId === booking.id}
                     className="rounded-2xl bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700 disabled:opacity-60"
                   >
-                    {actionId === booking.id ? "Confirmando..." : "Confirmar e solicitar pagamento"}
+                    {actionId === booking.id ? "Aceitando..." : "Aceitar"}
                   </button>
                 )}
                 <button
@@ -235,6 +232,20 @@ export default function TutorDashboardBookings({ embedded = false }: TutorDashbo
                 >
                   Recusar
                 </button>
+                <Link
+                  href={lessonPath(booking.id)}
+                  className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                >
+                  Ver detalhes
+                </Link>
+                {user ? (
+                  <Link
+                    href={`/mensagens/${encodeURIComponent(conversationIdFor(booking.studentId, user.uid))}`}
+                    className="inline-flex min-h-11 items-center justify-center rounded-2xl border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                  >
+                    Enviar mensagem
+                  </Link>
+                ) : null}
               </div>
             </article>
             );

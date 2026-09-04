@@ -1,5 +1,5 @@
-import { resolveEmailEnv } from "@/lib/email/environment.js";
-import { isJetSendConfigured, readJetSendApiKey } from "@/lib/jetsend/config";
+import { resolveEmailEnv } from "../email/environment.js";
+import { isJetSendConfigured, readJetSendApiKey } from "../jetsend/config";
 
 export interface EmailDiagnosticsPayload {
   emailProvider: string | null;
