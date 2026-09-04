@@ -28,11 +28,12 @@ describe("role route guards", () => {
     const dashboard = source("app/dashboard/page.tsx");
     expect(dashboard).toContain('roles={["student"]}');
     expect(dashboard).not.toContain("StudentBookingsList");
+    expect(dashboard).toContain("StudentDashboardContent");
 
-    const home = source("components/dashboard/StudentHome.tsx");
+    const home = source("components/student-dashboard/StudentDashboardContent.tsx");
     expect(home).not.toContain("StudentBookingsList");
-    expect(home).toContain('href: "/search"');
-    expect(home).toContain('href: "/bookings"');
+    expect(home).toContain('href="/search"');
+    expect(home).toContain('href="/bookings"');
   });
 
   it("keeps bookings as the dedicated classes page", () => {
