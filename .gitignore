@@ -8,6 +8,9 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
+/blob-report/
 .firebase/
 firebase-debug.log
 firestore-debug.log

@@ -17,6 +17,9 @@
     "test:unit": "vitest run --project unit",
     "test:rules": "firebase emulators:exec --only firestore,storage --project demo-aprendiz-bay \"vitest run --project rules\"",
     "test:node": "tsx --test lib/conversations/ids.test.ts lib/legal/cookie-consent.test.ts && node --test server/serve-static-ui.test.js server/api/public-config.test.js server/api/contact.test.js && npx tsx scripts/test-seo-pages.ts && node scripts/test-account-api.js && node scripts/test-reviews-api.js && node scripts/test-tutors-api.js && node scripts/test-bookings-api.js && node scripts/test-admin-api.js && node scripts/test-users-api.js && node scripts/test-notifications.js && node scripts/assert-no-mock-tutors-in-build.js hostinger-next",
+    "test:smoke": "tsx scripts/smoke-test.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "bootstrap:admin": "tsx scripts/bootstrap-admin.ts",
     "roles:get": "tsx scripts/manage-role.ts get",
     "roles:set": "tsx scripts/manage-role.ts set",
@@ -34,6 +37,7 @@
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.2",
+    "@playwright/test": "^1.51.0",
     "@sentry/browser": "^10.72.0",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^7.0.1",

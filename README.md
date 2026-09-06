@@ -100,6 +100,10 @@ firebase deploy --only firestore:rules,firestore:indexes,storage
 
 Add each site hostname under **Firebase Console → Authentication → Authorized domains** for its project before testing sign-in.
 
+### Smoke and E2E testing
+
+After deploying `main` (includes Phase E.1 / `d8260e1`), run HTTP smoke tests and Playwright E2E against staging or production. See [`docs/smoke-e2e-testing.md`](docs/smoke-e2e-testing.md) for environment checklists, Firebase rules deploy, and commands (`npm run test:smoke`, `npm run test:e2e`).
+
 ### Primeiro administrador (custom claims via bootstrap)
 
 Não há fluxo de cadastro para `admin`. O primeiro administrador deve receber a custom claim `role: "admin"` via script server-side (Firebase Admin SDK):
