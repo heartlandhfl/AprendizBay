@@ -26,4 +26,16 @@ describe("GET /api/public-config", () => {
     expect(Object.prototype.hasOwnProperty.call(payload, "jetsendApiKey")).toBe(false);
     expect(Object.prototype.hasOwnProperty.call(payload, "emailProvider")).toBe(false);
   });
+
+  it("never exposes JITSI_ROOM_SECRET to the browser", async () => {
+    process.env.JITSI_ROOM_SECRET = "jitsi-room-secret-must-stay-server-only";
+
+    const response = await GET();
+    const payload = (await response.json()) as Record<string, unknown>;
+    const serialized = JSON.stringify(payload);
+
+    expect(serialized.includes("jitsi-room-secret-must-stay-server-only")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(payload, "jitsiRoomSecret")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(payload, "JITSI_ROOM_SECRET")).toBe(false);
+  });
 });

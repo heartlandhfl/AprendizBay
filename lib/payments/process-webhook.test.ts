@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { BookingRecord } from "@/lib/bookings/server";
 import { generateMeetingUrl } from "@/lib/bookings/meeting-server";
 import type { AsaasWebhookMatch } from "@/lib/payments/asaas";
@@ -576,5 +576,45 @@ describe("processAsaasPaymentWebhook", () => {
       expect(onConfirmed).not.toHaveBeenCalled();
       expect(store.bookings.get("booking-123")?.paymentStatus).toBe("awaiting_payment");
     });
+  });
+});
+
+describe("processAsaasPaymentWebhook with JITSI_ROOM_SECRET", () => {
+  afterEach(() => {
+    delete process.env.JITSI_ROOM_SECRET;
+  });
+
+  it("persists a suffixed meeting URL on first successful payment", async () => {
+    process.env.JITSI_ROOM_SECRET = "test-room-secret";
+    const store = createMemoryWebhookStore(
+      new Map([["booking-123", pendingBooking()]]),
+    );
+    const onConfirmed = vi.fn(async () => undefined);
+
+    await processAsaasPaymentWebhook(successfulEvent(), { store, onConfirmed });
+
+    const meetingUrl = store.bookings.get("booking-123")?.meetingUrl;
+    expect(meetingUrl).toBe(generateMeetingUrl("booking-123"));
+    expect(meetingUrl).toMatch(
+      /^https:\/\/meet\.jit\.si\/aprendizbay-booking-123-[a-f0-9]{16}$/,
+    );
+  });
+
+  it("preserves the first stored meeting URL on duplicate webhook delivery", async () => {
+    process.env.JITSI_ROOM_SECRET = "test-room-secret";
+    const store = createMemoryWebhookStore(
+      new Map([["booking-123", pendingBooking()]]),
+    );
+    const onConfirmed = vi.fn(async () => undefined);
+    const event = successfulEvent();
+
+    await processAsaasPaymentWebhook(event, { store, onConfirmed });
+    const firstUrl = store.bookings.get("booking-123")?.meetingUrl;
+
+    process.env.JITSI_ROOM_SECRET = "rotated-secret";
+    const duplicate = await processAsaasPaymentWebhook(event, { store, onConfirmed });
+
+    expect(duplicate.alreadyProcessed).toBe(true);
+    expect(store.bookings.get("booking-123")?.meetingUrl).toBe(firstUrl);
   });
 });
