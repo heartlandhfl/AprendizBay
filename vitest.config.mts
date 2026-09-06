@@ -19,6 +19,7 @@ export default defineConfig({
           environment: "jsdom",
           setupFiles: ["./vitest.setup.ts"],
           include: [
+            "middleware.test.ts",
             "app/api/admin/**/*.test.ts",
             "app/**/*.test.tsx",
             "app/**/*.test.ts",

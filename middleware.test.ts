@@ -1,0 +1,38 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { describe, expect, it } from "vitest";
+
+function middlewareSource(): string {
+  return readFileSync(resolve(process.cwd(), "middleware.ts"), "utf8");
+}
+
+function extractMatcherPaths(source: string): string[] {
+  const block = source.match(/matcher:\s*\[([\s\S]*?)\]/);
+  if (!block) {
+    throw new Error("middleware matcher block not found");
+  }
+  return [...block[1].matchAll(/"([^"]+)"/g)].map((match) => match[1]);
+}
+
+describe("middleware matcher coverage", () => {
+  it("includes exact protected index routes (not only /:path* children)", () => {
+    const paths = extractMatcherPaths(middlewareSource());
+    for (const route of [
+      "/dashboard",
+      "/bookings",
+      "/aulas",
+      "/mensagens",
+      "/configuracoes",
+      "/facilitator",
+      "/admin",
+      "/tutor/dashboard",
+      "/tutor/settings",
+      "/tutor/onboarding",
+      "/account/setup",
+      "/verify-email",
+    ]) {
+      const normalized = route === "/facilitator" ? "/facilitador" : route;
+      expect(paths, `missing matcher for ${normalized}`).toContain(normalized);
+    }
+  });
+});
