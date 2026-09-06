@@ -2,6 +2,7 @@ import {
   isValidEmailAddress,
   parseFromAddress,
 } from "@/lib/email/jetsend-provider";
+import { EMAIL_LOCALE } from "@/lib/email/locale";
 import type { EmailMessage, EmailProvider, EmailResult } from "@/lib/email/provider";
 
 export const RESEND_API_URL = "https://api.resend.com/emails";
@@ -54,6 +55,7 @@ export interface ResendSendRequest {
   subject: string;
   text: string;
   html: string;
+  headers?: Record<string, string>;
   tags?: Array<{ name: string; value: string }>;
 }
 
@@ -73,6 +75,7 @@ export function buildResendSendRequest(
     subject: input.subject,
     text: input.text,
     html: input.html,
+    headers: { "Content-Language": EMAIL_LOCALE },
   };
 
   if (input.emailOutboxId) {

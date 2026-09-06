@@ -158,7 +158,11 @@ function createLazyService<T extends object>(initializer: () => T): T {
 }
 
 export const app = createLazyService(() => getOrInitApp());
-export const auth: Auth = createLazyService(() => getAuth(getOrInitApp()));
+export const auth: Auth = createLazyService(() => {
+  const authInstance = getAuth(getOrInitApp());
+  authInstance.languageCode = "pt";
+  return authInstance;
+});
 export const db: Firestore = createLazyService(() => getFirestore(getOrInitApp()));
 export const storage: FirebaseStorage = createLazyService(() =>
   getStorage(getOrInitApp()),

@@ -49,6 +49,7 @@ describe("buildResendSendRequest", () => {
       subject: "Sua aula foi confirmada",
       text: "Texto simples",
       html: "<p>HTML</p>",
+      headers: { "Content-Language": "pt-BR" },
     });
   });
 
@@ -132,6 +133,7 @@ describe("ResendEmailProvider", () => {
       subject: "Sua aula foi confirmada",
       text: "Corpo em texto",
       html: "<p>Corpo em HTML</p>",
+      headers: { "Content-Language": "pt-BR" },
     });
   });
 
