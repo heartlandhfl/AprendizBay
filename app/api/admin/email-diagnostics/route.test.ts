@@ -24,8 +24,8 @@ describe("GET /api/admin/email-diagnostics", () => {
 
   it("returns email diagnostics for admins", async () => {
     verifyAdminIdTokenMock.mockResolvedValue({ uid: "admin-1" });
-    process.env.EMAIL_PROVIDER = "jetsend";
-    process.env.JET_SEND_API_KEY = "abcd-secret-key";
+    process.env.EMAIL_PROVIDER = "resend";
+    process.env.RESEND_API_KEY = "re_secret-key";
     process.env.EMAIL_ENV = "staging";
     process.env.VERCEL_ENV = "preview";
     process.env.APRENDIZ_RUNTIME = "express";
@@ -35,9 +35,11 @@ describe("GET /api/admin/email-diagnostics", () => {
 
     expect(response.status).toBe(200);
     expect(payload).toEqual({
-      emailProvider: "jetsend",
-      jetsendConfigured: true,
-      jetsendKeyPrefix: "abcd",
+      emailProvider: "resend",
+      jetsendConfigured: false,
+      jetsendKeyPrefix: null,
+      resendConfigured: true,
+      resendKeyPrefix: "re_s",
       resolvedEmailEnv: "staging",
       vercelEnv: "preview",
       runtime: "express",

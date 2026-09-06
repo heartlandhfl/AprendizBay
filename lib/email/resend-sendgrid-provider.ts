@@ -1,5 +1,9 @@
 import { JetSendEmailProvider } from "@/lib/email/jetsend-provider";
 import type { EmailMessage, EmailProvider, EmailResult } from "@/lib/email/provider";
+import {
+  isResendConfigured,
+  ResendEmailProvider,
+} from "@/lib/email/resend-provider";
 import { isJetSendConfigured } from "@/lib/jetsend/config";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { wrapEmailProviderWithEnvironmentGuards } = require("./environment.js") as {
@@ -38,6 +42,14 @@ function resolveConfiguredEmailProvider(): EmailProvider {
 
   if (configured === "jetsend" && isJetSendConfigured()) {
     return new JetSendEmailProvider();
+  }
+
+  if (configured === "sendgrid") {
+    return new ResendSendGridEmailProvider();
+  }
+
+  if (isResendConfigured() || configured === "resend") {
+    return new ResendEmailProvider();
   }
 
   return new ResendSendGridEmailProvider();
