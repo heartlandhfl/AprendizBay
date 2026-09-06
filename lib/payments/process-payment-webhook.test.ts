@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { BookingRecord } from "@/lib/bookings/server";
 import { generateMeetingUrl } from "@/lib/bookings/meeting-server";
 import {
@@ -97,5 +97,60 @@ describe("processPaymentWebhook", () => {
     expect(duplicate.message).toBe(WEBHOOK_ALREADY_PROCESSED_MESSAGE);
     expect(onPaid).toHaveBeenCalledTimes(1);
     expect(store.receipts.get("mercadopago_12345")).toBeDefined();
+  });
+});
+
+describe("processPaymentWebhook with JITSI_ROOM_SECRET", () => {
+  afterEach(() => {
+    delete process.env.JITSI_ROOM_SECRET;
+  });
+
+  it("persists a suffixed meeting URL on first successful payment", async () => {
+    process.env.JITSI_ROOM_SECRET = "test-room-secret";
+    const store = createMemoryPaymentWebhookStore(
+      new Map([["booking-123", pendingBooking()]]),
+    );
+    const onPaid = vi.fn(async () => undefined);
+
+    await processPaymentWebhook(
+      buildVerifiedPaymentWebhookEvent({
+        provider: "mercadopago",
+        paymentId: "12345",
+        status: "paid",
+        bookingId: "booking-123",
+        amount: 80,
+      }),
+      { store, onPaid },
+    );
+
+    const meetingUrl = store.bookings.get("booking-123")?.meetingUrl;
+    expect(meetingUrl).toBe(generateMeetingUrl("booking-123"));
+    expect(meetingUrl).toMatch(
+      /^https:\/\/meet\.jit\.si\/aprendizbay-booking-123-[a-f0-9]{16}$/,
+    );
+  });
+
+  it("preserves the first stored meeting URL on duplicate webhook delivery", async () => {
+    process.env.JITSI_ROOM_SECRET = "test-room-secret";
+    const store = createMemoryPaymentWebhookStore(
+      new Map([["booking-123", pendingBooking()]]),
+    );
+    const onPaid = vi.fn(async () => undefined);
+    const event = buildVerifiedPaymentWebhookEvent({
+      provider: "mercadopago",
+      paymentId: "12345",
+      status: "paid",
+      bookingId: "booking-123",
+      amount: 80,
+    });
+
+    await processPaymentWebhook(event, { store, onPaid });
+    const firstUrl = store.bookings.get("booking-123")?.meetingUrl;
+
+    process.env.JITSI_ROOM_SECRET = "rotated-secret";
+    const duplicate = await processPaymentWebhook(event, { store, onPaid });
+
+    expect(duplicate.alreadyProcessed).toBe(true);
+    expect(store.bookings.get("booking-123")?.meetingUrl).toBe(firstUrl);
   });
 });
