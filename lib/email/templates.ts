@@ -1,4 +1,5 @@
 import { EMAIL_EVENTS, type EmailEventName } from "@/lib/email/events";
+import { EMAIL_HTML_LANG } from "@/lib/email/locale";
 import { previewMessage } from "@/lib/conversations/ids";
 import {
   buildBookingRequestedEmail,
@@ -114,7 +115,7 @@ export function wrapEmail(title: string, bodyHtml: string, bodyText: string): Em
     subject: title,
     text: `${title}\n\n${bodyText}\n\n${emailFooterText()}`,
     html: `<!doctype html>
-<html lang="pt-BR">
+<html lang="${escapeHtml(EMAIL_HTML_LANG)}">
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />

@@ -1,3 +1,4 @@
+export { EMAIL_HTML_LANG, EMAIL_LOCALE } from "@/lib/email/locale";
 export { TRANSACTIONAL_EMAIL_MATRIX } from "@/lib/email/event-catalog";
 export { EMAIL_EVENTS, type EmailEventName, type EmailEventPayloadMap } from "@/lib/email/events";
 export {
