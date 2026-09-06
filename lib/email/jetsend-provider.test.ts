@@ -321,13 +321,16 @@ describe("getActiveEmailProvider", () => {
     vi.unstubAllGlobals();
   });
 
-  it("keeps the legacy provider as the default fallback", async () => {
-    delete process.env.EMAIL_PROVIDER;
+  it("uses Resend as the default provider when RESEND_API_KEY is set", async () => {
+    process.env.EMAIL_PROVIDER = "resend";
     process.env.EMAIL_ENV = "production";
     process.env.RESEND_API_KEY = "re_test";
+    process.env.RESEND_FROM = "Aprendiz Bay <noreply@aprendizbay.com.br>";
     setActiveEmailProvider(null);
 
-    const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ id: "email-123" }), { status: 200 }),
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     const provider = getActiveEmailProvider();
@@ -338,7 +341,11 @@ describe("getActiveEmailProvider", () => {
       html: "<p>html</p>",
     });
 
-    expect(result).toEqual({ sent: true, provider: "resend" });
+    expect(result).toEqual({
+      sent: true,
+      provider: "resend",
+      providerMessageId: "email-123",
+    });
     expect(fetchMock.mock.calls[0]?.[0]).toBe("https://api.resend.com/emails");
     vi.unstubAllGlobals();
   });
@@ -348,6 +355,7 @@ describe("getActiveEmailProvider", () => {
     delete process.env.JETSEND_API_KEY;
     process.env.EMAIL_ENV = "production";
     process.env.RESEND_API_KEY = "re_test";
+    process.env.RESEND_FROM = "Aprendiz Bay <noreply@aprendizbay.com.br>";
     setActiveEmailProvider(null);
 
     const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
