@@ -3,7 +3,6 @@ import {
   buildResendSendRequest,
   extractResendMessageId,
   isResendConfigured,
-  ResendEmailError,
   ResendEmailProvider,
   resolveResendFromAddress,
 } from "@/lib/email/resend-provider";
