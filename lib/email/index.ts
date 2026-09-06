@@ -20,6 +20,15 @@ export {
   ResendSendGridEmailProvider,
   setActiveEmailProvider,
 } from "@/lib/email/resend-sendgrid-provider";
+export {
+  buildResendSendRequest,
+  extractResendMessageId,
+  isResendConfigured,
+  readResendApiKey,
+  ResendEmailError,
+  ResendEmailProvider,
+  resolveResendFromAddress,
+} from "@/lib/email/resend-provider";
 export { onEvent, onNewReviewEmail, type OnEmailEventDeps } from "@/lib/email/send";
 export {
   EMAIL_OUTBOX_COLLECTION,

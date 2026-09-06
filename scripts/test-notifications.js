@@ -106,6 +106,7 @@ async function main() {
   assert.equal(skipped.reason, "missing_api_key");
 
   process.env.JETSEND_API_KEY = "sm_test";
+  process.env.EMAIL_PROVIDER = "jetsend";
   const originalFetch = globalThis.fetch;
   const jetSendCalls = [];
   globalThis.fetch = async (url, options) => {
@@ -126,8 +127,11 @@ async function main() {
   assert.match(String(jetSendCalls[0].options.body), /Nova reserva pendente/);
   assert.match(String(jetSendCalls[0].options.body), /noreply@aprendizbay\.com\.br/);
 
-  delete process.env.JETSEND_API_KEY;
   process.env.RESEND_API_KEY = "re_test";
+  delete process.env.EMAIL_PROVIDER;
+  assert.equal(configuredProvider(), "resend");
+
+  delete process.env.JETSEND_API_KEY;
   const calls = [];
   globalThis.fetch = async (url, options) => {
     calls.push({ url, options });

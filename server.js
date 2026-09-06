@@ -29,8 +29,9 @@ if (process.env.NODE_ENV !== "development") {
 }
 
 const { isJetSendConfigured } = require("./lib/jetsend/config.js");
+const resendConfigured = Boolean(String(process.env.RESEND_API_KEY ?? "").trim());
 console.log(
-  `[Aprendiz Bay] email provider=${process.env.EMAIL_PROVIDER ?? "unset"} jetsendConfigured=${isJetSendConfigured()} emailEnv=${process.env.EMAIL_ENV}`,
+  `[Aprendiz Bay] email provider=${process.env.EMAIL_PROVIDER ?? "resend"} resendConfigured=${resendConfigured} jetsendConfigured=${isJetSendConfigured()} emailEnv=${process.env.EMAIL_ENV}`,
 );
 
 const { installNextRequireGuard } = require("./server/next-runtime-guard");

@@ -1,4 +1,5 @@
 import { JetSendEmailError } from "@/lib/email/jetsend-provider";
+import { ResendEmailError } from "@/lib/email/resend-provider";
 import type { EmailResult } from "@/lib/email/provider";
 
 const PERMANENT_SKIP_REASONS = new Set([
@@ -14,16 +15,16 @@ export function isPermanentSkipReason(reason: string | undefined): boolean {
 }
 
 export function isPermanentProviderError(error: unknown): boolean {
-  if (!(error instanceof JetSendEmailError)) {
-    return false;
+  if (error instanceof JetSendEmailError || error instanceof ResendEmailError) {
+    const status = error.details.status;
+    return typeof status === "number" && PERMANENT_HTTP_STATUSES.has(status);
   }
 
-  const status = error.details.status;
-  return typeof status === "number" && PERMANENT_HTTP_STATUSES.has(status);
+  return false;
 }
 
 export function formatDeliveryError(error: unknown): string {
-  if (error instanceof JetSendEmailError) {
+  if (error instanceof JetSendEmailError || error instanceof ResendEmailError) {
     const status = error.details.status;
     const body = error.details.body;
     return body
