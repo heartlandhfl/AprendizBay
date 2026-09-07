@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { accountSetupRedirectTarget } from "@/lib/auth/account-setup";
 import { roleMatchesAny } from "@/lib/auth/roles";
+import { useTokenRole } from "@/lib/auth/useTokenRole";
 import { useAccountSetupStatus } from "@/lib/auth/useAccountSetupStatus";
 import type { UserRole } from "@/lib/auth/types";
 
@@ -38,33 +39,12 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [redirecting, setRedirecting] = useState(false);
-  const [tokenRole, setTokenRole] = useState<string | null>(null);
-  const [claimsLoading, setClaimsLoading] = useState(false);
 
   const requiresAdminClaim = !!roles?.includes("admin");
-
-  useEffect(() => {
-    if (!user || !requiresAdminClaim) {
-      setTokenRole(null);
-      setClaimsLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    setClaimsLoading(true);
-    void user.getIdTokenResult().then((result) => {
-      if (cancelled) {
-        return;
-      }
-      const role = result.claims.role;
-      setTokenRole(typeof role === "string" ? role : null);
-      setClaimsLoading(false);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [requiresAdminClaim, user]);
+  const { tokenRole, loading: claimsLoading } = useTokenRole(user, {
+    enabled: requiresAdminClaim,
+    forceRefresh: requiresAdminClaim,
+  });
 
   const hasRoleMismatch = requiresAdminClaim
     ? !!user && tokenRole !== "admin"

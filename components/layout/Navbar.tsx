@@ -20,7 +20,9 @@ import {
   panelPathForRole,
   primaryNavItemsForRole,
 } from "@/lib/auth/redirects";
-import { isLecturerRole, isStudentRole, roleDisplayLabel } from "@/lib/auth/roles";
+import { isAdminRole, isLecturerRole, isStudentRole, roleDisplayLabel } from "@/lib/auth/roles";
+import { resolveAuthoritativeRole } from "@/lib/auth/token-role";
+import { useTokenRole } from "@/lib/auth/useTokenRole";
 import { usePendingBookingCount } from "@/lib/bookings/usePendingBookingCount";
 import { signOut } from "@/lib/auth/service";
 
@@ -56,13 +58,15 @@ export default function Navbar() {
   }
 
   const displayName = userDoc?.displayName || user?.displayName || "Usuário";
-  const role = userDoc?.role;
-  const dashboardHref = panelPathForRole(role);
-  const panelLabel = panelLabelForRole(role);
-  const navItems = user ? primaryNavItemsForRole(role) : [];
-  const showLecturerLinks = isLecturerRole(role);
+  const profileRole = userDoc?.role;
+  const { tokenRole } = useTokenRole(user, { enabled: !!user && isAdminRole(profileRole) });
+  const effectiveRole = resolveAuthoritativeRole(profileRole, tokenRole);
+  const dashboardHref = panelPathForRole(effectiveRole);
+  const panelLabel = panelLabelForRole(effectiveRole);
+  const navItems = user ? primaryNavItemsForRole(effectiveRole) : [];
+  const showLecturerLinks = isLecturerRole(effectiveRole);
   const showGuestSearch = !user;
-  const showBecomeProfessor = !user || isStudentRole(role);
+  const showBecomeProfessor = !user || isStudentRole(effectiveRole);
   const navIncludesMessages = navItems.some((item) => item.href === "/mensagens");
 
   return (
@@ -169,9 +173,9 @@ export default function Navbar() {
               >
                 <span className="flex min-w-0 flex-col items-start">
                   <span className="max-w-[8rem] truncate sm:max-w-[12rem]">{displayName}</span>
-                  {role ? (
+                  {profileRole ? (
                     <span className="text-[11px] font-medium text-muted-foreground">
-                      {roleDisplayLabel(role)}
+                      {roleDisplayLabel(effectiveRole ?? profileRole)}
                     </span>
                   ) : null}
                 </span>

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
+import type { User } from "firebase/auth";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { resolveLoginDestination } from "@/lib/auth/account-post-login";
@@ -26,7 +27,7 @@ export default function LoginForm() {
     }
 
     const redirectParam = searchParams.get("next") || searchParams.get("redirect");
-    void resolveLoginDestination(user.uid, redirectParam).then((destination) => {
+    void resolveLoginDestination(user, redirectParam).then((destination) => {
       router.replace(destination);
     });
   }, [authLoading, router, searchParams, user, userDoc]);
@@ -39,9 +40,9 @@ export default function LoginForm() {
     );
   }
 
-  async function redirectAfterLogin(uid: string) {
+  async function redirectAfterLogin(authUser: User) {
     const redirectParam = searchParams.get("next") || searchParams.get("redirect");
-    const destination = await resolveLoginDestination(uid, redirectParam);
+    const destination = await resolveLoginDestination(authUser, redirectParam);
     router.replace(destination === "/signup" ? signupPathForRole(signupRole) : destination);
   }
 
@@ -52,7 +53,7 @@ export default function LoginForm() {
 
     try {
       const user = await signInWithEmail(email.trim(), password);
-      await redirectAfterLogin(user.uid);
+      await redirectAfterLogin(user);
     } catch (loginError) {
       setError(getAuthErrorMessage(loginError));
     } finally {
@@ -65,8 +66,8 @@ export default function LoginForm() {
     setSubmitting(true);
 
     try {
-      const user = await signInWithGoogle();
-      await redirectAfterLogin(user.uid);
+      const signedInUser = await signInWithGoogle();
+      await redirectAfterLogin(signedInUser);
     } catch (loginError) {
       setError(getAuthErrorMessage(loginError));
     } finally {

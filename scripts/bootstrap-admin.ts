@@ -39,6 +39,8 @@ async function main() {
         previousRole: existingRole,
         role: finalRole,
         idempotent: existingRole === "admin",
+        nextStep:
+          "Sign out and sign in again (or refresh the session) so middleware and APIs receive the admin custom claim.",
       },
       null,
       2,
