@@ -1,0 +1,22 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "server/**/*.{js,mjs}",
+    "scripts/**/*.{js,mjs,ts}",
+    "e2e/**/*.{js,ts}",
+    "lib/tutors/empty-mock-stub.ts",
+    "lib/tutors/empty-profile-stub.ts"
+  ],
+  "project": [
+    "app/**/*.{js,jsx,ts,tsx}",
+    "components/**/*.{js,jsx,ts,tsx}",
+    "lib/**/*.{js,jsx,ts,tsx}",
+    "server/**/*.{js,mjs}",
+    "scripts/**/*.{js,mjs,ts}",
+    "tests/**/*.{js,ts}",
+    "e2e/**/*.{js,ts}"
+  ],
+  "ignoreDependencies": [
+    "postcss-load-config"
+  ]
+}
