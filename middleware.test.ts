@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { shouldDenyAdminAccess } from "@/lib/auth/protected-routes";
+import { resolveMiddlewareDecision } from "@/lib/auth/resolve-middleware-action";
 
 function middlewareSource(): string {
   return readFileSync(resolve(process.cwd(), "middleware.ts"), "utf8");
@@ -38,9 +40,15 @@ describe("middleware matcher coverage", () => {
 });
 
 describe("middleware admin authorization", () => {
-  it("requires the admin custom claim in the session cookie", () => {
-    const source = middlewareSource();
-    expect(source).toContain('session.role !== "admin"');
-    expect(source).not.toMatch(/userDoc.*admin|profile.*admin/i);
+  it("requires the admin custom claim in session decisions", () => {
+    expect(shouldDenyAdminAccess("/admin", "student")).toBe(true);
+    expect(
+      resolveMiddlewareDecision({
+        pathname: "/admin",
+        hasSessionCookie: true,
+        session: { role: "admin", emailVerified: true },
+      }).action,
+    ).toBe("allow");
+    expect(middlewareSource()).not.toMatch(/userDoc.*admin|profile.*admin/i);
   });
 });

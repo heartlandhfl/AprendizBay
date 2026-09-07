@@ -1,10 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthContext";
-import { accountSetupRedirectTarget } from "@/lib/auth/account-setup";
-import { roleMatchesAny } from "@/lib/auth/roles";
+import {
+  computeAuthLoading,
+  computeHasRoleMismatch,
+  computeIsAuthorized,
+  computeMissingProfileForRoleGate,
+  computeNeedsEmailVerification,
+  requiresAdminClaim,
+  resolveAuthRedirectUrl,
+  shouldDeferAuthRedirect,
+  type AuthGateContext,
+} from "@/lib/auth/require-auth-state";
 import { useTokenRole } from "@/lib/auth/useTokenRole";
 import { useAccountSetupStatus } from "@/lib/auth/useAccountSetupStatus";
 import type { UserRole } from "@/lib/auth/types";
@@ -15,10 +24,6 @@ interface UseRequireAuthOptions {
   unauthorizedRedirectTo?: string;
   skipSetupGate?: boolean;
   skipEmailVerification?: boolean;
-}
-
-function usesPasswordProvider(user: { providerData?: Array<{ providerId: string }> }): boolean {
-  return user.providerData?.some((provider) => provider.providerId === "password") ?? false;
 }
 
 export function useRequireAuth(options: UseRequireAuthOptions = {}) {
@@ -40,108 +45,81 @@ export function useRequireAuth(options: UseRequireAuthOptions = {}) {
   const searchParams = useSearchParams();
   const [redirecting, setRedirecting] = useState(false);
 
-  const requiresAdminClaim = !!roles?.includes("admin");
+  const adminClaimRequired = requiresAdminClaim(roles);
   const { tokenRole, loading: claimsLoading } = useTokenRole(user, {
-    enabled: requiresAdminClaim,
-    forceRefresh: requiresAdminClaim,
+    enabled: adminClaimRequired,
+    forceRefresh: adminClaimRequired,
   });
 
-  const hasRoleMismatch = requiresAdminClaim
-    ? !!user && tokenRole !== "admin"
-    : !!roles && !!userDoc && !roleMatchesAny(userDoc.role, roles);
-  const missingProfileForRoleGate = !!roles && !!user && !loading && !userDoc && !requiresAdminClaim;
-  const needsEmailVerification =
-    !skipEmailVerification &&
-    !!user &&
-    !user.emailVerified &&
-    usesPasswordProvider(user) &&
-    pathname !== "/verify-email";
-
-  useEffect(() => {
-    if (loading || redirecting || claimsLoading) {
-      return;
-    }
-
-    if (!user) {
-      setRedirecting(true);
-      const nextPath = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ""}`;
-      const loginUrl =
-        nextPath === "/"
-          ? redirectTo
-          : `${redirectTo}?redirect=${encodeURIComponent(nextPath)}`;
-
-      router.replace(loginUrl);
-      return;
-    }
-
-    if (needsEmailVerification) {
-      setRedirecting(true);
-      router.replace("/verify-email");
-      return;
-    }
-
-    if (hasRoleMismatch) {
-      setRedirecting(true);
-      router.replace(unauthorizedRedirectTo);
-      return;
-    }
-
-    if (missingProfileForRoleGate) {
-      setRedirecting(true);
-      router.replace(redirectTo);
-      return;
-    }
-
-    if (skipSetupGate || setupLoading || !userDoc) {
-      return;
-    }
-
-    const setupRedirect = accountSetupRedirectTarget({
-      pathname,
-      role: userDoc.role,
+  const gateContext = useMemo<AuthGateContext>(
+    () => ({
+      options: {
+        roles,
+        redirectTo,
+        unauthorizedRedirectTo,
+        skipSetupGate,
+        skipEmailVerification,
+      },
+      user,
       userDoc,
+      loading,
+      tokenRole,
+      claimsLoading,
+      pathname,
+      searchParams,
+      setupLoading,
       learningProfile,
       tutorDoc,
-    });
+    }),
+    [
+      claimsLoading,
+      learningProfile,
+      loading,
+      pathname,
+      redirectTo,
+      roles,
+      searchParams,
+      setupLoading,
+      skipEmailVerification,
+      skipSetupGate,
+      tokenRole,
+      tutorDoc,
+      unauthorizedRedirectTo,
+      user,
+      userDoc,
+    ],
+  );
 
-    if (setupRedirect && setupRedirect !== pathname) {
-      setRedirecting(true);
-      router.replace(setupRedirect);
+  const hasRoleMismatch = computeHasRoleMismatch(gateContext);
+  const missingProfileForRoleGate = computeMissingProfileForRoleGate(gateContext);
+  const needsEmailVerification = computeNeedsEmailVerification(gateContext);
+  const isAuthorized = computeIsAuthorized(gateContext);
+
+  useEffect(() => {
+    if (shouldDeferAuthRedirect(gateContext, redirecting)) {
+      return;
     }
+
+    const redirectUrl = resolveAuthRedirectUrl(gateContext);
+    if (!redirectUrl) {
+      return;
+    }
+
+    setRedirecting(true);
+    router.replace(redirectUrl);
   }, [
-    claimsLoading,
+    gateContext,
     hasRoleMismatch,
-    learningProfile,
-    loading,
     missingProfileForRoleGate,
     needsEmailVerification,
-    pathname,
-    redirectTo,
     redirecting,
     router,
-    searchParams,
-    setupLoading,
-    skipSetupGate,
-    tutorDoc,
-    unauthorizedRedirectTo,
-    user,
-    userDoc,
   ]);
-
-  const isAuthorized = requiresAdminClaim
-    ? !!user && tokenRole === "admin"
-    : !!user && (!roles || (!!userDoc && roleMatchesAny(userDoc.role, roles)));
 
   return {
     user,
     userDoc,
-    loading:
-      loading ||
-      claimsLoading ||
-      redirecting ||
-      (!skipSetupGate && setupLoading) ||
-      (!!user && !!roles && !requiresAdminClaim && !userDoc) ||
-      !isAuthorized,
+    loading: computeAuthLoading(gateContext, redirecting, isAuthorized),
     isAuthorized,
   };
 }
