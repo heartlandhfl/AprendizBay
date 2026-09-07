@@ -1,20 +1,23 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "project": [
-    "**/*.{js,cjs,mjs,jsx,ts,cts,mts,tsx,css}",
-    "!hostinger-next/**",
-    "!.next/**",
-    "!node_modules/**",
-    "!dist-server/**",
-    "!coverage/**",
-    "!test-results/**",
-    "!playwright-report/**"
-  ],
   "entry": [
+    "server/**/*.{js,mjs}",
+    "scripts/**/*.{js,mjs,ts}",
+    "e2e/**/*.{js,ts}",
     "lib/tutors/empty-mock-stub.ts",
     "lib/tutors/empty-profile-stub.ts",
     "lib/jetsend/config.ts",
     "server/attach-next.js"
+  ],
+  "project": [
+    "app/**/*.{js,jsx,ts,tsx}",
+    "app/**/*.css",
+    "components/**/*.{js,jsx,ts,tsx}",
+    "lib/**/*.{js,jsx,ts,tsx}",
+    "server/**/*.{js,mjs}",
+    "scripts/**/*.{js,mjs,ts}",
+    "tests/**/*.{js,ts}",
+    "e2e/**/*.{js,ts}"
   ],
   "paths": {
     "@/lib/auth/role-server": ["./lib/auth/role-server.ts"],
@@ -27,5 +30,7 @@
   "playwright": {
     "config": ["playwright.config.ts"]
   },
-  "ignoreDependencies": ["postcss-load-config"]
+  "ignoreDependencies": [
+    "postcss-load-config"
+  ]
 }
