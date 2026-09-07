@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import Navbar from "@/components/layout/Navbar";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { useTokenRole } from "@/lib/auth/useTokenRole";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
@@ -11,6 +12,10 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/lib/auth/AuthContext", () => ({
   useAuth: vi.fn(),
+}));
+
+vi.mock("@/lib/auth/useTokenRole", () => ({
+  useTokenRole: vi.fn(),
 }));
 
 vi.mock("@/lib/bookings/usePendingBookingCount", () => ({
@@ -25,12 +30,16 @@ vi.mock("@/components/brand/BrandLogo", () => ({
   BrandLogoLink: ({ href }: { href?: string }) => <a href={href ?? "/"}>Aprendiz Bay</a>,
 }));
 
-function mockAuth(role?: string | null) {
+function mockAuth(role?: string | null, tokenRole: string | null = role ?? null) {
   vi.mocked(useAuth).mockReturnValue({
     user: role ? ({ uid: "user-1", displayName: "Ana Silva" } as never) : null,
     userDoc: role
       ? ({ role, displayName: "Ana Silva", email: "ana@test.com" } as never)
       : null,
+    loading: false,
+  });
+  vi.mocked(useTokenRole).mockReturnValue({
+    tokenRole: tokenRole as never,
     loading: false,
   });
 }
@@ -133,10 +142,18 @@ describe("Navbar", () => {
     expect(screen.queryByRole("link", { name: "Minhas Aulas" })).not.toBeInTheDocument();
   });
 
-  it("preserves the admin panel destination", () => {
-    mockAuth("admin");
+  it("preserves the admin panel destination when the admin claim is present", () => {
+    mockAuth("admin", "admin");
     render(<Navbar />);
 
     expect(screen.getByRole("link", { name: "Painel admin" })).toHaveAttribute("href", "/admin");
+  });
+
+  it("hides the admin panel when only the Firestore profile is admin", () => {
+    mockAuth("admin", null);
+    render(<Navbar />);
+
+    expect(screen.queryByRole("link", { name: "Painel admin" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Início" })).toHaveAttribute("href", "/dashboard");
   });
 });

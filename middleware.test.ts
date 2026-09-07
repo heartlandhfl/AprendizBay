@@ -36,3 +36,11 @@ describe("middleware matcher coverage", () => {
     }
   });
 });
+
+describe("middleware admin authorization", () => {
+  it("requires the admin custom claim in the session cookie", () => {
+    const source = middlewareSource();
+    expect(source).toContain('session.role !== "admin"');
+    expect(source).not.toMatch(/userDoc.*admin|profile.*admin/i);
+  });
+});

@@ -3,7 +3,8 @@
 import type { User } from "firebase/auth";
 
 export async function establishAuthSession(user: User): Promise<void> {
-  const idToken = await user.getIdToken();
+  // Force refresh so custom claims (admin, lecturer, …) are embedded in the session cookie.
+  const idToken = await user.getIdToken(true);
   const response = await fetch("/api/auth/session", {
     method: "POST",
     headers: {

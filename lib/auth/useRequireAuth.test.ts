@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useRequireAuth } from "@/lib/auth/useRequireAuth";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { useAccountSetupStatus } from "@/lib/auth/useAccountSetupStatus";
+import { useTokenRole } from "@/lib/auth/useTokenRole";
 
 const { mockReplace } = vi.hoisted(() => ({
   mockReplace: vi.fn(),
@@ -20,6 +21,10 @@ vi.mock("@/lib/auth/AuthContext", () => ({
 
 vi.mock("@/lib/auth/useAccountSetupStatus", () => ({
   useAccountSetupStatus: vi.fn(),
+}));
+
+vi.mock("@/lib/auth/useTokenRole", () => ({
+  useTokenRole: vi.fn(() => ({ tokenRole: null, loading: false })),
 }));
 
 function mockAuth(overrides: {
@@ -69,6 +74,7 @@ function mockAuth(overrides: {
 describe("useRequireAuth", () => {
   beforeEach(() => {
     mockReplace.mockReset();
+    vi.mocked(useTokenRole).mockReturnValue({ tokenRole: null, loading: false });
   });
 
   it("redirects unauthenticated visitors to login", async () => {
@@ -127,6 +133,27 @@ describe("useRequireAuth", () => {
     mockAuth({ user: { uid: "admin-1" }, userDoc: { role: "admin" } });
 
     renderHook(() => useRequireAuth({ roles: ["lecturer"] }));
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith("/");
+    });
+  });
+
+  it("authorizes admins only when the custom claim is present", () => {
+    mockAuth({ user: { uid: "admin-1" }, userDoc: { role: "admin" } });
+    vi.mocked(useTokenRole).mockReturnValue({ tokenRole: "admin", loading: false });
+
+    const { result } = renderHook(() => useRequireAuth({ roles: ["admin"] }));
+
+    expect(result.current.isAuthorized).toBe(true);
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it("rejects profile-only admins from admin routes", async () => {
+    mockAuth({ user: { uid: "admin-1" }, userDoc: { role: "admin" } });
+    vi.mocked(useTokenRole).mockReturnValue({ tokenRole: null, loading: false });
+
+    renderHook(() => useRequireAuth({ roles: ["admin"] }));
 
     await waitFor(() => {
       expect(mockReplace).toHaveBeenCalledWith("/");
