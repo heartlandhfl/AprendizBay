@@ -30,7 +30,7 @@
   "playwright": {
     "config": ["playwright.config.ts"]
   },
-  "ignoreDependencies": [
-    "postcss-load-config"
+  "ignoreBinaries": [
+    "knip"
   ]
 }
