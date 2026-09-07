@@ -25,7 +25,8 @@
     "roles:set": "tsx scripts/manage-role.ts set",
     "roles:remove": "tsx scripts/manage-role.ts remove",
     "roles:migrate-claims": "tsx scripts/migrate-role-claims.ts",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "knip": "knip"
   },
   "dependencies": {
     "@mercadopago/sdk-react": "^1.0.7",
@@ -54,6 +55,7 @@
     "firebase": "^12.18.0",
     "firebase-tools": "^15.28.2",
     "jsdom": "^29.1.1",
+    "knip": "^6.34.0",
     "lucide-react": "^1.34.0",
     "next": "14.2.35",
     "postcss": "8.5.26",
