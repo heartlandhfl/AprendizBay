@@ -1,41 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { resolveMiddlewareDecision } from "@/lib/auth/resolve-middleware-action";
 import { AUTH_SESSION_COOKIE } from "@/lib/auth/session-constants";
 import { verifySessionCookieEdge } from "@/lib/auth/verify-session-edge";
-
-const ADMIN_PREFIX = "/admin";
-
-function isProtectedPath(pathname: string): boolean {
-  if (pathname.startsWith(ADMIN_PREFIX)) {
-    return true;
-  }
-  if (
-    pathname === "/dashboard" ||
-    pathname.startsWith("/dashboard/") ||
-    pathname === "/bookings" ||
-    pathname.startsWith("/bookings/") ||
-    pathname === "/aulas" ||
-    pathname.startsWith("/aulas/") ||
-    pathname === "/mensagens" ||
-    pathname.startsWith("/mensagens/") ||
-    pathname === "/configuracoes" ||
-    pathname.startsWith("/configuracoes/") ||
-    pathname === "/facilitador" ||
-    pathname.startsWith("/facilitador/") ||
-    pathname === "/account/setup" ||
-    pathname.startsWith("/account/setup/") ||
-    pathname === "/tutor/dashboard" ||
-    pathname.startsWith("/tutor/dashboard/") ||
-    pathname === "/tutor/settings" ||
-    pathname.startsWith("/tutor/settings/") ||
-    pathname === "/tutor/onboarding" ||
-    pathname.startsWith("/tutor/onboarding/") ||
-    pathname === "/verify-email" ||
-    pathname.startsWith("/verify-email/")
-  ) {
-    return true;
-  }
-  return false;
-}
 
 function loginRedirect(request: NextRequest): NextResponse {
   const loginUrl = new URL("/login", request.url);
@@ -48,38 +14,28 @@ function loginRedirect(request: NextRequest): NextResponse {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  if (!isProtectedPath(pathname)) {
+  const sessionCookie = request.cookies.get(AUTH_SESSION_COOKIE)?.value ?? "";
+  const session = sessionCookie ? await verifySessionCookieEdge(sessionCookie) : null;
+
+  const decision = resolveMiddlewareDecision({
+    pathname,
+    hasSessionCookie: Boolean(sessionCookie),
+    session,
+  });
+
+  if (decision.action === "allow") {
     return NextResponse.next();
   }
 
-  const sessionCookie = request.cookies.get(AUTH_SESSION_COOKIE)?.value;
-  if (!sessionCookie) {
-    return loginRedirect(request);
+  if (decision.action === "redirect") {
+    return NextResponse.redirect(new URL(decision.pathname, request.url));
   }
 
-  const session = await verifySessionCookieEdge(sessionCookie);
-  if (!session) {
-    const response = loginRedirect(request);
+  const response = loginRedirect(request);
+  if (decision.clearSession) {
     response.cookies.set(AUTH_SESSION_COOKIE, "", { path: "/", maxAge: 0 });
-    return response;
   }
-
-  if (pathname.startsWith(ADMIN_PREFIX) && session.role !== "admin") {
-    return NextResponse.redirect(new URL("/", request.url));
-  }
-
-  if (
-    pathname !== "/verify-email" &&
-    !pathname.startsWith("/verify-email/") &&
-    pathname !== "/account/setup" &&
-    !pathname.startsWith("/account/setup/") &&
-    session.emailVerified === false &&
-    !pathname.startsWith("/api/")
-  ) {
-    return NextResponse.redirect(new URL("/verify-email", request.url));
-  }
-
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {
