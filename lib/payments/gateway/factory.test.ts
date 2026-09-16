@@ -4,7 +4,6 @@ import {
   getPaymentProvider,
 } from "@/lib/payments/gateway/factory";
 import { AsaasGateway } from "@/lib/payments/gateway/asaas-gateway";
-import { InfinitePayGateway } from "@/lib/payments/gateway/infinitepay-gateway";
 import { MercadoPagoGateway } from "@/lib/payments/gateway/mercadopago-gateway";
 
 describe("payment gateway factory", () => {
@@ -29,13 +28,6 @@ describe("payment gateway factory", () => {
     process.env.MERCADOPAGO_ACCESS_TOKEN = "TEST_ACCESS_TOKEN";
     expect(getPaymentProvider()).toBe("mercadopago");
     expect(createPaymentGateway()).toBeInstanceOf(MercadoPagoGateway);
-  });
-
-  it("returns InfinitePayGateway when PAYMENT_PROVIDER=infinitepay", () => {
-    process.env.PAYMENT_PROVIDER = "infinitepay";
-    process.env.INFINITEPAY_HANDLE = "aprendizbay";
-    expect(getPaymentProvider()).toBe("infinitepay");
-    expect(createPaymentGateway()).toBeInstanceOf(InfinitePayGateway);
   });
 
   it("falls back to asaas for unknown values", () => {
