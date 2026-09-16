@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { publicObservabilityConfigFromEnv } from "@/lib/observability/config";
+import { getPaymentProvider } from "@/lib/payments/gateway/factory";
 import { getMercadoPagoPublicKey } from "@/lib/payments/mercadopago";
 import { getPlatformFeePercent } from "@/lib/payments/fees";
 
@@ -23,6 +24,7 @@ export async function GET() {
     firebase,
     configured: Boolean(String(firebase.apiKey).trim()),
     platformFeePercent: getPlatformFeePercent(),
+    paymentProvider: getPaymentProvider(),
     mercadopagoPublicKey: getMercadoPagoPublicKey(),
     observability: publicObservabilityConfigFromEnv(),
   });

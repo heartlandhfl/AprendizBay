@@ -85,7 +85,7 @@ export function getStudentPaymentCopy(lifecycle: PaymentLifecycle): PaymentCopy 
     case "checkout_created":
       return {
         explanation:
-          "Há um pagamento em andamento. Conclua o pagamento ou tente novamente se o formulário não funcionar. A aula só será liberada depois da confirmação do Mercado Pago.",
+          "Há um pagamento em andamento. Conclua o pagamento ou tente novamente se o checkout não funcionar. A aula só será liberada depois da confirmação do pagamento.",
         actionLabel: "Tentar pagamento novamente",
       };
     case "failed":

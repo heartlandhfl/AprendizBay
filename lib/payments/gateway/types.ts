@@ -13,7 +13,7 @@ export type PaymentStatus =
   | "refunded"
   | "expired";
 
-export type PaymentProvider = "asaas" | "mercadopago";
+export type PaymentProvider = "asaas" | "mercadopago" | "infinitepay";
 
 export interface CheckoutCustomerInput {
   name: string;
