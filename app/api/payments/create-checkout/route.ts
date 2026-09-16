@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { captureServerException } from "@/lib/observability/sentry-server";
 import { getUserProfile, verifyUserIdToken } from "@/lib/auth/admin-server";
 import { createBookingCheckout } from "@/lib/payments/create-checkout";
+import { createInfinitePayBookingCheckout } from "@/lib/payments/create-infinitepay-checkout";
 import { createMercadoPagoBookingCheckout } from "@/lib/payments/create-mercadopago-checkout";
 import { getPaymentProvider } from "@/lib/payments/gateway/factory";
 import {
@@ -54,24 +55,41 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Informe o identificador da reserva." }, { status: 400 });
     }
 
-    if (provider === "mercadopago") {
+    if (provider === "mercadopago" || provider === "infinitepay") {
       const profile = await getUserProfile(uid);
       const email = body.email?.trim() || profile?.email || "";
       if (!email.includes("@")) {
         return NextResponse.json({ error: "Informe um e-mail válido." }, { status: 400 });
       }
 
-      const cpf = digitsOnly(body.cpf ?? "");
-      const result = await createMercadoPagoBookingCheckout({
-        uid,
-        bookingId,
-        siteUrl,
-        customer: {
-          name: profile?.displayName?.trim() || "Aluno Aprendiz Bay",
-          email,
-          ...(isValidCpf(cpf) ? { cpfCnpj: cpf } : {}),
-        },
-      });
+      const customer = {
+        name: profile?.displayName?.trim() || "Aluno Aprendiz Bay",
+        email,
+        ...(provider === "mercadopago"
+          ? (() => {
+              const cpf = digitsOnly(body.cpf ?? "");
+              return isValidCpf(cpf) ? { cpfCnpj: cpf } : {};
+            })()
+          : (() => {
+              const phone = digitsOnly(body.phone ?? "");
+              return isValidPhone(phone) ? { phone } : {};
+            })()),
+      };
+
+      const result =
+        provider === "infinitepay"
+          ? await createInfinitePayBookingCheckout({
+              uid,
+              bookingId,
+              siteUrl,
+              customer,
+            })
+          : await createMercadoPagoBookingCheckout({
+              uid,
+              bookingId,
+              siteUrl,
+              customer,
+            });
 
       if (!result.ok) {
         return NextResponse.json({ error: result.error }, { status: result.status });
@@ -143,6 +161,7 @@ export async function POST(request: Request) {
         ? 401
         : message.includes("ASAAS_API_KEY") ||
             message.includes("MERCADOPAGO_ACCESS_TOKEN") ||
+            message.includes("INFINITEPAY_HANDLE") ||
             message.includes("Firebase Admin")
           ? 503
           : 400;

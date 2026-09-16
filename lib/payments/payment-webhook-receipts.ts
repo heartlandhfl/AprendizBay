@@ -14,7 +14,7 @@ export type PaymentWebhookReceiptOutcome =
 
 export interface PaymentWebhookReceipt {
   eventId: string;
-  provider: "mercadopago" | "asaas";
+  provider: "mercadopago" | "asaas" | "infinitepay";
   paymentId?: string;
   bookingId?: string;
   status?: string;
