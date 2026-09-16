@@ -1,9 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import BookingPaymentSummary from "@/components/bookings/BookingPaymentSummary";
-import RedirectCheckoutButton from "@/components/bookings/RedirectCheckoutButton";
 import { formatBookingPrice } from "@/lib/bookings/service";
 
 const MercadoPagoPaymentBrick = dynamic(
@@ -16,8 +15,6 @@ const MercadoPagoPaymentBrick = dynamic(
   },
 );
 
-type PaymentProvider = "asaas" | "mercadopago" | "infinitepay";
-
 interface PayBookingFormProps {
   bookingId: string;
   price: number;
@@ -28,10 +25,6 @@ interface PayBookingFormProps {
   actionLabel?: string;
 }
 
-function usesRedirectCheckout(provider: PaymentProvider): boolean {
-  return provider === "infinitepay" || provider === "asaas";
-}
-
 export default function PayBookingForm({
   bookingId,
   price,
@@ -39,41 +32,9 @@ export default function PayBookingForm({
   tutorAmount,
   headline,
   description,
-  actionLabel,
 }: PayBookingFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [paymentProvider, setPaymentProvider] = useState<PaymentProvider>("mercadopago");
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadConfig() {
-      try {
-        const response = await fetch("/api/public-config");
-        const payload = (await response.json().catch(() => null)) as
-          | { paymentProvider?: PaymentProvider }
-          | null;
-        if (!cancelled) {
-          const provider = payload?.paymentProvider;
-          if (provider === "asaas" || provider === "mercadopago" || provider === "infinitepay") {
-            setPaymentProvider(provider);
-          }
-        }
-      } catch {
-        if (!cancelled) {
-          setPaymentProvider("mercadopago");
-        }
-      }
-    }
-
-    void loadConfig();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const redirectCheckout = usesRedirectCheckout(paymentProvider);
 
   return (
     <div className="mt-4 space-y-3 rounded-2xl bg-amber-50/70 p-4 ring-1 ring-amber-200">
@@ -83,7 +44,7 @@ export default function PayBookingForm({
         </p>
         <p className="mt-1 text-xs text-amber-900/80">
           {description ??
-            "Confira quanto vai para o professor e quanto é a taxa da plataforma antes de pagar. A aula só será liberada depois da confirmação do pagamento."}
+            "Confira quanto vai para o professor e quanto é a taxa da plataforma antes de pagar. A aula só será liberada depois da confirmação do Mercado Pago."}
         </p>
       </div>
 
@@ -105,30 +66,20 @@ export default function PayBookingForm({
         </p>
       )}
 
-      {!success &&
-        (redirectCheckout ? (
-          <RedirectCheckoutButton
-            bookingId={bookingId}
-            label={actionLabel ?? "Pagar com Pix ou cartão"}
-            onError={(message) => {
-              setSuccess(null);
-              setError(message);
-            }}
-          />
-        ) : (
-          <MercadoPagoPaymentBrick
-            bookingId={bookingId}
-            amount={price}
-            onSuccess={(message) => {
-              setError(null);
-              setSuccess(message);
-            }}
-            onError={(message) => {
-              setSuccess(null);
-              setError(message);
-            }}
-          />
-        ))}
+      {!success && (
+        <MercadoPagoPaymentBrick
+          bookingId={bookingId}
+          amount={price}
+          onSuccess={(message) => {
+            setError(null);
+            setSuccess(message);
+          }}
+          onError={(message) => {
+            setSuccess(null);
+            setError(message);
+          }}
+        />
+      )}
     </div>
   );
 }

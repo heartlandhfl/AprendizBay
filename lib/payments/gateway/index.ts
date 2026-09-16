@@ -14,7 +14,6 @@ export type {
 } from "@/lib/payments/gateway/types";
 
 export { AsaasGateway } from "@/lib/payments/gateway/asaas-gateway";
-export { InfinitePayGateway } from "@/lib/payments/gateway/infinitepay-gateway";
 export { MercadoPagoGateway } from "@/lib/payments/gateway/mercadopago-gateway";
 export {
   createPaymentGateway,

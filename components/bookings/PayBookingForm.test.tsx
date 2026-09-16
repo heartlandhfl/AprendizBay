@@ -16,13 +16,6 @@ vi.mock("next/dynamic", () => ({
     },
 }));
 
-vi.stubGlobal(
-  "fetch",
-  vi.fn(async () => ({
-    json: async () => ({ paymentProvider: "mercadopago" }),
-  })),
-);
-
 describe("PayBookingForm", () => {
   it("shows the payment headline and Mercado Pago brick container", () => {
     render(
